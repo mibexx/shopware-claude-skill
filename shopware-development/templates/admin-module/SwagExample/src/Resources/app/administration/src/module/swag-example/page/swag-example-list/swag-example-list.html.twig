@@ -1,0 +1,70 @@
+{% block swag_example_list %}
+<sw-page class="swag-example-list">
+    {% block swag_example_list_smart_bar_header %}
+    <template #smart-bar-header>
+        <h2>
+            {{ $t('swag-example.list.title') }}
+            <span
+                v-if="!isLoading"
+                class="sw-page__smart-bar-amount"
+            >
+                ({{ total }})
+            </span>
+        </h2>
+    </template>
+    {% endblock %}
+
+    {% block swag_example_list_smart_bar_actions %}
+    <template #smart-bar-actions>
+        <mt-button
+            v-tooltip.bottom="{
+                message: $t('sw-privileges.tooltip.warning'),
+                disabled: acl.can('swag_example.creator'),
+                showOnDisabledElements: true
+            }"
+            :disabled="!acl.can('swag_example.creator') || undefined"
+            variant="primary"
+            size="default"
+            @click="$router.push({ name: 'swag.example.create' })"
+        >
+            {{ $t('swag-example.list.buttonAdd') }}
+        </mt-button>
+    </template>
+    {% endblock %}
+
+    <template #content>
+        {% block swag_example_list_content %}
+        <div class="swag-example-list__content">
+            <mt-empty-state
+                v-if="!isLoading && !total"
+                :centered="true"
+                :icon="$route.meta.$module.icon"
+                :headline="$t('swag-example.list.messageEmpty')"
+                :description="$t($route.meta.$module.description)"
+            />
+
+            <sw-entity-listing
+                v-else
+                identifier="swag-example-list"
+                detail-route="swag.example.detail"
+                :is-loading="isLoading"
+                :columns="columns"
+                :repository="repository"
+                :data-source="items"
+                :criteria-limit="limit"
+                :sort-by="currentSortBy"
+                :sort-direction="sortDirection"
+                :disable-data-fetching="true"
+                :allow-edit="acl.can('swag_example.editor') || undefined"
+                :allow-inline-edit="acl.can('swag_example.editor') || undefined"
+                :allow-delete="acl.can('swag_example.deleter') || undefined"
+                :show-selections="acl.can('swag_example.deleter') || undefined"
+                @update-records="updateTotal"
+                @page-change="onPageChange"
+                @column-sort="onSortColumn"
+            />
+        </div>
+        {% endblock %}
+    </template>
+</sw-page>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% block sw_cms_el_config_swag_example_element %}
+<div class="sw-cms-el-config-swag-example-element">
+    <mt-text-field
+        v-model="element.config.headline.value"
+        :label="$t('swag-example.elements.swagExampleElement.labelHeadline')"
+        @update:model-value="onChange"
+    />
+
+    <mt-textarea
+        v-model="element.config.content.value"
+        :label="$t('swag-example.elements.swagExampleElement.labelContent')"
+        @update:model-value="onChange"
+    />
+</div>
+{% endblock %}

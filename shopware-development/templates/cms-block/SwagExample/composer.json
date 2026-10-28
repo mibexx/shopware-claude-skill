@@ -1,0 +1,22 @@
+{
+    "name": "swag/example",
+    "description": "Example plugin with a CMS block",
+    "type": "shopware-platform-plugin",
+    "license": "MIT",
+    "version": "1.0.0",
+    "require": {
+        "shopware/core": "~6.7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "SwagExample\\": "src/"
+        }
+    },
+    "extra": {
+        "shopware-plugin-class": "SwagExample\\SwagExample",
+        "label": {
+            "de-DE": "Beispiel-Plugin",
+            "en-GB": "Example plugin"
+        }
+    }
+}

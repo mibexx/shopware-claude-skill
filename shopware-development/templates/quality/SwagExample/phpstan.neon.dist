@@ -1,0 +1,60 @@
+# Pfad im Plugin: custom/plugins/SwagExample/phpstan.neon.dist
+# Ausfuehrung aus dem Projekt-Root (/var/www/html), siehe README.md:
+#   vendor/bin/phpstan analyse -c custom/plugins/SwagExample/phpstan.neon.dist
+# Alle Pfade unten sind relativ zu DIESER Datei (Plugin-Wurzel in custom/plugins/SwagExample).
+includes:
+    # Shopware-Typ-Extensions und -Regeln (liegen im Paket shopware/core; ein separates Paket shopware/phpstan-extension ist auf Packagist NICHT auffindbar)
+    - ../../../vendor/shopware/core/DevOps/StaticAnalyze/PHPStan/extension.neon
+    - ../../../vendor/shopware/core/DevOps/StaticAnalyze/PHPStan/rules.neon
+    # rules.neon verlangt PHPStan\Symfony\ParameterMap (Paket phpstan/phpstan-symfony) und taggt phpat.test (Paket phpat/phpat)
+    - ../../../vendor/phpstan/phpstan-symfony/extension.neon
+    - ../../../vendor/phpat/phpat/extension.neon
+    # rules.neon nutzt Symplify-Regeln; deren Hilfsservices kommen NUR aus services.neon. Nicht phpstan/extension-installer verwenden:
+    # er bindet die komplette Symplify-Konfiguration ein und kollidiert mit rules.neon ("Multiple services of type ...NoReturnSetterMethodRule").
+    - ../../../vendor/symplify/phpstan-rules/config/services/services.neon
+    # Falls Plugin-Entwicklung nach Core-Regeln gewuenscht (DecorationPatternRule u. a.), bewusst und nach Test einbinden (braucht phpstan-symfony):
+    # - ../../../vendor/shopware/core/DevOps/StaticAnalyze/PHPStan/core-rules.neon
+
+parameters:
+    level: 8
+    phpVersion: 80200
+    treatPhpDocTypesAsCertain: false
+    inferPrivatePropertyTypeFromConstructor: true
+    reportUnmatchedIgnoredErrors: true
+    paths:
+        - src
+        - tests
+    excludePaths:
+        - src/Resources
+    bootstrapFiles:
+        # bootet den StaticAnalyzeKernel (Cache: var/cache/static_phpstan_dev) und stellt den Projekt-Autoloader bereit
+        - ../../../vendor/shopware/core/DevOps/StaticAnalyze/phpstan-bootstrap.php
+    ignoreErrors: []
+    symfony:
+        # vom phpstan-bootstrap.php erzeugter Container (var/cache/static_phpstan_dev)
+        containerXmlPath: ../../../var/cache/static_phpstan_dev/Shopware_Core_DevOps_StaticAnalyze_StaticAnalyzeKernelPhpstan_devDebugContainer.xml
+
+    # Konfiguration der Shopware-Regeln (aus core/DevOps/StaticAnalyze/PHPStan/common.neon uebernommen):
+    # extension.neon/rules.neon allein genuegen NICHT, die Regeln brauchen den Service Configuration (siehe unten).
+    shopware:
+        allowedNonDomainExceptions: []
+        allowedStorefrontRouteNamespaces:
+            - Shopware\Storefront
+        allowedUnitTestClassNamespaces:
+            - SwagExample\Tests\Unit\
+        createMockWithoutExpectationsEnabledNamespaces: []
+
+services:
+    -
+        factory: Shopware\Core\DevOps\StaticAnalyze\PHPStan\Configuration(%shopware%)
+    -
+        class: Shopware\Core\DevOps\StaticAnalyze\PHPStan\Rules\AclValidPermissionsHelper
+
+parametersSchema:
+    ?shopwareTaggedServiceContractAdditionalTagContracts: arrayOf(string(), string())
+    shopware: structure([
+        allowedNonDomainExceptions: list(string),
+        allowedStorefrontRouteNamespaces: list(string),
+        allowedUnitTestClassNamespaces: list(string),
+        createMockWithoutExpectationsEnabledNamespaces: list(string),
+    ])

@@ -1,0 +1,16 @@
+{% block element_swag_example_element %}
+    {% set config = element.fieldConfig.elements %}
+
+    <div class="cms-element-{{ element.type }}">
+        {% block element_swag_example_element_headline %}
+            {% if element.data.headline %}
+                <h2 class="swag-example-element-headline">{{ element.data.headline }}</h2>
+            {% endif %}
+        {% endblock %}
+
+        {% block element_swag_example_element_content %}
+            {# Inhalt wurde im Resolver per HtmlSanitizer bereinigt #}
+            {{ element.data.content|raw }}
+        {% endblock %}
+    </div>
+{% endblock %}

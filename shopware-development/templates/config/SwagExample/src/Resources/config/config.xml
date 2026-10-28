@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/shopware/trunk/src/Core/System/SystemConfig/Schema/config.xsd">
+
+    <!-- Schlüssel in der DB / im Code: SwagExample.config.<name>
+         Feldnamen: [a-zA-Z][a-zA-Z0-9]*, eindeutig über alle input-field der Datei. -->
+
+    <card>
+        <title>General</title>
+        <title lang="de-DE">Allgemein</title>
+        <subtitle>Basic settings</subtitle>
+        <subtitle lang="de-DE">Grundeinstellungen</subtitle>
+
+        <input-field type="bool">
+            <name>enabled</name>
+            <label>Enable feature</label>
+            <label lang="de-DE">Funktion aktivieren</label>
+            <defaultValue>true</defaultValue>
+        </input-field>
+
+        <input-field type="text">
+            <name>badgeText</name>
+            <label>Badge text</label>
+            <label lang="de-DE">Badge-Text</label>
+            <placeholder>New</placeholder>
+            <placeholder lang="de-DE">Neu</placeholder>
+            <defaultValue>New</defaultValue>
+            <helpText>Shown on product boxes.</helpText>
+            <helpText lang="de-DE">Wird auf Produktboxen angezeigt.</helpText>
+        </input-field>
+
+        <input-field type="textarea">
+            <name>description</name>
+            <label>Description</label>
+            <label lang="de-DE">Beschreibung</label>
+        </input-field>
+
+        <input-field type="text-editor">
+            <name>richText</name>
+            <label>Rich text</label>
+            <label lang="de-DE">Formatierter Text</label>
+        </input-field>
+
+        <input-field type="url">
+            <name>endpointUrl</name>
+            <label>Endpoint URL</label>
+            <label lang="de-DE">Endpunkt-URL</label>
+            <placeholder>https://example.com</placeholder>
+        </input-field>
+
+        <input-field type="password">
+            <name>apiKey</name>
+            <label>API key</label>
+            <label lang="de-DE">API-Schlüssel</label>
+        </input-field>
+    </card>
+
+    <card>
+        <title>Values and dates</title>
+        <title lang="de-DE">Werte und Zeiten</title>
+
+        <input-field type="int">
+            <name>maxItems</name>
+            <label>Max items</label>
+            <label lang="de-DE">Maximale Anzahl</label>
+            <defaultValue>5</defaultValue>
+            <min>1</min>
+            <max>20</max>
+        </input-field>
+
+        <input-field type="float">
+            <name>factor</name>
+            <label>Factor</label>
+            <label lang="de-DE">Faktor</label>
+            <defaultValue>1.5</defaultValue>
+        </input-field>
+
+        <input-field type="checkbox">
+            <name>acceptTerms</name>
+            <label>Accept terms</label>
+            <label lang="de-DE">Bedingungen akzeptieren</label>
+            <defaultValue>false</defaultValue>
+        </input-field>
+
+        <input-field type="datetime">
+            <name>validFrom</name>
+            <label>Valid from (date and time)</label>
+            <label lang="de-DE">Gültig ab (Datum und Uhrzeit)</label>
+        </input-field>
+
+        <input-field type="date">
+            <name>validUntilDate</name>
+            <label>Valid until (date)</label>
+            <label lang="de-DE">Gültig bis (Datum)</label>
+        </input-field>
+
+        <input-field type="time">
+            <name>dailyStart</name>
+            <label>Daily start time</label>
+            <label lang="de-DE">Tägliche Startzeit</label>
+        </input-field>
+
+        <input-field type="colorpicker">
+            <name>badgeColor</name>
+            <label>Badge color</label>
+            <label lang="de-DE">Badge-Farbe</label>
+            <defaultValue>#189eff</defaultValue>
+        </input-field>
+
+        <input-field type="price">
+            <name>minOrderValue</name>
+            <label>Minimum order value</label>
+            <label lang="de-DE">Mindestbestellwert</label>
+        </input-field>
+    </card>
+
+    <card>
+        <title>Selection</title>
+        <title lang="de-DE">Auswahl</title>
+
+        <input-field type="single-select">
+            <name>mode</name>
+            <label>Mode</label>
+            <label lang="de-DE">Modus</label>
+            <defaultValue>simple</defaultValue>
+            <options>
+                <option>
+                    <id>simple</id>
+                    <name>Simple</name>
+                    <name lang="de-DE">Einfach</name>
+                </option>
+                <option>
+                    <id>extended</id>
+                    <name>Extended</name>
+                    <name lang="de-DE">Erweitert</name>
+                </option>
+            </options>
+        </input-field>
+
+        <input-field type="multi-select">
+            <name>channels</name>
+            <label>Channels</label>
+            <label lang="de-DE">Kanäle</label>
+            <options>
+                <option>
+                    <id>web</id>
+                    <name>Web</name>
+                </option>
+                <option>
+                    <id>app</id>
+                    <name>App</name>
+                </option>
+            </options>
+        </input-field>
+
+        <!-- Entity-Auswahl ist KEIN type, sondern eine Komponente -->
+        <component name="sw-entity-single-select">
+            <name>defaultCountryId</name>
+            <entity>country</entity>
+            <label>Default country</label>
+            <label lang="de-DE">Standardland</label>
+            <placeholder>Select a country...</placeholder>
+            <placeholder lang="de-DE">Land auswählen ...</placeholder>
+        </component>
+
+        <component name="sw-entity-multi-id-select">
+            <name>excludedGroupIds</name>
+            <entity>property_group</entity>
+            <label>Excluded property groups</label>
+            <label lang="de-DE">Ausgeschlossene Eigenschaftsgruppen</label>
+        </component>
+    </card>
+
+    <card>
+        <title>Cache relevant</title>
+        <title lang="de-DE">Cache-relevant</title>
+
+        <!-- cache-relevant: Admin reagiert nach dem Speichern auf Cache-relevante Änderungen (laut Doku ab 6.7.12.0) -->
+        <input-field type="bool" cache-relevant="true">
+            <name>showBadgeInListing</name>
+            <label>Show badge in listing</label>
+            <label lang="de-DE">Badge im Listing anzeigen</label>
+            <defaultValue>true</defaultValue>
+            <copyable>true</copyable>
+        </input-field>
+    </card>
+</config>

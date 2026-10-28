@@ -1,0 +1,12 @@
+{% sw_extends '@Storefront/storefront/page/content/index.html.twig' %}
+
+{# Block "page_content" existiert in storefront/page/content/index.html.twig #}
+{% block page_content %}
+    {% if theme_config('swag-example-show-banner') %}
+        <div class="swag-example-banner container">
+            {{ 'swagExampleTheme.banner'|trans|sw_sanitize }}
+        </div>
+    {% endif %}
+
+    {{ parent() }}
+{% endblock %}

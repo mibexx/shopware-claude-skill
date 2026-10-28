@@ -1,0 +1,6 @@
+/*
+Variablen-Overrides: Diese Datei steht in theme.json VOR "@Storefront".
+Grund: Core- und Bootstrap-Variablen sind mit !default deklariert, Overrides muessen daher vorher stehen.
+Hier nur Variablen, keine CSS-Regeln.
+*/
+$border-radius: 0.25rem;

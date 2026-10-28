@@ -1,0 +1,11 @@
+{
+    "swag-example": {
+        "elements": {
+            "swagExampleElement": {
+                "label": "Beispiel-Element",
+                "labelHeadline": "Überschrift",
+                "labelContent": "Inhalt"
+            }
+        }
+    }
+}

@@ -1,0 +1,26 @@
+{
+    "sw-theme": {
+        "SwagExampleTheme": {
+            "default": {
+                "swagExampleLayout": {
+                    "label": "Beispiel-Layout",
+                    "default": {
+                        "swag-example-header-height": {
+                            "label": "Header-Höhe (px)",
+                            "helpText": "Mindesthöhe des Headers"
+                        },
+                        "swag-example-font-size": {
+                            "label": "Schriftgröße des Banners",
+                            "0": { "label": "14 px" },
+                            "1": { "label": "16 px" },
+                            "2": { "label": "18 px" }
+                        },
+                        "swag-example-show-banner": {
+                            "label": "Banner auf Inhaltsseiten anzeigen"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

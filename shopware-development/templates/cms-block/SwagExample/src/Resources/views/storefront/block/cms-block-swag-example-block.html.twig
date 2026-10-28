@@ -1,0 +1,21 @@
+{% block block_swag_example_block %}
+    {% block block_swag_example_block_left %}
+        {% set element = block.slots.getSlot('left') %}
+
+        <div class="col-md-6" data-cms-element-id="{{ element.id }}">
+            {% block block_swag_example_block_left_inner %}
+                {% sw_include '@Storefront/storefront/element/cms-element-' ~ element.type ~ '.html.twig' ignore missing %}
+            {% endblock %}
+        </div>
+    {% endblock %}
+
+    {% block block_swag_example_block_right %}
+        {% set element = block.slots.getSlot('right') %}
+
+        <div class="col-md-6" data-cms-element-id="{{ element.id }}">
+            {% block block_swag_example_block_right_inner %}
+                {% sw_include '@Storefront/storefront/element/cms-element-' ~ element.type ~ '.html.twig' ignore missing %}
+            {% endblock %}
+        </div>
+    {% endblock %}
+{% endblock %}

@@ -1,0 +1,21 @@
+{% sw_extends '@Storefront/storefront/base.html.twig' %}
+
+{# Block "base_main_inner" liegt innerhalb von <main> (storefront/base.html.twig).
+   ⚠ Die Core-Templates page/content/index.html.twig und page/content/product-detail.html.twig ueberschreiben ihn ebenfalls;
+   dort greift das Markup nur, wenn deren Block {{ parent() }} aufruft. #}
+{% block base_main_inner %}
+    {{ parent() }}
+
+    <div class="container">
+        <button type="button"
+                class="btn btn-secondary"
+                id="swag-example-toggle"
+                aria-controls="swag-example-target"
+                aria-expanded="false"
+                data-swag-example="true"
+                data-swag-example-options="{{ { activeClass: 'is-open' }|json_encode }}">
+            {{ 'swagExample.toggle'|trans|sw_sanitize }}
+        </button>
+        <div id="swag-example-target" data-swag-example-target></div>
+    </div>
+{% endblock %}

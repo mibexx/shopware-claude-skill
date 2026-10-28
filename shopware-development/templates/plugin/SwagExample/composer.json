@@ -1,0 +1,31 @@
+{
+    "name": "swag/example",
+    "description": "Example plugin",
+    "type": "shopware-platform-plugin",
+    "version": "1.0.0",
+    "license": "MIT",
+    "require": {
+        "shopware/core": "~6.7.0"
+    },
+    "extra": {
+        "shopware-plugin-class": "SwagExample\\SwagExample",
+        "label": {
+            "de-DE": "Beispiel-Plugin",
+            "en-GB": "Example plugin"
+        },
+        "description": {
+            "de-DE": "Gerüst für ein Shopware-Plugin",
+            "en-GB": "Skeleton for a Shopware plugin"
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "SwagExample\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "SwagExample\\Tests\\": "tests/"
+        }
+    }
+}

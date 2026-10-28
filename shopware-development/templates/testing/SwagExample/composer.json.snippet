@@ -1,0 +1,25 @@
+{
+    "_comment": "Ausschnitt, KEIN vollstaendiges Manifest (_comment entfernen). Teil 1 (autoload-dev, php) gehoert in custom/plugins/SwagExample/composer.json. Teil 2 (require-dev, scripts) gehoert in die composer.json des PROJEKTS: das require-dev eines Plugins installiert der Projekt-Composer nicht. Scripts laufen aus dem Projekt-Root.",
+    "plugin composer.json": {
+        "require": {
+            "php": ">=8.2",
+            "shopware/core": "~6.7.0"
+        },
+        "autoload-dev": {
+            "psr-4": {
+                "SwagExample\\Tests\\": "tests/"
+            }
+        }
+    },
+    "projekt composer.json": {
+        "require-dev": {
+            "shopware/dev-tools": "^1.6",
+            "phpunit/phpunit": "^11.5",
+            "symfony/browser-kit": "^7.4"
+        },
+        "scripts": {
+            "test:swag-example": "phpunit --configuration custom/plugins/SwagExample/phpunit.xml.dist",
+            "test:swag-example:unit": "phpunit --configuration custom/plugins/SwagExample/phpunit.xml.dist --testsuite unit"
+        }
+    }
+}

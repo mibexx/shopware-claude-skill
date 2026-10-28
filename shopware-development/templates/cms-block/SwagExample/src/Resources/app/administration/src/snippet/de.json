@@ -1,0 +1,9 @@
+{
+    "swag-example": {
+        "blocks": {
+            "swagExampleBlock": {
+                "label": "Beispiel-Block (Text und Bild)"
+            }
+        }
+    }
+}

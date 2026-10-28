@@ -1,0 +1,27 @@
+{
+    "name": "swag/example-theme",
+    "description": "Example theme for Shopware 6.7",
+    "type": "shopware-platform-plugin",
+    "license": "MIT",
+    "version": "1.0.0",
+    "require": {
+        "shopware/core": "~6.7.0",
+        "shopware/storefront": "~6.7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "SwagExampleTheme\\": "src/"
+        }
+    },
+    "extra": {
+        "shopware-plugin-class": "SwagExampleTheme\\SwagExampleTheme",
+        "label": {
+            "de-DE": "Beispiel-Theme",
+            "en-GB": "Example theme"
+        },
+        "description": {
+            "de-DE": "Beispiel-Theme mit SCSS, JS und Twig-Override",
+            "en-GB": "Example theme with SCSS, JS and Twig override"
+        }
+    }
+}

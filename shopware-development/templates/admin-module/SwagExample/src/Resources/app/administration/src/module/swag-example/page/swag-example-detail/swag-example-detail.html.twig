@@ -1,0 +1,68 @@
+{% block swag_example_detail %}
+<sw-page class="swag-example-detail">
+    {% block swag_example_detail_header %}
+    <template #smart-bar-header>
+        <h2>{{ example?.name || $t('swag-example.detail.titleNew') }}</h2>
+    </template>
+    {% endblock %}
+
+    {% block swag_example_detail_actions %}
+    <template #smart-bar-actions>
+        <mt-button
+            variant="secondary"
+            size="default"
+            :disabled="isLoading || undefined"
+            @click="onCancel"
+        >
+            {{ $t('global.default.cancel') }}
+        </mt-button>
+
+        <sw-button-process
+            v-model:process-success="isSaveSuccessful"
+            variant="primary"
+            :is-loading="isLoading"
+            :disabled="isLoading || (!acl.can('swag_example.editor') && !acl.can('swag_example.creator')) || undefined"
+            @click.prevent="onSave"
+        >
+            {{ $t('global.default.save') }}
+        </sw-button-process>
+    </template>
+    {% endblock %}
+
+    <template #content>
+        {% block swag_example_detail_content %}
+        <sw-card-view>
+            <mt-card
+                v-if="example"
+                position-identifier="swag-example-detail-base"
+                :title="$t('swag-example.detail.cardTitle')"
+            >
+                <mt-text-field
+                    v-model="example.technicalName"
+                    :label="$t('swag-example.detail.labelTechnicalName')"
+                    name="technicalName"
+                    required
+                    :error="exampleTechnicalNameError"
+                    :disabled="!acl.can('swag_example.editor') && !acl.can('swag_example.creator') || undefined"
+                />
+
+                <mt-text-field
+                    v-model="example.name"
+                    :label="$t('swag-example.detail.labelName')"
+                    name="name"
+                    required
+                    :error="exampleNameError"
+                    :disabled="!acl.can('swag_example.editor') && !acl.can('swag_example.creator') || undefined"
+                />
+
+                <mt-switch
+                    v-model="example.active"
+                    :label="$t('swag-example.detail.labelActive')"
+                    :disabled="!acl.can('swag_example.editor') && !acl.can('swag_example.creator') || undefined"
+                />
+            </mt-card>
+        </sw-card-view>
+        {% endblock %}
+    </template>
+</sw-page>
+{% endblock %}

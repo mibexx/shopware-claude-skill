@@ -1,0 +1,13 @@
+{% block swag_example_counter %}
+<div class="swag-example-counter">
+    {% block swag_example_counter_value %}
+    <span class="swag-example-counter__value">{{ count }}</span>
+    {% endblock %}
+
+    {% block swag_example_counter_button %}
+    <button class="swag-example-counter__button" type="button" @click="onIncrement">
+        +
+    </button>
+    {% endblock %}
+</div>
+{% endblock %}

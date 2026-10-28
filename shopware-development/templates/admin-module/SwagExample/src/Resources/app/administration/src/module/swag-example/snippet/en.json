@@ -1,0 +1,29 @@
+{
+    "swag-example": {
+        "general": {
+            "mainMenuItemGeneral": "Examples",
+            "descriptionTextModule": "Manage examples"
+        },
+        "list": {
+            "title": "Examples",
+            "columnName": "Name",
+            "columnActive": "Active",
+            "buttonAdd": "Add example",
+            "messageEmpty": "No examples yet"
+        },
+        "detail": {
+            "titleNew": "New example",
+            "cardTitle": "General",
+            "labelName": "Name",
+            "labelTechnicalName": "Technical name",
+            "labelActive": "Active"
+        }
+    },
+    "sw-privileges": {
+        "permissions": {
+            "swag_example": {
+                "label": "Examples"
+            }
+        }
+    }
+}

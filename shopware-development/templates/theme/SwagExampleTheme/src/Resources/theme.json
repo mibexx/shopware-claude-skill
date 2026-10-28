@@ -1,0 +1,69 @@
+{
+  "name": "SwagExampleTheme",
+  "author": "Example Author",
+  "description": {
+    "en-GB": "Example theme with SCSS, JS and a Twig override",
+    "de-DE": "Beispiel-Theme mit SCSS, JS und Twig-Override"
+  },
+  "views": [
+    "@Storefront",
+    "@Plugins",
+    "@SwagExampleTheme"
+  ],
+  "style": [
+    "app/storefront/src/scss/overrides.scss",
+    "@Storefront",
+    "app/storefront/src/scss/base.scss"
+  ],
+  "script": [
+    "@Storefront",
+    "app/storefront/dist/storefront/js/swag-example-theme/swag-example-theme.js"
+  ],
+  "asset": [
+    "@Storefront",
+    "app/storefront/src/assets"
+  ],
+  "configInheritance": [
+    "@Storefront"
+  ],
+  "config": {
+    "fields": {
+      "sw-color-brand-primary": {
+        "type": "color",
+        "value": "#c4003c",
+        "editable": true,
+        "block": "themeColors",
+        "order": 100
+      },
+      "swag-example-header-height": {
+        "type": "number",
+        "value": 80,
+        "editable": true,
+        "block": "swagExampleLayout",
+        "order": 100
+      },
+      "swag-example-font-size": {
+        "type": "text",
+        "value": "16",
+        "editable": true,
+        "custom": {
+          "componentName": "sw-single-select",
+          "options": [
+            { "value": "14" },
+            { "value": "16" },
+            { "value": "18" }
+          ]
+        },
+        "block": "swagExampleLayout",
+        "order": 200
+      },
+      "swag-example-show-banner": {
+        "type": "switch",
+        "value": true,
+        "editable": true,
+        "block": "swagExampleLayout",
+        "order": 300
+      }
+    }
+  }
+}

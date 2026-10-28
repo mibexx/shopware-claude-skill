@@ -13,7 +13,7 @@ class ProductLoadedSubscriber implements EventSubscriberInterface
     public static function getSubscribedEvents(): array
     {
         return [
-            // 'product.loaded'; Format auch: Event => ['methode', prioritaet]
+            // 'product.loaded'; format also: Event => ['method', priority]
             ProductEvents::PRODUCT_LOADED_EVENT => 'onProductLoaded',
         ];
     }
@@ -23,7 +23,7 @@ class ProductLoadedSubscriber implements EventSubscriberInterface
      */
     public function onProductLoaded(EntityLoadedEvent $event): void
     {
-        // Leicht halten: laeuft bei jedem Laden von Produkten (auch Massenladungen, Admin-API).
+        // Keep it light: runs on every product load (including bulk loads, Admin API).
         foreach ($event->getEntities() as $product) {
             $product->addExtension('swagExample', new ArrayStruct(['loaded' => true]));
         }

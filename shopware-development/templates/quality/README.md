@@ -1,85 +1,85 @@
-# Template: quality (PHPStan, Code-Style)
+# Template: quality (PHPStan, code style)
 
-Shopware 6.7.15.1. Konfiguration für statische Analyse (PHPStan mit den Shopware-Regeln aus `shopware/core`) und Code-Style (php-cs-fixer, "Shopware Coding Standard"). Referenzen: ../../references/48-statische-analyse.md, ../../references/45-coding-guidelines.md, Build/Release ../../references/49-build-deployment.md. Verwandte Vorlagen: ../plugin/README.md, ../testing/README.md (PHPUnit), ../testing-js/README.md (Jest/Vitest).
+Shopware 6.7.15.1. Configuration for static analysis (PHPStan with the Shopware rules from `shopware/core`) and code style (php-cs-fixer, "Shopware Coding Standard"). References: ../../references/48-static-analysis.md, ../../references/45-coding-guidelines.md, build/release ../../references/49-build-deployment.md. Related templates: ../plugin/README.md, ../testing/README.md (PHPUnit), ../testing-js/README.md (Jest/Vitest).
 
-Praktisch geprüft im Docker-Setup des Projekts (PHP 8.4.27): PHPStan 2.3.3 lief mit `phpstan.neon.dist` grün und meldete absichtlich eingebaute Verstöße der Shopware- und Symplify-Regeln; php-cs-fixer 3.95.27 lief mit `.php-cs-fixer.dist.php`. Details unten.
+Tested in practice in the project's Docker setup (PHP 8.4.27): PHPStan 2.3.3 ran green with `phpstan.neon.dist` and reported deliberately introduced violations of the Shopware and Symplify rules; php-cs-fixer 3.95.27 ran with `.php-cs-fixer.dist.php`. Details below.
 
-## Dateibaum
+## File tree
 
 ```
 SwagExample/
-├── phpstan.neon.dist             # Level 8, Shopware-Regeln, Bootstrap des StaticAnalyzeKernel
-├── .php-cs-fixer.dist.php        # Regeln aus dem shopware-cli-Standard
-├── .config/shopware-extension.yml  # nur für shopware-cli validate (⚠ UNGEPRÜFT)
-└── composer.json.snippet         # Ausschnitt: php-Constraint (Plugin), require-dev + scripts (Projekt)
+├── phpstan.neon.dist             # level 8, Shopware rules, bootstrap of the StaticAnalyzeKernel
+├── .php-cs-fixer.dist.php        # rules from the shopware-cli standard
+├── .config/shopware-extension.yml  # only for shopware-cli validate (⚠ UNVERIFIED)
+└── composer.json.snippet         # excerpt: php constraint (plugin), require-dev + scripts (project)
 ```
 
-## Platzhalter
+## Placeholders
 
-| Platzhalter | Bedeutung | Ersetzen durch |
+| Placeholder | Meaning | Replace with |
 |---|---|---|
-| `SwagExample` (in `phpstan.neon.dist`: `allowedUnitTestClassNamespaces`, `.config/...`) | Plugin-Name / Test-Namespace | eigener Plugin-Name |
-| `../../../vendor/...` | Pfad zum Projekt-`vendor` relativ zur Neon-Datei (Plugin liegt in `custom/plugins/<Name>`) | anpassen, wenn das Plugin an anderer Stelle liegt |
-| `level: 8`, `phpVersion: 80200` | wie `common.neon` des Cores | nach Bedarf |
+| `SwagExample` (in `phpstan.neon.dist`: `allowedUnitTestClassNamespaces`, `.config/...`) | Plugin name / test namespace | your own plugin name |
+| `../../../vendor/...` | Path to the project `vendor` relative to the neon file (plugin lives in `custom/plugins/<Name>`) | adjust if the plugin lives elsewhere |
+| `level: 8`, `phpVersion: 80200` | as in the core's `common.neon` | as needed |
 
-## Einrichtung
+## Setup
 
-Dev-Tools gehören ins Projekt, nicht ins Plugin: das `require-dev` eines Plugins installiert der Projekt-Composer nicht.
+Dev tools belong in the project, not in the plugin: the project Composer does not install a plugin's `require-dev`.
 
-Benötigte Pakete (alle auf Packagist; per `composer require --dev --dry-run` im Projekt auflösbar, real nicht installiert): `phpstan/phpstan` (2.3.3), `phpstan/phpstan-symfony` (2.1.1), `phpat/phpat` (0.12.5), `symplify/phpstan-rules` (14.19.3), `friendsofphp/php-cs-fixer` (3.95.27).
+Required packages (all on Packagist; resolvable via `composer require --dev --dry-run` in the project, not actually installed): `phpstan/phpstan` (2.3.3), `phpstan/phpstan-symfony` (2.1.1), `phpat/phpat` (0.12.5), `symplify/phpstan-rules` (14.19.3), `friendsofphp/php-cs-fixer` (3.95.27).
 
-- Das Paket `shopware/phpstan-extension` (in der README der Extension genannt) ist auf Packagist nicht auffindbar (`composer require` im Container: "could not be found in any version"). Die Dateien `extension.neon`/`rules.neon` liegen in `vendor/shopware/core/DevOps/StaticAnalyze/PHPStan/`, die Vorlage bindet sie von dort ein.
-- `rules.neon` verlangt zusätzlich: den Service `Shopware\...\PHPStan\Configuration` samt Parameter `shopware:` (kommt nur aus `common.neon`, daher in der Vorlage übernommen), `phpstan/phpstan-symfony` (`ParameterMap`), die Hilfsservices von Symplify (`config/services/services.neon`) und `phpat/phpat`.
-- `phpstan/extension-installer` NICHT verwenden: er bindet die komplette Symplify-Konfiguration ein; zusammen mit `rules.neon` entsteht `Multiple services of type Symplify\PHPStanRules\Rules\NoReturnSetterMethodRule found`.
+- The package `shopware/phpstan-extension` (named in the extension's README) cannot be found on Packagist (`composer require` in the container: "could not be found in any version"). The files `extension.neon`/`rules.neon` live in `vendor/shopware/core/DevOps/StaticAnalyze/PHPStan/`; the template includes them from there.
+- `rules.neon` additionally requires: the service `Shopware\...\PHPStan\Configuration` together with the parameter `shopware:` (only comes from `common.neon`, hence adopted in the template), `phpstan/phpstan-symfony` (`ParameterMap`), Symplify's helper services (`config/services/services.neon`) and `phpat/phpat`.
+- Do NOT use `phpstan/extension-installer`: it includes the complete Symplify configuration; together with `rules.neon` this results in `Multiple services of type Symplify\PHPStanRules\Rules\NoReturnSetterMethodRule found`.
 
-Variante A (Standard, im Projekt): `docker compose exec web composer require --dev phpstan/phpstan phpstan/phpstan-symfony phpat/phpat symplify/phpstan-rules friendsofphp/php-cs-fixer` (ändert `composer.json`/`composer.lock`; ⚠ UNGEPRÜFT real, nur Dry-Run).
-Variante B (erprobt, ohne Eingriff ins Projekt): `docker compose exec web sh -c 'mkdir -p /tmp/qa && cd /tmp/qa && echo "{}" > composer.json && composer require --no-interaction phpstan/phpstan phpstan/phpstan-symfony phpat/phpat symplify/phpstan-rules friendsofphp/php-cs-fixer'`. Dann in `phpstan.neon.dist` die drei Includes `../../../vendor/phpstan/...`, `.../phpat/...`, `.../symplify/...` auf `/tmp/qa/vendor/...` umstellen (so wurde getestet). `/tmp` ist nicht im Volume.
+Variant A (standard, in the project): `docker compose exec web composer require --dev phpstan/phpstan phpstan/phpstan-symfony phpat/phpat symplify/phpstan-rules friendsofphp/php-cs-fixer` (changes `composer.json`/`composer.lock`; ⚠ UNVERIFIED for real, dry run only).
+Variant B (tried, without touching the project): `docker compose exec web sh -c 'mkdir -p /tmp/qa && cd /tmp/qa && echo "{}" > composer.json && composer require --no-interaction phpstan/phpstan phpstan/phpstan-symfony phpat/phpat symplify/phpstan-rules friendsofphp/php-cs-fixer'`. Then in `phpstan.neon.dist` switch the three includes `../../../vendor/phpstan/...`, `.../phpat/...`, `.../symplify/...` to `/tmp/qa/vendor/...` (this is how it was tested). `/tmp` is not in the volume.
 
-## Ausführen im Docker-Setup
+## Running in the Docker setup
 
-Immer aus dem Projektverzeichnis (dort liegt `compose.yaml`); im Container ist das Arbeitsverzeichnis `/var/www/html`.
+Always from the project directory (where `compose.yaml` lives); in the container the working directory is `/var/www/html`.
 
 ```bash
-# PHPStan (Variante A: vendor/bin/phpstan; Variante B: /tmp/qa/vendor/bin/phpstan)
+# PHPStan (variant A: vendor/bin/phpstan; variant B: /tmp/qa/vendor/bin/phpstan)
 docker compose exec web vendor/bin/phpstan analyse -c custom/plugins/SwagExample/phpstan.neon.dist --no-progress
 docker compose exec web vendor/bin/phpstan analyse -c custom/plugins/SwagExample/phpstan.neon.dist --no-progress custom/plugins/SwagExample/src/Service
 docker compose exec web vendor/bin/phpstan clear-result-cache -c custom/plugins/SwagExample/phpstan.neon.dist
 
-# Code-Style: prüfen (Exit-Code != 0 bei Abweichungen) bzw. anwenden
+# Code style: check (exit code != 0 on deviations) or apply
 docker compose exec web vendor/bin/php-cs-fixer check --diff --config=custom/plugins/SwagExample/.php-cs-fixer.dist.php custom/plugins/SwagExample
 docker compose exec web vendor/bin/php-cs-fixer fix --config=custom/plugins/SwagExample/.php-cs-fixer.dist.php custom/plugins/SwagExample
 ```
 
-PHPStan braucht keine Datenbank. Der Bootstrap (`phpstan-bootstrap.php`) bootet den `StaticAnalyzeKernel` und legt `var/cache/static_phpstan_dev/` im Projekt an; PHPStan selbst cached nach `/tmp/phpstan` im Container. Nach Änderungen an Services/Container `var/cache/static_phpstan_dev` löschen und `clear-result-cache` ausführen.
+PHPStan does not need a database. The bootstrap (`phpstan-bootstrap.php`) boots the `StaticAnalyzeKernel` and creates `var/cache/static_phpstan_dev/` in the project; PHPStan itself caches to `/tmp/phpstan` in the container. After changes to services/container, delete `var/cache/static_phpstan_dev` and run `clear-result-cache`.
 
-Beispielergebnis (Variante B): `[OK] No errors` (ca. 2,6 s). Absichtlich eingefügter Verstoß `unserialize()` in einer Klasse wurde gemeldet als `shopware.unserializeUsage`; zwei Klassen in einer Datei als `symplify.multipleClassLikeInFile`.
+Example result (variant B): `[OK] No errors` (approx. 2.6 s). A deliberately inserted `unserialize()` violation in a class was reported as `shopware.unserializeUsage`; two classes in one file as `symplify.multipleClassLikeInFile`.
 
-Die Composer-Script-Hüllen aus `composer.json.snippet` sind ⚠ UNGEPRÜFT (die Einzelbefehle wurden ausgeführt).
+The Composer script wrappers from `composer.json.snippet` are ⚠ UNVERIFIED (the individual commands were executed).
 
-CI und Release: dieselben Befehle ohne `docker compose exec`; zusätzlich Store-/Extension-Validierung mit `shopware-cli extension validate` (siehe ../../references/48-statische-analyse.md und ../../references/49-build-deployment.md). `shopware-cli` ist im Docker-Setup nicht installiert, nichts davon wurde ausgeführt.
+CI and release: the same commands without `docker compose exec`; additionally store/extension validation with `shopware-cli extension validate` (see ../../references/48-static-analysis.md and ../../references/49-build-deployment.md). `shopware-cli` is not installed in the Docker setup; none of this was executed.
 
-## Code-Style: was belegt ist
+## Code style: what is established
 
-- Offizieller Weg laut Doku: `shopware-cli extension format <pfad>` (php-cs-fixer, "Shopware Coding Standard"). `shopware-cli` bevorzugt eine `.php-cs-fixer.dist.php` im Plugin-Root vor seiner mitgelieferten Konfiguration.
-- Die Regeln der Vorlage stammen 1:1 aus der mitgelieferten Konfiguration von shopware-cli (`internal/verifier/php/configs/php-cs-fixer.dist.php` im GitHub-Repo `shopware/shopware-cli`, main-Branch am 28.10.2026): `@Symfony` plus Anpassungen (u. a. `ordered_class_elements`, `yoda_style` aus, `single_quote`, `concat_space` one). Die Finder-Ausschlüsse (`vendor`, `node_modules`) sind eine Ergänzung der Vorlage.
-- Weder `vendor/shopware/*` noch das Projekt enthalten eine `.php-cs-fixer*`- oder `ecs.php`-Datei; ein ECS-Setup ist nicht belegt. Lokale Prüfung: ein Plugin mit `\Namespace\Klasse::class`-Schreibweise in `services.php` wurde von der Konfiguration beanstandet (führenden Backslash entfernt); die Plugin-Vorlagen dieses Skills sind NICHT darauf hin formatiert (⚠ UNGEPRÜFT).
-- php-cs-fixer meldet ohne `php`-Constraint in der `composer.json`: "No PHP version requirement found" (Snippet setzt `php: >=8.2`).
+- Official way according to the docs: `shopware-cli extension format <path>` (php-cs-fixer, "Shopware Coding Standard"). `shopware-cli` prefers a `.php-cs-fixer.dist.php` in the plugin root over its bundled configuration.
+- The template's rules are taken 1:1 from shopware-cli's bundled configuration (`internal/verifier/php/configs/php-cs-fixer.dist.php` in the GitHub repo `shopware/shopware-cli`, main branch on 2026-10-28): `@Symfony` plus adjustments (among others `ordered_class_elements`, `yoda_style` off, `single_quote`, `concat_space` one). The finder exclusions (`vendor`, `node_modules`) are an addition of the template.
+- Neither `vendor/shopware/*` nor the project contains a `.php-cs-fixer*` or `ecs.php` file; an ECS setup is not established. Local check: a plugin with `\Namespace\Class::class` notation in `services.php` was flagged by the configuration (leading backslash removed); the plugin templates of this skill are NOT formatted accordingly (⚠ UNVERIFIED).
+- Without a `php` constraint in `composer.json`, php-cs-fixer reports: "No PHP version requirement found" (the snippet sets `php: >=8.2`).
 
-## Fallstricke (in dieser Umgebung aufgetreten)
+## Pitfalls (encountered in this environment)
 
-- PHPStan aus dem Plugin-Ordner gestartet: `Class ...McpToolResponseRule not found`, weil der Projekt-Autoloader nicht gefunden wird. Immer aus dem Projekt-Root starten.
-- `Service of type ...\PHPStan\Configuration ... not found`: `shopware:`-Parameter und Service fehlen (Include von `rules.neon` allein genügt nicht).
-- `Service of type PHPStan\Symfony\ParameterMap ... not found`: `phpstan-symfony` nicht eingebunden.
-- `Service of type Symplify\...\EnumAnalyzer ... not found`: `symplify/phpstan-rules/config/services/services.neon` nicht eingebunden.
-- `Multiple services of type ...NoReturnSetterMethodRule`: `phpstan/extension-installer` aktiv, siehe oben.
-- Echter Befund in der Plugin-Vorlage: `$this->container->get()` in `uninstall()` meldete `method.nonObject` (Container ist nullable); Vorlage ../plugin/SwagExample/src/SwagExample.php ist entsprechend korrigiert (Laufzeitprüfung statt `@var`).
-- `core-rules.neon` (u. a. `DecorationPatternRule`) ist NICHT eingebunden und nicht getestet (⚠ UNGEPRÜFT).
+- PHPStan started from the plugin folder: `Class ...McpToolResponseRule not found`, because the project autoloader is not found. Always start from the project root.
+- `Service of type ...\PHPStan\Configuration ... not found`: the `shopware:` parameter and service are missing (including `rules.neon` alone is not enough).
+- `Service of type PHPStan\Symfony\ParameterMap ... not found`: `phpstan-symfony` not included.
+- `Service of type Symplify\...\EnumAnalyzer ... not found`: `symplify/phpstan-rules/config/services/services.neon` not included.
+- `Multiple services of type ...NoReturnSetterMethodRule`: `phpstan/extension-installer` active, see above.
+- Real finding in the plugin template: `$this->container->get()` in `uninstall()` reported `method.nonObject` (container is nullable); template ../plugin/SwagExample/src/SwagExample.php has been corrected accordingly (runtime check instead of `@var`).
+- `core-rules.neon` (among others `DecorationPatternRule`) is NOT included and not tested (⚠ UNVERIFIED).
 
-## ESLint / Stylelint (Admin, Storefront)
+## ESLint / Stylelint (admin, storefront)
 
-Nur Verweis: siehe ../../references/48-statische-analyse.md (Abschnitt Administration/Storefront) und ../testing-js/README.md. Das Admin-Extension-Tooling ist als `@internal`/experimentell markiert; nichts davon wurde hier ausgeführt (⚠ UNGEPRÜFT).
+Reference only: see ../../references/48-static-analysis.md (section Administration/Storefront) and ../testing-js/README.md. The admin extension tooling is marked as `@internal`/experimental; none of it was executed here (⚠ UNVERIFIED).
 
-## Lücken
+## Gaps
 
-- ⚠ LÜCKE: Version des shopware-cli-Standards zum Release 6.7.15.1 nicht belegt (Konfiguration vom main-Branch).
-- ⚠ UNGEPRÜFT: Installation der Tools direkt im Projekt; `shopware-cli`; `.config/shopware-extension.yml`; Rector (`shopware-cli extension fix`, ein Composer-Paket ist nicht belegt).
+- ⚠ GAP: Version of the shopware-cli standard at release 6.7.15.1 not established (configuration from the main branch).
+- ⚠ UNVERIFIED: Installing the tools directly in the project; `shopware-cli`; `.config/shopware-extension.yml`; Rector (`shopware-cli extension fix`, a Composer package is not established).

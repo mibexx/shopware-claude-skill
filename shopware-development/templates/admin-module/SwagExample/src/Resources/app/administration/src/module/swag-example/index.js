@@ -1,10 +1,10 @@
 import './acl';
 
-// Komponenten muessen registriert sein, bevor das Modul sie in "routes" nennt (Lazy-Form wie im Core)
+// Components must be registered before the module names them in "routes" (lazy form as in the core)
 Shopware.Component.register('swag-example-list', () => import('./page/swag-example-list'));
 Shopware.Component.register('swag-example-detail', () => import('./page/swag-example-detail'));
 
-// Modul-ID: <namespace>-<name> (mind. ein Bindestrich). Daraus entstehen die Route-Namen swag.example.<key>
+// Module ID: <namespace>-<name> (at least one hyphen). The route names swag.example.<key> are derived from it
 Shopware.Module.register('swag-example', {
     type: 'plugin',
     name: 'swag-example',
@@ -46,7 +46,7 @@ Shopware.Module.register('swag-example', {
         },
     },
 
-    // Plugin-Eintraege OHNE "parent" werden verworfen (erste Ebene ist Plugins nicht erlaubt)
+    // Plugin entries WITHOUT "parent" are discarded (the first level is not allowed for plugins)
     navigation: [{
         id: 'swag-example',
         label: 'swag-example.general.mainMenuItemGeneral',
@@ -58,7 +58,7 @@ Shopware.Module.register('swag-example', {
         privilege: 'swag_example.viewer',
     }],
 
-    // Optional: zusaetzlich unter Einstellungen (Gruppe "plugins")
+    // Optional: additionally under Settings (group "plugins")
     settingsItem: {
         group: 'plugins',
         to: 'swag.example.index',

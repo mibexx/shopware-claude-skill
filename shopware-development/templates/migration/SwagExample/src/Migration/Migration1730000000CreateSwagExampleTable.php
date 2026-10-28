@@ -14,7 +14,7 @@ class Migration1730000000CreateSwagExampleTable extends MigrationStep
 
     public function update(Connection $connection): void
     {
-        // Idempotent: IF NOT EXISTS, damit ein Retry nach Teilfehlern funktioniert.
+        // Idempotent: IF NOT EXISTS, so that a retry after partial failures works.
         $connection->executeStatement(<<<'SQL'
             CREATE TABLE IF NOT EXISTS `swag_example` (
                 `id` BINARY(16) NOT NULL,
@@ -27,7 +27,7 @@ class Migration1730000000CreateSwagExampleTable extends MigrationStep
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         SQL);
 
-        // Uebersetzungstabelle (nur noetig, wenn die Entity uebersetzte Felder hat)
+        // Translation table (only needed if the entity has translated fields)
         $connection->executeStatement(<<<'SQL'
             CREATE TABLE IF NOT EXISTS `swag_example_translation` (
                 `swag_example_id` BINARY(16) NOT NULL,
@@ -43,13 +43,13 @@ class Migration1730000000CreateSwagExampleTable extends MigrationStep
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         SQL);
 
-        // Spaltenergaenzung in einer SPAETEREN Migration, idempotent (gibt false zurueck, wenn vorhanden):
+        // Adding a column in a LATER migration, idempotent (returns false if it exists):
         // $this->addColumn($connection, 'swag_example', 'sort_order', 'INT(11)');
     }
 
     public function updateDestructive(Connection $connection): void
     {
-        // Nur Destruktives (Expand/Contract), laeuft NICHT bei plugin:install/update:
+        // Destructive changes only (expand/contract), does NOT run on plugin:install/update:
         // $this->dropColumnIfExists($connection, 'swag_example', 'old_column');
     }
 }

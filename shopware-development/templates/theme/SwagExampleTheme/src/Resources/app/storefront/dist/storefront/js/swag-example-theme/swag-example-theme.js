@@ -1,1 +1,1 @@
-// Platzhalter. Wird vom Storefront-Build (bin/build-storefront.sh) ueberschrieben.
+// Placeholder. Overwritten by the storefront build (bin/build-storefront.sh).

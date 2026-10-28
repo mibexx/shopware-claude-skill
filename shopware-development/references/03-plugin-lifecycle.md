@@ -1,96 +1,96 @@
-# Plugin-Lifecycle (Referenz, Shopware 6.7.15.1)
+# Plugin lifecycle (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn ein Plugin bei Installation, Update, Aktivierung, Deaktivierung oder Deinstallation Code ausführen oder aufräumen muss, und wenn man die zugehörigen CLI-Befehle und Events braucht. Maßgeblich ist `PluginLifecycleService` (Ist-Zustand 6.7.15.1).
+This reference applies when a plugin needs to run code or clean up on installation, update, activation, deactivation or uninstallation, and when you need the related CLI commands and events. The authoritative source is `PluginLifecycleService` (actual state in 6.7.15.1).
 
-Abgrenzung: Pflichtfelder und Composer in [T-02 Plugin-Aufbau](./02-plugin-aufbau.md); Schemaänderungen in [T-04 Migrationen](./04-datenbank-migrationen.md); Event-Subscriber allgemein in [T-07](./07-events-subscriber.md); Service-Registrierung in [T-05](./05-services-registrieren.md).
+Scope: required fields and Composer in [T-02 Plugin structure](./02-plugin-structure.md); schema changes in [T-04 Migrations](./04-database-migrations.md); event subscribers in general in [T-07](./07-events-subscriber.md); service registration in [T-05](./05-registering-services.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-- `Shopware\Core\Framework\Plugin` bietet sieben leere, überschreibbare Hooks, je mit einem Context: `install`, `postInstall`, `update`, `postUpdate`, `activate`, `deactivate`, `uninstall`. Aufgerufen werden sie nur vom `PluginLifecycleService` (`@internal`), genutzt von CLI, Administration (Extension-Manager, `_action/extension/...`) und Store-Download.
-- Context-Hierarchie (`core/Framework/Plugin/Context/`): `InstallContext` ist die Basis; `UpdateContext`, `UninstallContext`, `ActivateContext`, `DeactivateContext` erben davon.
+- `Shopware\Core\Framework\Plugin` provides seven empty, overridable hooks, each with a context: `install`, `postInstall`, `update`, `postUpdate`, `activate`, `deactivate`, `uninstall`. They are called only by the `PluginLifecycleService` (`@internal`), which is used by the CLI, the Administration (extension manager, `_action/extension/...`) and the Store download.
+- Context hierarchy (`core/Framework/Plugin/Context/`): `InstallContext` is the base; `UpdateContext`, `UninstallContext`, `ActivateContext`, `DeactivateContext` extend it.
 
-| Methode | Klasse | Bedeutung |
+| Method | Class | Meaning |
 |---|---|---|
-| `getPlugin()` | `InstallContext` | Plugin-Basisklasse (nicht die Entity) |
-| `getContext()` | `InstallContext` | Shopware-`Context` (CLI: `Context::createCLIContext()`, SystemSource) |
-| `getCurrentShopwareVersion()` | `InstallContext` | Shopware-Version |
-| `getCurrentPluginVersion()` | `InstallContext` | bei Update die bisher installierte Version |
-| `getMigrationCollection()` | `InstallContext` | `MigrationCollection` des Plugins |
-| `isAutoMigrate()` / `setAutoMigrate(bool)` | `InstallContext` | Install/Update Standard true (Activate/Deactivate/Uninstall setzt der Core auf false); auf false setzen und `getMigrationCollection()->migrateInPlace()` selbst steuern |
-| `getUpdatePluginVersion()` | `UpdateContext` | Zielversion |
-| `keepUserData()` | `UninstallContext` | true = „Daten behalten" (Admin: `keepUserData: !removeData`, CLI: `--keep-user-data`) |
+| `getPlugin()` | `InstallContext` | plugin base class (not the entity) |
+| `getContext()` | `InstallContext` | Shopware `Context` (CLI: `Context::createCLIContext()`, SystemSource) |
+| `getCurrentShopwareVersion()` | `InstallContext` | Shopware version |
+| `getCurrentPluginVersion()` | `InstallContext` | on update, the previously installed version |
+| `getMigrationCollection()` | `InstallContext` | the plugin's `MigrationCollection` |
+| `isAutoMigrate()` / `setAutoMigrate(bool)` | `InstallContext` | install/update default true (for activate/deactivate/uninstall the core sets it to false); set it to false and control `getMigrationCollection()->migrateInPlace()` yourself |
+| `getUpdatePluginVersion()` | `UpdateContext` | target version |
+| `keepUserData()` | `UninstallContext` | true = "keep data" (Admin: `keepUserData: !removeData`, CLI: `--keep-user-data`) |
 
-`ActivateContext` und `DeactivateContext` sind leere Subklassen.
+`ActivateContext` and `DeactivateContext` are empty subclasses.
 
-### Verzeichnisbaum
+### Directory tree
 
 ```text
 custom/plugins/SwagExample/src/
-├── SwagExample.php                    # Hooks
-├── Migration/Migration1730000000CreateExampleTable.php   # laufen bei install/update
+├── SwagExample.php                    # hooks
+├── Migration/Migration1730000000CreateExampleTable.php   # run on install/update
 ├── Subscriber/PluginLifecycleSubscriber.php              # optional: Plugin*Event
 └── Resources/config/{services.php,config.xml,custom-fields.xml}
 ```
 
-`config.xml` wird bei install/update als Systemconfig-Default gespeichert; `custom-fields.xml` wird synchronisiert und bei Uninstall (ohne `keepUserData`) entfernt.
+`config.xml` is stored as the system config default on install/update; `custom-fields.xml` is synchronized and removed on uninstall (without `keepUserData`).
 
-### Ablauf je Phase (`PluginLifecycleService`, Zeilennummern für 6.7.15.1)
+### Flow per phase (`PluginLifecycleService`, line numbers for 6.7.15.1)
 
-**installPlugin** (Z. 114-190): (1) `installedAt` bereits gesetzt -> no-op. (2) Anforderungen prüfen (`RequirementsValidator`) bzw. bei `executeComposerCommands()` `composer require`. (3) `PluginPreInstallEvent`. (4) `SystemConfigService::savePluginConfiguration($plugin, true)`. (5) `install()`. (6) Migrationen (nur bei `isAutoMigrate()`). (7) Custom Fields. (8) `installedAt` in DB. (9) `postInstall()`. (10) `PluginPostInstallEvent`. Fehler: ggf. `composer remove`; ist `installedAt` schon gesetzt (Fehler in `postInstall`/Post-Event), folgt `uninstallPlugin(keepUserData: true)`. Fehler in `install()` oder Migrationen führen **nicht** zu DB-Rollback.
+**installPlugin** (lines 114-190): (1) `installedAt` already set -> no-op. (2) Check requirements (`RequirementsValidator`) or, with `executeComposerCommands()`, `composer require`. (3) `PluginPreInstallEvent`. (4) `SystemConfigService::savePluginConfiguration($plugin, true)`. (5) `install()`. (6) Migrations (only with `isAutoMigrate()`). (7) Custom fields. (8) `installedAt` in DB. (9) `postInstall()`. (10) `PluginPostInstallEvent`. Errors: if needed `composer remove`; if `installedAt` is already set (error in `postInstall`/post event), `uninstallPlugin(keepUserData: true)` follows. Errors in `install()` or migrations do **not** lead to a DB rollback.
 
-**activatePlugin** (Z. 352-436): nicht installiert -> Exception; bereits aktiv -> no-op. Anforderungen prüfen, `PluginPreActivateEvent`, Kernel-Reboot mit aktivem Plugin (`rebuildContainerWithNewPluginState`; in CLI nur wenn `rebuildContainer()===true`, Default true; bei Aufruf aus der Administration immer), neuer `ActivateContext` mit `setAutoMigrate(false)`, `activate()` auf der neuen Instanz, `runMigrations()` (läuft nur, wenn `activate()` selbst `setAutoMigrate(true)` gesetzt hat), Assets kopieren, `active=true`, `PluginPostActivateEvent` (wirft ein Listener, wird `active` zurückgesetzt).
+**activatePlugin** (lines 352-436): not installed -> exception; already active -> no-op. Check requirements, `PluginPreActivateEvent`, kernel reboot with the plugin active (`rebuildContainerWithNewPluginState`; in CLI only if `rebuildContainer()===true`, default true; when called from the Administration always), new `ActivateContext` with `setAutoMigrate(false)`, `activate()` on the new instance, `runMigrations()` (runs only if `activate()` itself set `setAutoMigrate(true)`), copy assets, `active=true`, `PluginPostActivateEvent` (if a listener throws, `active` is reset).
 
-**deactivatePlugin** (Z. 438-526): nicht installiert/nicht aktiv -> Exception; aktive abhängige Plugins blockieren. `PluginPreDeactivateEvent`, `deactivate()`, Assets entfernen, `active=false`, Kernel-Reboot, DB-Update. Bei Exception `PluginPostDeactivationFailedEvent`, bei Erfolg `PluginPostDeactivateEvent`.
+**deactivatePlugin** (lines 438-526): not installed/not active -> exception; active dependent plugins block it. `PluginPreDeactivateEvent`, `deactivate()`, remove assets, `active=false`, kernel reboot, DB update. On exception `PluginPostDeactivationFailedEvent`, on success `PluginPostDeactivateEvent`.
 
-**updatePlugin** (Z. 267-350): muss installiert sein; `getUpdatePluginVersion()` = `upgradeVersion ?? version`. `PluginPreUpdateEvent`, Systemconfig speichern (bestehende Werte nicht überschreiben), `update()`; wirft `update()`, wird ein aktives Plugin deaktiviert und die Exception weitergeworfen. Danach Assets (nur aktiv, ohne Skip-State), Migrationen, Custom Fields (`deleteMissingXml=true`: ohne XML werden alle Sets des Plugins entfernt), DB-Version, `postUpdate()`, `PluginPostUpdateEvent`.
+**updatePlugin** (lines 267-350): must be installed; `getUpdatePluginVersion()` = `upgradeVersion ?? version`. `PluginPreUpdateEvent`, save system config (do not overwrite existing values), `update()`; if `update()` throws, an active plugin is deactivated and the exception is rethrown. Then assets (only if active, without skip state), migrations, custom fields (`deleteMissingXml=true`: without XML, all of the plugin's sets are removed), DB version, `postUpdate()`, `PluginPostUpdateEvent`.
 
-**uninstallPlugin** (Z. 194-262): aktives Plugin wird zuerst deaktiviert (inkl. Hooks/Events). `PluginPreUninstallEvent`, Assets entfernen. Ohne `keepUserData`: `Plugin::removeMigrations()` löscht Zeilen aus `migration` (VOR `uninstall()`, damit Migrationen bei Fehler erneut laufen). `uninstall()` (Context mit `autoMigrate=false`). Ohne `keepUserData`: Systemconfig des Plugins löschen. DB: `active=false`, `installedAt=null`. Ohne `keepUserData`: Custom Entities und Custom Fields entfernen. Bei `executeComposerCommands()`: `composer remove`. `PluginPostUninstallEvent`.
+**uninstallPlugin** (lines 194-262): an active plugin is deactivated first (incl. hooks/events). `PluginPreUninstallEvent`, remove assets. Without `keepUserData`: `Plugin::removeMigrations()` deletes rows from `migration` (BEFORE `uninstall()`, so migrations run again on failure). `uninstall()` (context with `autoMigrate=false`). Without `keepUserData`: delete the plugin's system config. DB: `active=false`, `installedAt=null`. Without `keepUserData`: remove custom entities and custom fields. With `executeComposerCommands()`: `composer remove`. `PluginPostUninstallEvent`.
 
-Der Core räumt **nicht** auf: Plugin-Tabellen und -Spalten sowie angelegte Zahlungsarten, Regeln, Mail-Templates. Das muss `uninstall()` selbst tun (Doku: nicht blind Entities löschen, z. B. Zahlungsart in historischen Bestellungen; besser deaktivieren).
+The core does **not** clean up: plugin tables and columns as well as created payment methods, rules, mail templates. `uninstall()` must do that itself (docs: do not blindly delete entities, e.g. a payment method used in historical orders; better deactivate it).
 
-### Events (`core/Framework/Plugin/Event/`, alle erben `PluginLifecycleEvent`, `getPlugin(): PluginEntity`)
+### Events (`core/Framework/Plugin/Event/`, all extend `PluginLifecycleEvent`, `getPlugin(): PluginEntity`)
 
-| Event | Zeitpunkt | `getContext()` |
+| Event | When | `getContext()` |
 |---|---|---|
-| `PluginPreInstallEvent` / `PluginPostInstallEvent` | vor `install()` / nach `postInstall()` | `InstallContext` |
-| `PluginPreUpdateEvent` / `PluginPostUpdateEvent` | vor `update()` / nach `postUpdate()` | `UpdateContext` |
-| `PluginPreActivateEvent` / `PluginPostActivateEvent` | vor Reboot und `activate()` / nach `active=true` | `ActivateContext` |
-| `PluginPreDeactivateEvent` / `PluginPostDeactivateEvent` | vor `deactivate()` / nach Deaktivierung | `DeactivateContext` |
-| `PluginPostDeactivationFailedEvent` | Exception bei Deaktivierung (`getException(): ?\Throwable`) | `ActivateContext` |
-| `PluginPreUninstallEvent` / `PluginPostUninstallEvent` | vor Asset-Entfernung / nach DB-Update und Composer-Remove | `UninstallContext` |
+| `PluginPreInstallEvent` / `PluginPostInstallEvent` | before `install()` / after `postInstall()` | `InstallContext` |
+| `PluginPreUpdateEvent` / `PluginPostUpdateEvent` | before `update()` / after `postUpdate()` | `UpdateContext` |
+| `PluginPreActivateEvent` / `PluginPostActivateEvent` | before reboot and `activate()` / after `active=true` | `ActivateContext` |
+| `PluginPreDeactivateEvent` / `PluginPostDeactivateEvent` | before `deactivate()` / after deactivation | `DeactivateContext` |
+| `PluginPostDeactivationFailedEvent` | exception during deactivation (`getException(): ?\Throwable`) | `ActivateContext` |
+| `PluginPreUninstallEvent` / `PluginPostUninstallEvent` | before asset removal / after DB update and Composer remove | `UninstallContext` |
 
-Abonniert wird per FQCN. `PluginEvents` enthält nur DAL-Events der Plugin-Entity (`plugin.written`, `plugin.loaded` ...), keine Lifecycle-Events. Core-Subscriber darauf: `storefront/Theme/Subscriber/PluginLifecycleSubscriber.php` (Theme-Kompilierung), `core/Framework/MessageQueue/Subscriber/PluginLifecycleSubscriber.php` (Scheduled Tasks), `RegisteredIndexerSubscriber` (Indexer).
+Subscribe via FQCN. `PluginEvents` contains only DAL events of the plugin entity (`plugin.written`, `plugin.loaded` ...), no lifecycle events. Core subscribers on them: `storefront/Theme/Subscriber/PluginLifecycleSubscriber.php` (theme compilation), `core/Framework/MessageQueue/Subscriber/PluginLifecycleSubscriber.php` (scheduled tasks), `RegisteredIndexerSubscriber` (indexers).
 
-## 3. Anleitung
+## 3. Instructions
 
-1. Anlegen und erkennen: `bin/console plugin:create SwagExample Swag`, dann `bin/console plugin:refresh` (`-s` unterdrückt die Liste). Für bereits installierte Plugins mit höherer Version auf der Platte wird `upgradeVersion` gesetzt (DB-`version` bleibt); für nicht installierte wird `version` überschrieben.
-2. `bin/console plugin:list` zeigt Version, Upgrade-Version, Installiert/Aktiv.
-3. Gemeinsame Optionen (`AbstractPluginLifecycleCommand`): Argument `plugins` (mehrere; exakter Namens-Treffer, sonst `ContainsFilter`), `-r/--refresh` (führt vorher `plugin:refresh -s` aus), `-c/--clearCache`, `--skip-asset-build` (Context-State `skip-asset-building`: überspringt Assets und Theme-Kompilierung).
+1. Create and discover: `bin/console plugin:create SwagExample Swag`, then `bin/console plugin:refresh` (`-s` suppresses the list). For already installed plugins with a higher version on disk, `upgradeVersion` is set (DB `version` stays); for non-installed ones, `version` is overwritten.
+2. `bin/console plugin:list` shows version, upgrade version, installed/active.
+3. Shared options (`AbstractPluginLifecycleCommand`): argument `plugins` (multiple; exact name match, otherwise `ContainsFilter`), `-r/--refresh` (runs `plugin:refresh -s` first), `-c/--clearCache`, `--skip-asset-build` (context state `skip-asset-building`: skips assets and theme compilation).
 
-| Befehl | Besonderheiten |
+| Command | Specifics |
 |---|---|
-| `plugin:install <p>` | `-a/--activate` aktiviert direkt. `--reinstall` deinstalliert zuvor **ohne** `--keep-user-data` (Daten weg!). `-a` zusammen mit `-r`: Aktivierung übersprungen („Can not refresh and activate in same request"). Bereits installierte werden übersprungen (mit `-a` aktiviert). Abhängigkeiten via `sortPluginsByRequirements`. |
-| `plugin:activate <p>` | `PluginNotInstalledException`, wenn nicht installiert |
-| `plugin:deactivate <p>` | wirft, wenn nicht aktiv oder aktive Abhängige existieren (`PluginException::hasActiveDependants`) |
-| `plugin:update <p>` | aktualisiert auf `upgradeVersion` |
-| `plugin:update:all` | `refreshPlugins`, dann nur Plugins mit `upgradeVersion !== null` **und aktiv**; nur Option `--skip-asset-build` |
-| `plugin:uninstall <p>` | `--keep-user-data`; aktives Plugin wird zuvor deaktiviert |
+| `plugin:install <p>` | `-a/--activate` activates directly. `--reinstall` first uninstalls **without** `--keep-user-data` (data gone!). `-a` together with `-r`: activation skipped ("Can not refresh and activate in same request"). Already installed ones are skipped (activated with `-a`). Dependencies via `sortPluginsByRequirements`. |
+| `plugin:activate <p>` | `PluginNotInstalledException` if not installed |
+| `plugin:deactivate <p>` | throws if not active or active dependants exist (`PluginException::hasActiveDependants`) |
+| `plugin:update <p>` | updates to `upgradeVersion` |
+| `plugin:update:all` | `refreshPlugins`, then only plugins with `upgradeVersion !== null` **and active**; only option `--skip-asset-build` |
+| `plugin:uninstall <p>` | `--keep-user-data`; an active plugin is deactivated first |
 
 ```bash
 bin/console plugin:refresh
 bin/console plugin:install --activate SwagExample
-bin/console plugin:update SwagExample -c        # nach Versionserhöhung in composer.json + refresh
+bin/console plugin:update SwagExample -c        # after a version bump in composer.json + refresh
 bin/console plugin:deactivate SwagExample
 bin/console plugin:uninstall SwagExample --keep-user-data
-bin/console plugin:uninstall SwagExample        # löscht Daten
+bin/console plugin:uninstall SwagExample        # deletes data
 ```
 
-4. Update-Ablauf: Version in `composer.json` erhöhen, `plugin:refresh` (erzeugt `upgradeVersion`), `plugin:update`.
-5. Aufräum-Regeln: Schemaänderungen immer per Migration; `update()` nur für einmalige Datenanpassungen. `uninstall()` mit `if ($uninstallContext->keepUserData()) { return; }` beginnen. Zugefügte Spalten/Tabellen erst danach löschen, bei Fremdschlüsseln auf Core-Tabellen zuerst Constraints droppen. Zahlungsarten o. ä. in `deactivate()` auf inaktiv, in `activate()` wieder aktiv setzen. Cache nach `plugin:*` mit `-c` leeren.
+4. Update flow: bump the version in `composer.json`, `plugin:refresh` (creates `upgradeVersion`), `plugin:update`.
+5. Cleanup rules: schema changes always via migration; `update()` only for one-off data adjustments. Start `uninstall()` with `if ($uninstallContext->keepUserData()) { return; }`. Only then delete added columns/tables; with foreign keys to core tables, drop the constraints first. Set payment methods and the like to inactive in `deactivate()` and back to active in `activate()`. Clear the cache after `plugin:*` with `-c`.
 
-## 4. Beispiele
+## 4. Examples
 
 `custom/plugins/SwagExample/src/SwagExample.php`
 
@@ -111,19 +111,19 @@ class SwagExample extends Plugin
 {
     public function install(InstallContext $installContext): void
     {
-        // Läuft VOR den Migrationen; Plugin-Services sind hier nicht verfügbar.
+        // Runs BEFORE the migrations; plugin services are not available here.
     }
 
     public function postInstall(InstallContext $installContext): void
     {
-        // Nach Migrationen und nach Setzen von installedAt.
+        // After migrations and after installedAt has been set.
     }
 
     public function update(UpdateContext $updateContext): void
     {
-        // Läuft VOR den Migrationen des Updates. Schemaänderungen gehören in Migrationen.
+        // Runs BEFORE the update's migrations. Schema changes belong in migrations.
         if (version_compare($updateContext->getCurrentPluginVersion(), '1.1.0', '<')) {
-            // einmalige Datenanpassung beim Update von < 1.1.0
+            // one-off data adjustment when updating from < 1.1.0
         }
     }
 
@@ -133,7 +133,7 @@ class SwagExample extends Plugin
 
     public function activate(ActivateContext $activateContext): void
     {
-        // Plugin-Services verfügbar (Kernel wurde neu gebootet).
+        // Plugin services available (kernel was rebooted).
     }
 
     public function deactivate(DeactivateContext $deactivateContext): void
@@ -143,7 +143,7 @@ class SwagExample extends Plugin
     public function uninstall(UninstallContext $uninstallContext): void
     {
         if ($uninstallContext->keepUserData()) {
-            return; // Tabellen und Daten behalten
+            return; // keep tables and data
         }
 
         /** @var Connection $connection */
@@ -153,7 +153,7 @@ class SwagExample extends Plugin
 }
 ```
 
-`src/Migration/Migration1730000000CreateExampleTable.php` (Details in [T-04](./04-datenbank-migrationen.md); Gerüst [../templates/migration/README.md](../templates/migration/README.md))
+`src/Migration/Migration1730000000CreateExampleTable.php` (details in [T-04](./04-database-migrations.md); scaffold [../templates/migration/README.md](../templates/migration/README.md))
 
 ```php
 <?php declare(strict_types=1);
@@ -184,7 +184,7 @@ class Migration1730000000CreateExampleTable extends MigrationStep
 }
 ```
 
-Optionaler Subscriber `src/Subscriber/PluginLifecycleSubscriber.php`:
+Optional subscriber `src/Subscriber/PluginLifecycleSubscriber.php`:
 
 ```php
 <?php declare(strict_types=1);
@@ -203,7 +203,7 @@ class PluginLifecycleSubscriber implements EventSubscriberInterface
 
     public function onPostActivate(PluginPostActivateEvent $event): void
     {
-        $event->getPlugin()->getName(); // PluginEntity; $event->getContext() ist ein ActivateContext
+        $event->getPlugin()->getName(); // PluginEntity; $event->getContext() is an ActivateContext
     }
 }
 ```
@@ -223,53 +223,53 @@ return static function (ContainerConfigurator $container): void {
 };
 ```
 
-Der Subscriber des Plugins selbst existiert im Container nur, wenn das Plugin aktiv ist; Events des eigenen Plugins vor der Aktivierung sind nicht zuverlässig.
+The plugin's own subscriber exists in the container only when the plugin is active; events of the plugin itself before activation are not reliable.
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-1. Eigene Services in `install()` verwenden: Das Plugin ist noch nicht aktiv, der Container enthält seine Services nicht. Nur Core-Services via `$this->container->get(...)`.
-2. Schema in `install()`/`update()` per SQL statt per Migration (Mehrfachausführung, keine Nachvollziehbarkeit).
-3. `keepUserData()` ignorieren und alles löschen (Datenverlust, kaputte Bestellungen). `uninstall()` läuft **immer**, auch mit `keepUserData`.
-4. Nicht idempotenter Lifecycle-Code/Migrationen: kein automatischer Rollback; Retry muss funktionieren (`IF NOT EXISTS`, `INSERT IGNORE`).
-5. `plugin:update:all` aktualisiert nur **aktive** Plugins.
-6. Version erhöht, aber `plugin:refresh` vergessen -> keine `upgradeVersion`.
-7. `plugin:install --reinstall` erwartet Datenerhalt: es wird ohne `keepUserData` deinstalliert.
-8. Migrationen bei `activate()` erwartet: dort ist `autoMigrate` per Default false (Core setzt es vor `activate()`); nur mit `setAutoMigrate(true)` in `activate()` laufen sie.
-9. Lange Operationen in `activate()`/`deactivate()`: der Kernel-Reboot kostet Zeit. `rebuildContainer()` darf nur `false` liefern, wenn das Plugin seine Services bei Aktivierung nicht braucht (wirkt nur in CLI).
-10. Konstruktor/`isActive()` der Plugin-Klasse überschreiben: beide `final`.
-11. `PluginLifecycleService` direkt nutzen: `@internal`, keine API-Stabilität.
-12. Context-Source: In der Administration läuft `activate` mit Admin-Source und erzwingt den Reboot, in der CLI mit `SystemSource`.
+1. Using your own services in `install()`: the plugin is not active yet, the container does not contain its services. Only core services via `$this->container->get(...)`.
+2. Schema in `install()`/`update()` via SQL instead of a migration (repeated execution, no traceability).
+3. Ignoring `keepUserData()` and deleting everything (data loss, broken orders). `uninstall()` **always** runs, even with `keepUserData`.
+4. Non-idempotent lifecycle code/migrations: no automatic rollback; a retry must work (`IF NOT EXISTS`, `INSERT IGNORE`).
+5. `plugin:update:all` updates only **active** plugins.
+6. Version bumped but `plugin:refresh` forgotten -> no `upgradeVersion`.
+7. Expecting `plugin:install --reinstall` to preserve data: it uninstalls without `keepUserData`.
+8. Expecting migrations on `activate()`: there `autoMigrate` is false by default (the core sets it before `activate()`); they only run with `setAutoMigrate(true)` in `activate()`.
+9. Long operations in `activate()`/`deactivate()`: the kernel reboot takes time. `rebuildContainer()` may only return `false` if the plugin does not need its services on activation (only takes effect in the CLI).
+10. Overriding the constructor/`isActive()` of the plugin class: both are `final`.
+11. Using `PluginLifecycleService` directly: `@internal`, no API stability.
+12. Context source: in the Administration, `activate` runs with an admin source and forces the reboot; in the CLI with `SystemSource`.
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-- An Hooks, Contexts und Events ist in 6.7.15.1 nichts `@deprecated` (per grep geprüft).
-- Deprecated mit Entfernung in 6.8.0: `plugin:list --json` (stattdessen `--format json`), `AbstractPluginLifecycleCommand::handleClearCacheOption()` (Ersatz `handleClearCache()`).
-- Lifecycle-Events werden per FQCN abonniert; es gibt keine String-Konstanten in `PluginEvents`.
+- Nothing on hooks, contexts and events is `@deprecated` in 6.7.15.1 (checked via grep).
+- Deprecated with removal in 6.8.0: `plugin:list --json` (use `--format json` instead), `AbstractPluginLifecycleCommand::handleClearCacheOption()` (replacement `handleClearCache()`).
+- Lifecycle events are subscribed via FQCN; there are no string constants in `PluginEvents`.
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] `uninstall()` prüft zuerst `keepUserData()`.
-- [ ] Schemaänderungen nur in Migrationen, idempotent.
-- [ ] `update()` enthält nur einmalige Datenanpassungen, versionsabhängig über `getCurrentPluginVersion()`.
-- [ ] Keine Plugin-Services in `install()` verwendet.
-- [ ] Zahlungsarten/Regeln/Mail-Templates werden deaktiviert statt gelöscht.
-- [ ] Nach Versionserhöhung `plugin:refresh` dann `plugin:update`.
-- [ ] Zugefügte Spalten in Core-Tabellen und Fremdschlüssel in `uninstall()` entfernt.
-- [ ] Cache nach Lifecycle-Befehlen geleert (`-c`).
-- [ ] Lifecycle-Events per FQCN abonniert, Subscriber in `services.php` registriert.
+- [ ] `uninstall()` checks `keepUserData()` first.
+- [ ] Schema changes only in migrations, idempotent.
+- [ ] `update()` contains only one-off data adjustments, version-dependent via `getCurrentPluginVersion()`.
+- [ ] No plugin services used in `install()`.
+- [ ] Payment methods/rules/mail templates are deactivated instead of deleted.
+- [ ] After a version bump, `plugin:refresh` then `plugin:update`.
+- [ ] Added columns in core tables and foreign keys removed in `uninstall()`.
+- [ ] Cache cleared after lifecycle commands (`-c`).
+- [ ] Lifecycle events subscribed via FQCN, subscriber registered in `services.php`.
 
-## 7. Quellen
+## 7. Sources
 
-Doku:
+Docs:
 - https://developer.shopware.com/docs/guides/plugins/plugins/plugin-fundamentals/plugin-lifecycle.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/install-activate-plugin.html
 
-Quellcode (relativ zu `vendor/shopware/`): `core/Framework/Plugin.php`; `core/Framework/Plugin/PluginLifecycleService.php` (`installPlugin`, `uninstallPlugin`, `updatePlugin`, `activatePlugin`, `deactivatePlugin`, `runMigrations`, `rebuildContainerWithNewPluginState`); `core/Framework/Plugin/PluginService.php` (`refreshPlugins`); `core/Framework/Plugin/Context/*`; `core/Framework/Plugin/Event/*`; `core/Framework/Plugin/PluginEvents.php`; `core/Framework/Plugin/Command/{PluginRefreshCommand,PluginListCommand}.php` und `Command/Lifecycle/*`; `storefront/Theme/Subscriber/PluginLifecycleSubscriber.php`; `administration/Resources/app/administration/src/module/sw-extension/service/extension-store-action.service.ts`.
+Source code (relative to `vendor/shopware/`): `core/Framework/Plugin.php`; `core/Framework/Plugin/PluginLifecycleService.php` (`installPlugin`, `uninstallPlugin`, `updatePlugin`, `activatePlugin`, `deactivatePlugin`, `runMigrations`, `rebuildContainerWithNewPluginState`); `core/Framework/Plugin/PluginService.php` (`refreshPlugins`); `core/Framework/Plugin/Context/*`; `core/Framework/Plugin/Event/*`; `core/Framework/Plugin/PluginEvents.php`; `core/Framework/Plugin/Command/{PluginRefreshCommand,PluginListCommand}.php` and `Command/Lifecycle/*`; `storefront/Theme/Subscriber/PluginLifecycleSubscriber.php`; `administration/Resources/app/administration/src/module/sw-extension/service/extension-store-action.service.ts`.
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ UNGEPRÜFT: Es wurden keine Plugins ausgeführt, die Beispiele sind aus dem Code abgeleitet (kein `php -l`, keine `bin/console`-Läufe). Zeilennummern in Abschnitt 2 sind ungefähr.
-- ⚠ UNGEPRÜFT: „Plugin-eigene Services sind in `install()` nicht verfügbar" und „eigener Subscriber erhält `PluginPostInstallEvent` nicht zuverlässig" sind aus dem Code abgeleitet, nicht per Test bestätigt.
-- ⚠ LÜCKE: Doku nennt fünf Stufen und `postInstall`/`postUpdate` separat; der Code kennt sieben Hooks. Übrige CLI-Befehle/Optionen sind nur im Code belegt.
-- ⚠ LÜCKE: Docblock von `UninstallContext::keepUserData()` („migrations will also be removed" bei true) ist irreführend; Code entfernt Migrationen bei `keepUserData()===false`.
-- ⚠ UNGEPRÜFT: Unterschiede zu 6.5/6.6 sind nicht belegt (keine alten Quellen lokal). Composer-Logik (`executeComposerCommands`, `cluster_setup`) nur oberflächlich geprüft, siehe [T-02](./02-plugin-aufbau.md).
+- ⚠ UNVERIFIED: No plugins were executed; the examples are derived from the code (no `php -l`, no `bin/console` runs). Line numbers in section 2 are approximate.
+- ⚠ UNVERIFIED: "The plugin's own services are not available in `install()`" and "your own subscriber does not reliably receive `PluginPostInstallEvent`" are derived from the code, not confirmed by a test.
+- ⚠ GAP: The docs name five stages and `postInstall`/`postUpdate` separately; the code has seven hooks. The remaining CLI commands/options are only documented in the code.
+- ⚠ GAP: The docblock of `UninstallContext::keepUserData()` ("migrations will also be removed" when true) is misleading; the code removes migrations when `keepUserData()===false`.
+- ⚠ UNVERIFIED: Differences from 6.5/6.6 are not established (no old sources available locally). Composer logic (`executeComposerCommands`, `cluster_setup`) only checked superficially, see [T-02](./02-plugin-structure.md).

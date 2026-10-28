@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Pfad im Plugin: custom/plugins/SwagExample/phpunit.xml.dist -->
+<!-- Path in the plugin: custom/plugins/SwagExample/phpunit.xml.dist -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="../../../vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="tests/TestBootstrap.php"

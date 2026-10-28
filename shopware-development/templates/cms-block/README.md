@@ -1,8 +1,8 @@
-# Template: CMS-Block (swag-example-block)
+# Template: CMS block (swag-example-block)
 
-Zweck: Eigener Block für Shopping Experiences mit zwei Slots (links Text, rechts Bild), Admin-Registrierung (`registerCmsBlock`), Block-Komponente, Preview-Komponente und Storefront-Block-Template. Shopware 6.7.15.1. Die Slot-Elemente sind Core-Elemente (`text`, `image`), es ist kein eigenes Element nötig. Für ein eigenes Element siehe [cms-element](../cms-element/README.md).
+Purpose: Custom block for Shopping Experiences with two slots (text on the left, image on the right), admin registration (`registerCmsBlock`), block component, preview component and storefront block template. Shopware 6.7.15.1. The slot elements are core elements (`text`, `image`), no custom element is needed. For a custom element see [cms-element](../cms-element/README.md).
 
-## Dateibaum
+## File tree
 
 ```
 SwagExample/
@@ -12,61 +12,61 @@ SwagExample/
     └── Resources/
         ├── views/storefront/block/cms-block-swag-example-block.html.twig
         └── app/administration/src/
-            ├── main.js                                          # importiert den Block
-            ├── snippet/{de,en}.json                       # Block-Label
+            ├── main.js                                          # imports the block
+            ├── snippet/{de,en}.json                       # block label
             └── module/sw-cms/blocks/text/swag-example-block/
                 ├── index.js                                     # Component.register + registerCmsBlock
-                ├── component/{index.js,*.html.twig,*.scss}      # Editor-Darstellung mit <slot>
-                └── preview/{index.js,*.html.twig,*.scss}        # Vorschau im Block-Menü
+                ├── component/{index.js,*.html.twig,*.scss}      # editor rendering with <slot>
+                └── preview/{index.js,*.html.twig,*.scss}        # preview in the block menu
 ```
 
-## Platzhalter
+## Placeholders
 
-| Platzhalter | Ersetzen durch | Wo |
+| Placeholder | Replace with | Where |
 |---|---|---|
-| `swag-example-block` | Blockname (Kebab-Case, mit Vendor-Präfix) | `name` in `registerCmsBlock`, Dateiname `cms-block-<name>.html.twig`, Komponentennamen, Ordner |
-| `text` (Ordner/`category`) | Block-Kategorie | `category` in `registerCmsBlock` (Core-Kategorien u. a. `text`, `image`, `video`, `text-image`, `commerce`, `sidebar`, `form`, `html`) |
-| `left` / `right` | Slot-Namen | `slots` in `index.js`, `<slot name>` in der Komponente, `getSlot('...')` im Storefront-Twig |
-| `SwagExample` / `swag/example` | Plugin-Name | Klasse, Namespace, `composer.json` |
-| `swag-example.blocks.swagExampleBlock.label` | Eigener Snippet-Schlüssel | `index.js`, Snippet-Dateien |
+| `swag-example-block` | Block name (kebab case, with vendor prefix) | `name` in `registerCmsBlock`, file name `cms-block-<name>.html.twig`, component names, folder |
+| `text` (folder/`category`) | Block category | `category` in `registerCmsBlock` (core categories among others `text`, `image`, `video`, `text-image`, `commerce`, `sidebar`, `form`, `html`) |
+| `left` / `right` | Slot names | `slots` in `index.js`, `<slot name>` in the component, `getSlot('...')` in the storefront Twig |
+| `SwagExample` / `swag/example` | Plugin name | Class, namespace, `composer.json` |
+| `swag-example.blocks.swagExampleBlock.label` | Custom snippet key | `index.js`, snippet files |
 
-Der Blockname (`name`) entspricht dem Feld `cms_block.type` und muss dem Dateinamen des Storefront-Templates entsprechen. Sonst bleibt der Block leer, weil `section/cms-section-block-container.html.twig` per `sw_include ... ignore missing` einbindet.
+The block name (`name`) corresponds to the field `cms_block.type` and must match the file name of the storefront template. Otherwise the block stays empty, because `section/cms-section-block-container.html.twig` includes it via `sw_include ... ignore missing`.
 
-## Einbindung / CLI
+## Integration / CLI
 
 ```bash
 bin/console plugin:refresh
 bin/console plugin:install --activate SwagExample
-bin/build-administration.sh        # bzw. bin/watch-administration.sh
+bin/build-administration.sh        # or bin/watch-administration.sh
 bin/console cache:clear
 ```
 
-Im Admin: Inhalte -> Shopping Experiences -> Layout anlegen -> Block-Menü -> Kategorie "Text" -> Block einfügen. Layout zuweisen über die Layout-Zuweisung oder in Kategorie/Produkt/Landingpage (`cmsPageId`).
+In the admin: Content -> Shopping Experiences -> create layout -> block menu -> category "Text" -> insert block. Assign the layout via the layout assignment or in category/product/landing page (`cmsPageId`).
 
-## Regeln (am Quellcode belegt)
+## Rules (verified against the source code)
 
-- `registerCmsBlock({ name, component, defaultConfig, ... })`: gibt `false` zurück und registriert nichts, wenn `name` oder `component` fehlt oder `flag === false`. Optional: `label`, `category`, `previewComponent`, `previewImage`, `configComponent`, `slots`, `allowedPageTypes`, `hidden`, `removable`.
-- `slots`: Zuordnung Slot-Name -> Elementtyp (String) oder `{ type, default: { config, data } }`.
-- Wrapper im Storefront: der Block-Twig wird innerhalb `div.cms-block-container-row.row` gerendert, daher Spaltenklassen wie `col-md-6`.
-- Sektionstypen sind nur `default` und `sidebar`. Sichtbarkeit (`visibility` mobil/tablet/desktop) wird per CSS-Klassen `hidden-*` gesteuert, der HTML-Code wird trotzdem ausgeliefert. Regelbasierte Sichtbarkeit (Rule Builder) gibt es für CMS-Blöcke/Sektionen in 6.7.15.1 nicht.
-- Eigene Block-Kategorien brauchen das Admin-Snippet `apps.sw-cms.detail.label.blockCategory.<category>`. Deshalb nutzt das Gerüst die Core-Kategorie `text`.
-- Blockname mit Vendor-Präfix wählen, ein Core-Name (z. B. `text`) würde die Registrierung überschreiben.
-- Jeder Block-Twig beginnt mit `{% block block_<name> %}`, damit Dritte per `sw_extends` erweitern können.
+- `registerCmsBlock({ name, component, defaultConfig, ... })`: returns `false` and registers nothing if `name` or `component` is missing or `flag === false`. Optional: `label`, `category`, `previewComponent`, `previewImage`, `configComponent`, `slots`, `allowedPageTypes`, `hidden`, `removable`.
+- `slots`: mapping slot name -> element type (string) or `{ type, default: { config, data } }`.
+- Wrapper in the storefront: the block Twig is rendered inside `div.cms-block-container-row.row`, hence column classes such as `col-md-6`.
+- Section types are only `default` and `sidebar`. Visibility (`visibility` mobile/tablet/desktop) is controlled via the CSS classes `hidden-*`; the HTML is delivered anyway. Rule-based visibility (Rule Builder) does not exist for CMS blocks/sections in 6.7.15.1.
+- Custom block categories need the admin snippet `apps.sw-cms.detail.label.blockCategory.<category>`. That is why the scaffold uses the core category `text`.
+- Choose a block name with a vendor prefix; a core name (e.g. `text`) would override the registration.
+- Every block Twig starts with `{% block block_<name> %}` so that third parties can extend it via `sw_extends`.
 
-## Lücken und Hinweise
+## Gaps and notes
 
-- ⚠ UNGEPRÜFT: Gerüst nicht gebaut/installiert (kein PHP, kein Admin-Build). JS per `node --check`, JSON per `JSON.parse`. Muster 1:1 vom Core-Block `image-text` (`module/sw-cms/blocks/text-image/image-text/`) und `storefront/block/cms-block-image-text.html.twig` abgeleitet.
-- ⚠ UNGEPRÜFT: Ob die Objektform `Shopware.Component.register(name, {...})` in 6.7.15.1 für Plugins gleichwertig zur hier genutzten Lazy-Form (`() => import(...)`, Core-Standard) funktioniert, wurde nicht geprüft.
-- ⚠ LÜCKE: Block-Konfigurationskomponente (`configComponent`) und Vorschaubild (`previewImage`) sind nicht enthalten.
-- ⚠ LÜCKE: Das Label (`label`) ist ein Snippet-Schlüssel. Snippets werden vom `SnippetFinder` aus `Resources/app/administration/src/**/<locale>.json` gelesen (siehe Referenz 18).
+- ⚠ UNVERIFIED: Scaffold not built/installed (no PHP, no admin build). JS via `node --check`, JSON via `JSON.parse`. Pattern derived 1:1 from the core block `image-text` (`module/sw-cms/blocks/text-image/image-text/`) and `storefront/block/cms-block-image-text.html.twig`.
+- ⚠ UNVERIFIED: Whether the object form `Shopware.Component.register(name, {...})` works for plugins in 6.7.15.1 equivalently to the lazy form used here (`() => import(...)`, core standard) was not checked.
+- ⚠ GAP: Block configuration component (`configComponent`) and preview image (`previewImage`) are not included.
+- ⚠ GAP: The label (`label`) is a snippet key. Snippets are read by the `SnippetFinder` from `Resources/app/administration/src/**/<locale>.json` (see reference 18).
 
-## Referenzen
+## References
 
-- [22 CMS-Blöcke & Sichtbarkeit](../../references/22-cms-bloecke-sichtbarkeit.md)
-- [21 CMS-Elemente](../../references/21-cms-elemente.md)
-- [14 Storefront-Twig-Templates](../../references/14-storefront-twig-templates.md)
-- [18 Snippets & Übersetzungen](../../references/18-snippets-uebersetzungen.md)
-- [49 Build & Deployment](../../references/49-build-deployment.md)
-- Weitere Templates: [cms-element](../cms-element/README.md), [plugin](../plugin/README.md)
+- [22 CMS blocks & visibility](../../references/22-cms-blocks-visibility.md)
+- [21 CMS elements](../../references/21-cms-elements.md)
+- [14 Storefront Twig templates](../../references/14-storefront-twig-templates.md)
+- [18 Snippets & translations](../../references/18-snippets-translations.md)
+- [49 Build & deployment](../../references/49-build-deployment.md)
+- More templates: [cms-element](../cms-element/README.md), [plugin](../plugin/README.md)
 
-- Snippet-Dateien sind sprachneutral benannt (`de.json`/`en.json` bzw. `storefront.de.json`/`storefront.en.json`); regionale Namen (`de-DE.json`) beanstandet `bin/console translation:lint-filenames` ohne sprachneutrale Basisdatei, Reparatur mit `--fix` (siehe [T-18](../../references/18-snippets-uebersetzungen.md)).
+- Snippet files are named language-neutrally (`de.json`/`en.json` or `storefront.de.json`/`storefront.en.json`); `bin/console translation:lint-filenames` flags regional names (`de-DE.json`) without a language-neutral base file, fix with `--fix` (see [T-18](../../references/18-snippets-translations.md)).

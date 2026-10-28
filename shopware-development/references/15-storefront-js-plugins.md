@@ -1,23 +1,23 @@
-# Storefront-JS-Plugins (Referenz, Shopware 6.7.15.1)
+# Storefront JS plugins (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn eigenes JavaScript für die Storefront geschrieben, ein Core-JS-Plugin überschrieben/entfernt, auf Plugin-Events reagiert oder Daten per `fetch` nachgeladen wird. `SF` steht für `storefront/Resources/app/storefront/src` im Core.
-Abgrenzung: SCSS/Assets siehe [T-13](./13-storefront-styling-assets.md), Twig-Anbindung siehe [T-14](./14-storefront-twig-templates.md), Backend-Routen für AJAX siehe [T-16](./16-storefront-controller-pages.md), Build/Watch siehe [T-49](./49-build-deployment.md), Admin-JS siehe [T-24](./24-admin-module.md).
+This reference applies when custom JavaScript is written for the Storefront, a core JS plugin is overridden/removed, plugin events are handled, or data is loaded via `fetch`. `SF` stands for `storefront/Resources/app/storefront/src` in the core.
+Scope: SCSS/assets see [T-13](./13-storefront-styling-assets.md), Twig binding see [T-14](./14-storefront-twig-templates.md), backend routes for AJAX see [T-16](./16-storefront-controller-pages.md), build/watch see [T-49](./49-build-deployment.md), admin JS see [T-24](./24-admin-modules.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-- **Plugin-Klasse:** ES-Klasse, die `Plugin` (`SF/plugin-system/plugin.class.js`) erweitert, in Plugins/Themes über `window.PluginBaseClass` erreichbar. `init()` ist Pflicht (sonst Warnung „The init method … is not defined“).
-- **Registrierung:** `PluginManager.register(name, klasse, selector, options)`. Der Manager bindet das Plugin an alle Elemente des CSS-Selektors. Der Name ist die Instanz-ID, muss eindeutig sein und bestimmt die Data-Attribute (dash-case: `ScrollHint` → `data-scroll-hint`).
-- **Pflicht-Einstieg:** `src/Resources/app/storefront/src/main.js`; `main.ts` hat Vorrang (`StorefrontPluginConfigurationFactory::getEntryFile()`). Ohne diese Datei wird das Bundle stillschweigend ignoriert (`entryFilePath = null`, `BundleConfigGenerator`).
-- **Async-Registrierung** (Lazy-Chunk, empfohlen): `register('Name', () => import('./x.plugin'), '[data-x]')`. Der Manager erkennt Async daran, dass der Wert keine `prototype` hat. Der Core registriert fast alles so (`SF/main.js`).
-- **Optionen** (Deep-Merge in dieser Reihenfolge): `static options`, `this.options`, Konstruktor-/Register-Optionen, `data-<name>-config` (PluginConfigManager), `data-<name>-options` (JSON).
-- **Überschreiben:** `PluginManager.override('Name', NeueKlasse, selector)` = `extend(name, name, …)`: alte Registrierung wird per `deregister` gelöscht, neue registriert, bestehende Instanzen werden über `destroy()` abgebaut und neu initialisiert. **Erweitern unter neuem Namen:** `PluginManager.extend('Alt', 'Neu', {…methoden}, selector)`. **Entfernen:** `PluginManager.deregister('OffCanvasCart', '[data-off-canvas-cart]')`.
-- **Events:** Jedes Plugin hat `this.$emitter` (`NativeEventEmitter`) mit `publish(name, detail, cancelable)`, `subscribe(name[.namespace], cb, {once, scope})`, `unsubscribe(name[.namespace])`, `reset()`. Fremde Events: `PluginManager.getPluginInstanceFromElement(el, 'PluginName').$emitter.subscribe(...)`.
-- **Helfer (6.7):** `fetch()` ist Standard. `HttpClient` und `DomAccess` sind `@deprecated tag:v6.8.0`. `PseudoModalUtil` und `AjaxModal`-Plugin sind aktuell. `DatePickerPlugin` (flatpickr) ist registriert, wird aber vom Core nicht selbst genutzt.
-- **Externe Skripte als `<script>`-Tag:** Twig-Block `base_body_script` in `base.html.twig` (stabil).
+- **Plugin class:** ES class that extends `Plugin` (`SF/plugin-system/plugin.class.js`), available in plugins/themes via `window.PluginBaseClass`. `init()` is mandatory (otherwise warning "The init method … is not defined").
+- **Registration:** `PluginManager.register(name, class, selector, options)`. The manager binds the plugin to all elements of the CSS selector. The name is the instance ID, must be unique and determines the data attributes (dash-case: `ScrollHint` → `data-scroll-hint`).
+- **Required entry:** `src/Resources/app/storefront/src/main.js`; `main.ts` takes precedence (`StorefrontPluginConfigurationFactory::getEntryFile()`). Without this file the bundle is silently ignored (`entryFilePath = null`, `BundleConfigGenerator`).
+- **Async registration** (lazy chunk, recommended): `register('Name', () => import('./x.plugin'), '[data-x]')`. The manager detects async by the value having no `prototype`. The core registers almost everything this way (`SF/main.js`).
+- **Options** (deep merge in this order): `static options`, `this.options`, constructor/register options, `data-<name>-config` (PluginConfigManager), `data-<name>-options` (JSON).
+- **Overriding:** `PluginManager.override('Name', NewClass, selector)` = `extend(name, name, …)`: the old registration is deleted via `deregister`, the new one registered, existing instances are torn down via `destroy()` and re-initialized. **Extending under a new name:** `PluginManager.extend('Old', 'New', {…methods}, selector)`. **Removing:** `PluginManager.deregister('OffCanvasCart', '[data-off-canvas-cart]')`.
+- **Events:** Every plugin has `this.$emitter` (`NativeEventEmitter`) with `publish(name, detail, cancelable)`, `subscribe(name[.namespace], cb, {once, scope})`, `unsubscribe(name[.namespace])`, `reset()`. Events of other plugins: `PluginManager.getPluginInstanceFromElement(el, 'PluginName').$emitter.subscribe(...)`.
+- **Helpers (6.7):** `fetch()` is the standard. `HttpClient` and `DomAccess` are `@deprecated tag:v6.8.0`. `PseudoModalUtil` and the `AjaxModal` plugin are current. `DatePickerPlugin` (flatpickr) is registered but not used by the core itself.
+- **External scripts as `<script>` tag:** Twig block `base_body_script` in `base.html.twig` (stable).
 
-Verzeichnisbaum:
+Directory tree:
 
 ```
 custom/plugins/SwagExample/
@@ -26,28 +26,28 @@ custom/plugins/SwagExample/
     └── Resources/
         ├── app/storefront/
         │   ├── src/
-        │   │   ├── main.js                       # PFLICHT
+        │   │   ├── main.js                       # REQUIRED
         │   │   └── scroll-hint/scroll-hint.plugin.js
-        │   └── dist/storefront/js/swag-example/swag-example.js   # Build-Ergebnis
+        │   └── dist/storefront/js/swag-example/swag-example.js   # build result
         └── views/storefront/base.html.twig
 ```
 
-Das Plugin-Bundle wird zu `dist/storefront/js/<technical-name-dashed>/<technical-name-dashed>.js` kompiliert.
+The plugin bundle is compiled to `dist/storefront/js/<technical-name-dashed>/<technical-name-dashed>.js`.
 
-## 3. Anleitung
+## 3. Instructions
 
-1. Plugin anlegen/aktivieren, falls nötig: `bin/console plugin:create SwagExample`, `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample` (siehe [T-01](./01-projektstruktur-dev-umgebung.md), [T-02](./02-plugin-aufbau.md)).
-2. `src/Resources/app/storefront/src/main.js` und `<name>/<name>.plugin.js` anlegen.
-3. Klasse mit `const { PluginBaseClass } = window;` erweitern, `static options` definieren, `init()` implementieren. Alles, was außerhalb von `this.el` registriert wird (`window`-/`document`-Listener), in `destroy()` wieder entfernen.
-4. In `main.js` mit `PluginManager.register(Name, () => import(...), '[data-…]')` registrieren.
-5. Im Twig-Template `data-<dash-name>="true"` setzen, optional `data-<dash-name>-options='{…json…}'`.
-6. Bauen: `bin/build-storefront.sh` (führt `bundle:dump`, `feature:dump`, npm-Install und Build aus) oder `bin/watch-storefront.sh`. Danach bei Bedarf `bin/console theme:compile` und `bin/console cache:clear`.
-7. Im Browser prüfen: `PluginManager.getPluginList()`, `PluginManager.getPluginInstances('ScrollHint')`.
-8. Nach AJAX-Nachladen: `window.PluginManager.initializePluginsInParentElement(el)`.
+1. Create/activate the plugin if needed: `bin/console plugin:create SwagExample`, `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample` (see [T-01](./01-project-structure-dev-environment.md), [T-02](./02-plugin-structure.md)).
+2. Create `src/Resources/app/storefront/src/main.js` and `<name>/<name>.plugin.js`.
+3. Extend the class with `const { PluginBaseClass } = window;`, define `static options`, implement `init()`. Remove everything that is registered outside of `this.el` (`window`/`document` listeners) again in `destroy()`.
+4. Register in `main.js` with `PluginManager.register(Name, () => import(...), '[data-…]')`.
+5. In the Twig template set `data-<dash-name>="true"`, optionally `data-<dash-name>-options='{…json…}'`.
+6. Build: `bin/build-storefront.sh` (runs `bundle:dump`, `feature:dump`, npm install and build) or `bin/watch-storefront.sh`. Afterwards, if needed, `bin/console theme:compile` and `bin/console cache:clear`.
+7. Check in the browser: `PluginManager.getPluginList()`, `PluginManager.getPluginInstances('ScrollHint')`.
+8. After loading content via AJAX: `window.PluginManager.initializePluginsInParentElement(el)`.
 
-## 4. Beispiele
+## 4. Examples
 
-Gerüst: [../templates/storefront-js-plugin/README.md](../templates/storefront-js-plugin/README.md).
+Scaffold: [../templates/storefront-js-plugin/README.md](../templates/storefront-js-plugin/README.md).
 
 `src/Resources/app/storefront/src/scroll-hint/scroll-hint.plugin.js`
 ```javascript
@@ -55,7 +55,7 @@ const { PluginBaseClass } = window;
 
 export default class ScrollHintPlugin extends PluginBaseClass {
     static options = {
-        text: 'Ende erreicht',
+        text: 'End reached',
         visibleClass: 'is-visible',
         offset: 100,
     };
@@ -67,11 +67,11 @@ export default class ScrollHintPlugin extends PluginBaseClass {
     }
 
     update() {
-        // wird aufgerufen, wenn initializePlugins() erneut auf demselben Element läuft
+        // called when initializePlugins() runs again on the same element
     }
 
     destroy() {
-        // Pflicht, wenn das Plugin später überschrieben wird
+        // mandatory if the plugin is overridden later
         window.removeEventListener('scroll', this._onScroll);
     }
 
@@ -90,7 +90,7 @@ export default class ScrollHintPlugin extends PluginBaseClass {
 
 `src/Resources/app/storefront/src/main.js`
 ```javascript
-// window.PluginManager ist durch die Core-Storefront-JS bereits gesetzt
+// window.PluginManager is already set by the core Storefront JS
 const PluginManager = window.PluginManager;
 
 PluginManager.register(
@@ -99,11 +99,11 @@ PluginManager.register(
     '[data-scroll-hint]',
 );
 
-// Core-Plugin entfernen (optional)
+// Remove a core plugin (optional)
 // PluginManager.deregister('OffCanvasCart', '[data-off-canvas-cart]');
 ```
 
-`src/Resources/views/storefront/base.html.twig` (Binden ans DOM und externes Script)
+`src/Resources/views/storefront/base.html.twig` (binding to the DOM and external script)
 ```twig
 {% sw_extends '@Storefront/storefront/base.html.twig' %}
 
@@ -111,27 +111,27 @@ PluginManager.register(
     {{ parent() }}
     <div class="scroll-hint"
          data-scroll-hint="true"
-         data-scroll-hint-options="{{ { text: 'Danke fürs Lesen' }|json_encode }}"></div>
+         data-scroll-hint-options="{{ { text: 'Thanks for reading' }|json_encode }}"></div>
     <script src="https://example.com/library.js" defer></script>
 {% endblock %}
 ```
 
-Auf Event eines Core-Plugins reagieren (in `init()` eines eigenen Plugins):
+Reacting to an event of a core plugin (in `init()` of your own plugin):
 ```javascript
 const el = document.querySelector('[data-cookie-permission]');
 const cookie = window.PluginManager.getPluginInstanceFromElement(el, 'CookiePermission');
 cookie?.$emitter.subscribe('hideCookieBar.SwagExample', () => { /* ... */ });
 ```
-Das Suffix `.SwagExample` ist ein Namespace. Mit ihm entfernt `unsubscribe('hideCookieBar.SwagExample')` nur den eigenen Listener.
+The suffix `.SwagExample` is a namespace. With it, `unsubscribe('hideCookieBar.SwagExample')` removes only your own listener.
 
-Core-Plugin überschreiben (`my-cookie-permission.plugin.js`, dann Registrierung in `main.js`):
+Overriding a core plugin (`my-cookie-permission.plugin.js`, then registration in `main.js`):
 ```javascript
 import CookiePermissionPlugin from 'src/plugin/cookie/cookie-permission.plugin';
 
 export default class MyCookiePermission extends CookiePermissionPlugin {
     init() {
         super.init();
-        // eigene Logik
+        // custom logic
     }
 }
 ```
@@ -139,9 +139,9 @@ export default class MyCookiePermission extends CookiePermissionPlugin {
 import MyCookiePermission from './my-cookie-permission/my-cookie-permission.plugin';
 window.PluginManager.override('CookiePermission', MyCookiePermission, '[data-cookie-permission]');
 ```
-Bei Async-Parent liefert `window.PluginManager.getPlugin('CookiePermission').get('class')` nur die Lade-Funktion statt der Klasse. Dann direkt per `import` (Alias `src/plugin/...`) oder per `extend('Alt','Neu',{methoden})` arbeiten.
+With an async parent, `window.PluginManager.getPlugin('CookiePermission').get('class')` returns only the loader function instead of the class. In that case work directly via `import` (alias `src/plugin/...`) or via `extend('Old','New',{methods})`.
 
-Daten laden mit `fetch` (statt `HttpClient`):
+Loading data with `fetch` (instead of `HttpClient`):
 ```javascript
 async loadInfo() {
     const response = await fetch(window.router['frontend.cart.offcanvas'], {
@@ -151,56 +151,56 @@ async loadInfo() {
     window.PluginManager.initializePluginsInParentElement(this.el);
 }
 ```
-Backend-Routen dafür brauchen `XmlHttpRequest => true` (siehe [T-16](./16-storefront-controller-pages.md)).
+Backend routes for this need `XmlHttpRequest => true` (see [T-16](./16-storefront-controller-pages.md)).
 
-Modal per `PseudoModalUtil`:
+Modal via `PseudoModalUtil`:
 ```javascript
 import PseudoModalUtil from 'src/utility/modal-extension/pseudo-modal.util';
 
 const modal = new PseudoModalUtil(htmlContent); // content, useBackdrop = true
 modal.open(() => window.PluginManager.initializePluginsInParentElement(modal.getModal()));
-// modal.updateContent(neuerHtml, cb); modal.close();
+// modal.updateContent(newHtml, cb); modal.close();
 ```
-Modal per Data-Attribut ohne JS: `<button data-ajax-modal="true" data-url="/widgets/...">` (Selektor `[data-ajax-modal][data-url]`).
+Modal via data attribute without JS: `<button data-ajax-modal="true" data-url="/widgets/...">` (selector `[data-ajax-modal][data-url]`).
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- `main.js` fehlt oder liegt falsch: Bundle wird ignoriert.
-- Build vergessen: Die Storefront lädt `dist/…`, nicht `src/…` (außer bei `bin/watch-storefront.sh`).
-- Plugin startet nicht: Selektor falsch, `init()` fehlt, Name doppelt registriert (`Plugin "X" is already registered.`).
-- `override()` ersetzt die komplette Registrierung. Ohne `extends CorePlugin` fehlen alle Core-Funktionen. Laut Doku ist ein Plugin nur einmal überschreibbar, bei zwei Plugins Konflikt: lieber `$emitter`-Events abonnieren.
-- Listener in `init()` ohne `destroy()`: Nach einem Override bleiben `addEventListener`-Listener aktiv (Konsolen-Warnung „does not implement destroy()“).
-- `unsubscribe(name, fn)` wird nicht unterstützt (entfernt alle Listener des Events). Immer Namespace-Suffix nutzen.
-- `extend()` mit anderem Namen übernimmt nur Prototyp-Methoden (`Object.assign`), keine Klassenfelder/`static options`. Optionen im 5. Parameter übergeben.
-- Per AJAX nachgeladenes Markup braucht `initializePluginsInParentElement`.
-- `{{ parent() }}` im `base_body_script` vergessen: zerstört Standard-Scripts.
-- Neue Projekte mit `DomAccess`/`HttpClient`: beide `@deprecated tag:v6.8.0` (stattdessen `querySelector`/`fetch`). `FormValidation`/`FormSubmitLoader` ebenfalls (Ersatz `FormHandler`).
-- jQuery gibt es seit 6.5 nicht mehr. Bootstrap 5 steht als `window.bootstrap` bereit.
+- `main.js` missing or in the wrong place: the bundle is ignored.
+- Build forgotten: the Storefront loads `dist/…`, not `src/…` (except with `bin/watch-storefront.sh`).
+- Plugin does not start: wrong selector, `init()` missing, name registered twice (`Plugin "X" is already registered.`).
+- `override()` replaces the complete registration. Without `extends CorePlugin`, all core functionality is missing. According to the docs, a plugin can only be overridden once; with two plugins there is a conflict: prefer subscribing to `$emitter` events.
+- Listeners in `init()` without `destroy()`: after an override, `addEventListener` listeners remain active (console warning "does not implement destroy()").
+- `unsubscribe(name, fn)` is not supported (removes all listeners of the event). Always use a namespace suffix.
+- `extend()` with a different name only takes over prototype methods (`Object.assign`), no class fields/`static options`. Pass options in the 5th parameter.
+- Markup loaded via AJAX needs `initializePluginsInParentElement`.
+- Forgetting `{{ parent() }}` in `base_body_script`: breaks the default scripts.
+- New projects with `DomAccess`/`HttpClient`: both `@deprecated tag:v6.8.0` (use `querySelector`/`fetch` instead). `FormValidation`/`FormSubmitLoader` as well (replacement `FormHandler`).
+- jQuery no longer exists since 6.5. Bootstrap 5 is available as `window.bootstrap`.
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-- `HttpClient` (`http-client.service.js`) und `DomAccess` (`dom-access.helper.js`, Fokus-Helfer jetzt `window.focusHandler`) sind `@deprecated tag:v6.8.0`.
-- `FormValidation`, `FormSubmitLoader` sind in `SF/main.js` als `@deprecated tag:v6.8.0` markiert. Seit 6.6 entfernt (laut Doku): `EllipsisPlugin`, `FadingPlugin`.
-- Script-Tag-Block: Die Doku nennt `layout_head_javascript_hmr_mode`. Er ist im 6.7.15.1-Code (`layout/meta.html.twig`) `@deprecated tag:v6.8.0` und wird nur ohne `feature('v6.8.0.0')` gerendert. Mit aktivem Flag gilt `layout_head_javascript_assets` (Vite/Importmap). `base_body_script` ist in beiden Varianten stabil.
-- Build-Tooling: `webpack.config.js` und `vite.shopware.config.mts` liegen nebeneinander (siehe T-49). Der Webpack-Hot-Proxy `/_webpack_hot_proxy_/` ist deprecated.
-- `destroy()`/Re-Initialisierung beim Override und `_extendPlugin` für Async-Plugins sind am 6.7-Code belegt.
-- Neue Mechanismen `window.Shopware`/`ShopwareComponent` (`SF/shopware.ts`, `SF/component-system`; `ShopwareComponent` ist `@internal`) sind hier nicht beschrieben.
+- `HttpClient` (`http-client.service.js`) and `DomAccess` (`dom-access.helper.js`, focus helper now `window.focusHandler`) are `@deprecated tag:v6.8.0`.
+- `FormValidation`, `FormSubmitLoader` are marked as `@deprecated tag:v6.8.0` in `SF/main.js`. Removed since 6.6 (according to the docs): `EllipsisPlugin`, `FadingPlugin`.
+- Script tag block: the docs name `layout_head_javascript_hmr_mode`. In the 6.7.15.1 code (`layout/meta.html.twig`) it is `@deprecated tag:v6.8.0` and is only rendered without `feature('v6.8.0.0')`. With the flag active, `layout_head_javascript_assets` applies (Vite/import map). `base_body_script` is stable in both variants.
+- Build tooling: `webpack.config.js` and `vite.shopware.config.mts` exist side by side (see T-49). The webpack hot proxy `/_webpack_hot_proxy_/` is deprecated.
+- `destroy()`/re-initialization on override and `_extendPlugin` for async plugins are confirmed in the 6.7 code.
+- The new mechanisms `window.Shopware`/`ShopwareComponent` (`SF/shopware.ts`, `SF/component-system`; `ShopwareComponent` is `@internal`) are not described here.
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] `src/Resources/app/storefront/src/main.js` (oder `main.ts`) existiert.
-- [ ] Plugin-Klasse erweitert `PluginBaseClass` und implementiert `init()`.
-- [ ] Externe Listener werden in `destroy()` entfernt.
-- [ ] Registrierung per `register(name, () => import(...), selector)` mit eindeutigem Namen.
-- [ ] Data-Attribut im Twig entspricht dem dash-case-Namen.
-- [ ] Events werden mit Namespace-Suffix abonniert.
-- [ ] Nachgeladenes Markup wird mit `initializePluginsInParentElement` initialisiert.
-- [ ] `bin/build-storefront.sh` ausgeführt, Cache geleert.
-- [ ] Kein neuer Code mit `DomAccess`/`HttpClient`.
+- [ ] `src/Resources/app/storefront/src/main.js` (or `main.ts`) exists.
+- [ ] Plugin class extends `PluginBaseClass` and implements `init()`.
+- [ ] External listeners are removed in `destroy()`.
+- [ ] Registration via `register(name, () => import(...), selector)` with a unique name.
+- [ ] Data attribute in Twig matches the dash-case name.
+- [ ] Events are subscribed with a namespace suffix.
+- [ ] Markup loaded later is initialized with `initializePluginsInParentElement`.
+- [ ] `bin/build-storefront.sh` executed, cache cleared.
+- [ ] No new code with `DomAccess`/`HttpClient`.
 
-## 7. Quellen
+## 7. Sources
 
-Doku:
+Docs:
 - https://developer.shopware.com/docs/guides/plugins/plugins/storefront/javascript/add-custom-javascript.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/storefront/javascript/override-existing-javascript.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/storefront/javascript/plugin-reference.html
@@ -210,15 +210,15 @@ Doku:
 - https://developer.shopware.com/docs/guides/plugins/plugins/storefront/advanced/remove-unnecessary-js-plugin.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/storefront/howto/using-a-modal-window.html
 
-Quellcode (relativ zu `vendor/shopware/storefront/Resources/app/storefront/src/`): `plugin-system/{plugin.class,plugin.manager,plugin.registry,plugin.config.manager}.js` (`PluginManagerSingleton`: `register`, `deregister`, `extend`, `initializePlugins`, `_destroyPluginInstance`, `_extendPlugin`; Fassade `PluginManager.override`), `main.js`, `helper/emitter.helper.js`, `helper/dom-access.helper.js`, `service/http-client.service.js`, `utility/modal-extension/pseudo-modal.util.js`, `plugin/{ajax-modal,date-picker,cookie,scroll-up}/*.plugin.js`. Außerdem `storefront/Theme/StorefrontPluginConfiguration/StorefrontPluginConfigurationFactory.php` (`getEntryFile`), `core/Framework/Plugin/BundleConfigGenerator.php`, `storefront/Resources/views/storefront/layout/meta.html.twig`, `base.html.twig` (`base_body_script`).
+Source code (relative to `vendor/shopware/storefront/Resources/app/storefront/src/`): `plugin-system/{plugin.class,plugin.manager,plugin.registry,plugin.config.manager}.js` (`PluginManagerSingleton`: `register`, `deregister`, `extend`, `initializePlugins`, `_destroyPluginInstance`, `_extendPlugin`; facade `PluginManager.override`), `main.js`, `helper/emitter.helper.js`, `helper/dom-access.helper.js`, `service/http-client.service.js`, `utility/modal-extension/pseudo-modal.util.js`, `plugin/{ajax-modal,date-picker,cookie,scroll-up}/*.plugin.js`. Also `storefront/Theme/StorefrontPluginConfiguration/StorefrontPluginConfigurationFactory.php` (`getEntryFile`), `core/Framework/Plugin/BundleConfigGenerator.php`, `storefront/Resources/views/storefront/layout/meta.html.twig`, `base.html.twig` (`base_body_script`).
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ UNGEPRÜFT: Beispielcode wurde weder gebaut noch im Browser ausgeführt (nur Quellcode-Lektüre).
-- ⚠ UNGEPRÜFT: Ein Override von `layout_head_javascript_assets` greift laut Code-Lesart auch in 6.7, nicht per Browser bestätigt. Daher Empfehlung `base_body_script`.
-- ⚠ UNGEPRÜFT: Die Doku-Variante `getPlugin('CookiePermission').get('class')` funktioniert laut Code nur bei bereits geladenen/synchronen Plugins, Async-Verhalten nicht im Browser verifiziert.
-- ⚠ UNGEPRÜFT: Konfliktauflösung bei zwei Plugins, die dasselbe Core-Plugin überschreiben, wurde nicht getestet.
-- ⚠ LÜCKE: Verhalten von Plugin-`main.js` im Vite-/Importmap-Modus (Flag `v6.8.0.0`) nicht untersucht (siehe T-49).
-- ⚠ UNGEPRÜFT: „Neu in 6.7“ für `destroy()`/Re-Initialisierung ist für 6.5/6.6 nicht verifiziert.
-- ⚠ UNGEPRÜFT: Dist-Dateiname `swag-example` folgt dem Namensschema (`getContainerPrefix`, `BundleConfigGenerator`), nicht per Build geprüft.
-- ⚠ LÜCKE: Datepicker-Optionen (`dateFormat`, `locale`, `selectors`) aus `static options` abgeleitet, keine Doku-Seite gefunden.
+- ⚠ UNVERIFIED: the example code was neither built nor run in the browser (source code reading only).
+- ⚠ UNVERIFIED: an override of `layout_head_javascript_assets` also takes effect in 6.7 according to a reading of the code, not confirmed in the browser. Hence the recommendation `base_body_script`.
+- ⚠ UNVERIFIED: according to the code, the docs variant `getPlugin('CookiePermission').get('class')` only works for already loaded/synchronous plugins; async behavior not verified in the browser.
+- ⚠ UNVERIFIED: conflict resolution with two plugins overriding the same core plugin was not tested.
+- ⚠ GAP: behavior of the plugin `main.js` in Vite/import map mode (flag `v6.8.0.0`) not examined (see T-49).
+- ⚠ UNVERIFIED: "new in 6.7" for `destroy()`/re-initialization is not verified for 6.5/6.6.
+- ⚠ UNVERIFIED: dist file name `swag-example` follows the naming scheme (`getContainerPrefix`, `BundleConfigGenerator`), not checked by a build.
+- ⚠ GAP: datepicker options (`dateFormat`, `locale`, `selectors`) derived from `static options`; no docs page found.

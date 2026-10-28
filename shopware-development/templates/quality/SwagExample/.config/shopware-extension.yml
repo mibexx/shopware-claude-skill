@@ -1,9 +1,9 @@
-# Pfad im Plugin: custom/plugins/SwagExample/.config/shopware-extension.yml
-# Konfiguration fuer `shopware-cli extension validate` (Schluessel laut Doku products/tools/cli/validation.html,
-# siehe references/48-statische-analyse.md). ⚠ UNGEPRUEFT: shopware-cli ist im Docker-Setup nicht installiert, nichts ausgefuehrt.
+# Path in the plugin: custom/plugins/SwagExample/.config/shopware-extension.yml
+# Configuration for `shopware-cli extension validate` (keys according to the docs products/tools/cli/validation.html,
+# see references/48-static-analysis.md). ⚠ UNVERIFIED: shopware-cli is not installed in the Docker setup, nothing executed.
 validation:
   php_version: '8.4'
-  store_compliance: false      # true nur fuer Store-Releases (fordert passende Quell-/Kompilat-Assets)
+  store_compliance: false      # true only for store releases (requires matching source/compiled assets)
   ignore:
-    - identifier: 'Shopware.XXXXXX'   # Platzhalter: echten Identifier aus dem Validate-Report eintragen
+    - identifier: 'Shopware.XXXXXX'   # placeholder: enter the real identifier from the validate report
       path: 'src/Foo.php'

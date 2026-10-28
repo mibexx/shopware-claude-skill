@@ -1,7 +1,7 @@
 const { PluginBaseClass } = window;
 
 /**
- * Toggelt eine CSS-Klasse am Zielelement, sobald das gebundene Element angeklickt wird.
+ * Toggles a CSS class on the target element as soon as the bound element is clicked.
  * Markup: <button data-swag-example data-swag-example-options="{&quot;activeClass&quot;: &quot;is-open&quot;}"
  *         aria-controls="swag-example-target" aria-expanded="false">
  */
@@ -19,11 +19,11 @@ export default class SwagExamplePlugin extends PluginBaseClass {
     }
 
     update() {
-        // wird aufgerufen, wenn initializePlugins() erneut auf demselben Element laeuft
+        // called when initializePlugins() runs again on the same element
     }
 
     destroy() {
-        // Listener entfernen, falls das Plugin spaeter ueberschrieben wird
+        // remove listeners in case the plugin is overridden later
         this.el.removeEventListener('click', this._onClick);
     }
 
@@ -36,7 +36,7 @@ export default class SwagExamplePlugin extends PluginBaseClass {
 
         const isActive = target.classList.toggle(this.options.activeClass);
 
-        // ARIA-Zustand des Buttons mitfuehren (Button hat aria-controls auf das Zielelement)
+        // keep the ARIA state of the button in sync (the button has aria-controls pointing to the target element)
         this.el.setAttribute('aria-expanded', String(isActive));
 
         this.$emitter.publish('swagExampleToggle', { isActive });

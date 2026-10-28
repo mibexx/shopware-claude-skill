@@ -18,7 +18,7 @@ class SwagExampleElementCmsElementResolver extends AbstractCmsElementResolver
     }
 
     /**
-     * Muss dem "name" in registerCmsElement() und dem Suffix des Storefront-Templates entsprechen.
+     * Must match the "name" in registerCmsElement() and the suffix of the storefront template.
      */
     public function getType(): string
     {
@@ -27,14 +27,14 @@ class SwagExampleElementCmsElementResolver extends AbstractCmsElementResolver
 
     public function collect(CmsSlotEntity $slot, ResolverContext $resolverContext): ?CriteriaCollection
     {
-        // Keine Entity-Daten noetig. Fuer Daten: new CriteriaCollection(), $collection->add($key, Definition::class, $criteria),
-        // der Key muss ueber alle Slots eindeutig sein (z. B. mit $slot->getUniqueIdentifier() suffixen).
+        // No entity data needed. For data: new CriteriaCollection(), $collection->add($key, Definition::class, $criteria),
+        // the key must be unique across all slots (e.g. suffix it with $slot->getUniqueIdentifier()).
         return null;
     }
 
     public function enrich(CmsSlotEntity $slot, ResolverContext $resolverContext, ElementDataCollection $result): void
     {
-        // Immer ein Struct setzen, auch wenn keine Daten vorliegen
+        // Always set a struct, even if there is no data
         $struct = new SwagExampleElementStruct();
         $slot->setData($struct);
 
@@ -50,7 +50,7 @@ class SwagExampleElementCmsElementResolver extends AbstractCmsElementResolver
 
         $content = null;
 
-        // Gemappte Konfiguration (source: mapped) wird ueber die Entity des Kontexts aufgeloest
+        // Mapped configuration (source: mapped) is resolved via the entity of the context
         if ($contentConfig->isMapped() && $resolverContext instanceof EntityResolverContext) {
             $content = $this->resolveEntityValueToString(
                 $resolverContext->getEntity(),

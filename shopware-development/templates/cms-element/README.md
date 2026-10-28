@@ -1,8 +1,8 @@
-# Template: CMS-Element (swag-example-element)
+# Template: CMS element (swag-example-element)
 
-Zweck: Eigenes Shopping-Experiences-Element mit Admin-Registrierung (`registerCmsElement` mit `component`, `configComponent`, `previewComponent`), Storefront-Twig und PHP-DataResolver. Shopware 6.7.15.1. Das Element zeigt eine Überschrift und einen HTML-Inhalt (im Resolver per `HtmlSanitizer` bereinigt).
+Purpose: Custom Shopping Experiences element with admin registration (`registerCmsElement` with `component`, `configComponent`, `previewComponent`), storefront Twig and PHP DataResolver. Shopware 6.7.15.1. The element shows a heading and HTML content (sanitized in the resolver via `HtmlSanitizer`).
 
-## Dateibaum
+## File tree
 
 ```
 SwagExample/
@@ -10,13 +10,13 @@ SwagExample/
 └── src/
     ├── SwagExample.php
     ├── DataResolver/SwagExampleElementCmsElementResolver.php   # getType/collect/enrich
-    ├── Struct/SwagExampleElementStruct.php                     # landet in element.data
+    ├── Struct/SwagExampleElementStruct.php                     # ends up in element.data
     └── Resources/
-        ├── config/services.php                                 # Tag shopware.cms.data_resolver
+        ├── config/services.php                                 # tag shopware.cms.data_resolver
         ├── views/storefront/element/cms-element-swag-example-element.html.twig
         └── app/administration/src/
-            ├── main.js                                         # importiert das Element
-            ├── snippet/{de,en}.json                      # Label-Snippets (Prefix swag-example)
+            ├── main.js                                         # imports the element
+            ├── snippet/{de,en}.json                      # label snippets (prefix swag-example)
             └── module/sw-cms/elements/swag-example-element/
                 ├── index.js                                    # Component.register + registerCmsElement
                 ├── component/{index.js,sw-cms-el-swag-example-element.html.twig}
@@ -24,62 +24,62 @@ SwagExample/
                 └── preview/{index.js,sw-cms-el-preview-swag-example-element.html.twig}
 ```
 
-## Platzhalter
+## Placeholders
 
-| Platzhalter | Ersetzen durch | Wo |
+| Placeholder | Replace with | Where |
 |---|---|---|
-| `swag-example-element` | Elementname (Kebab-Case, mit Vendor-Präfix) | `name` in `registerCmsElement`, `getType()` im Resolver, Dateiname `cms-element-<name>.html.twig`, `initElementConfig('<name>')`, Komponentennamen, Ordner |
-| `SwagExampleElement...` | PascalCase des Elementnamens | Resolver-/Struct-Klasse |
-| `SwagExample` / `swag/example` | Plugin-Name | Klasse, Namespace, `composer.json` |
-| `swag-example.elements.swagExampleElement.*` | Eigene Snippet-Schlüssel | `index.js`, Config-Template, Snippet-Dateien |
-| `cms_swag_example_element` | API-Alias des Structs | `getApiAlias()` |
+| `swag-example-element` | Element name (kebab case, with vendor prefix) | `name` in `registerCmsElement`, `getType()` in the resolver, file name `cms-element-<name>.html.twig`, `initElementConfig('<name>')`, component names, folder |
+| `SwagExampleElement...` | PascalCase of the element name | Resolver/struct class |
+| `SwagExample` / `swag/example` | Plugin name | Class, namespace, `composer.json` |
+| `swag-example.elements.swagExampleElement.*` | Custom snippet keys | `index.js`, config template, snippet files |
+| `cms_swag_example_element` | API alias of the struct | `getApiAlias()` |
 
-Wichtig: `name` (Admin) = `getType()` (PHP) = Suffix des Storefront-Templates. Sonst bleibt das Element leer (der Block-Wrapper nutzt `sw_include ... ignore missing`, ein fehlendes Template erzeugt keinen Fehler).
+Important: `name` (admin) = `getType()` (PHP) = suffix of the storefront template. Otherwise the element stays empty (the block wrapper uses `sw_include ... ignore missing`, a missing template produces no error).
 
-## Einbindung / CLI
+## Integration / CLI
 
 ```bash
 bin/console plugin:refresh
 bin/console plugin:install --activate SwagExample
-bin/build-administration.sh        # Admin-Bundle bauen (bzw. bin/watch-administration.sh)
+bin/build-administration.sh        # build the admin bundle (or bin/watch-administration.sh)
 bin/console cache:clear
 ```
 
-Im Admin: Inhalte -> Shopping Experiences -> Layout -> Block mit Slot -> im Slot-Dialog das Element wählen. Nur Twig/PHP-Änderungen brauchen nur `cache:clear`.
+In the admin: Content -> Shopping Experiences -> Layout -> block with slot -> choose the element in the slot dialog. Twig/PHP-only changes need only `cache:clear`.
 
-## Regeln (am Quellcode belegt)
+## Rules (verified against the source code)
 
-- Resolver: `CmsElementResolverInterface` mit `getType()`, `collect(CmsSlotEntity, ResolverContext): ?CriteriaCollection`, `enrich(CmsSlotEntity, ResolverContext, ElementDataCollection): void`. Üblich `extends AbstractCmsElementResolver`.
-- `enrich()` setzt immer ein Struct (`$slot->setData()`), sonst bleibt `element.data` leer.
-- Daten gehören in `collect()` (Criteria werden gebündelt), nicht per Repository in `enrich()` (N+1). `CriteriaCollection::add($key, $definition, $criteria)`, Key eindeutig über alle Slots.
-- Service-Tag `shopware.cms.data_resolver` setzt der Core per Autokonfiguration, ein explizites Tag schadet nicht.
-- Plugin-Service-Dateien: `Resources/config/services.php` wird vom Bundle geladen. XML ist deprecated (6.8).
-- Admin: `createdComponent()` muss `initElementConfig('<name>')` aufrufen (merged `defaultConfig`), die Config-Komponente muss `element-update` emittieren (`emits: ['element-update']`).
-- `registerCmsElement` gibt `false` zurück und registriert nichts, wenn `name` oder `component` fehlt.
-- Eigener Resolver mit dem Typ eines Core-Elements überschreibt den Core-Resolver. Vendor-Präfix verwenden.
-- Ungesäuberten HTML-Inhalt nur gesäubert mit `|raw` ausgeben.
+- Resolver: `CmsElementResolverInterface` with `getType()`, `collect(CmsSlotEntity, ResolverContext): ?CriteriaCollection`, `enrich(CmsSlotEntity, ResolverContext, ElementDataCollection): void`. Usually `extends AbstractCmsElementResolver`.
+- `enrich()` always sets a struct (`$slot->setData()`), otherwise `element.data` stays empty.
+- Data belongs in `collect()` (criteria are bundled), not loaded via repository in `enrich()` (N+1). `CriteriaCollection::add($key, $definition, $criteria)`, key unique across all slots.
+- The core sets the service tag `shopware.cms.data_resolver` via autoconfiguration; an explicit tag does no harm.
+- Plugin service files: `Resources/config/services.php` is loaded by the bundle. XML is deprecated (6.8).
+- Admin: `createdComponent()` must call `initElementConfig('<name>')` (merges `defaultConfig`), the config component must emit `element-update` (`emits: ['element-update']`).
+- `registerCmsElement` returns `false` and registers nothing if `name` or `component` is missing.
+- A custom resolver with the type of a core element overrides the core resolver. Use a vendor prefix.
+- Output unsanitized HTML content with `|raw` only after sanitizing it.
 
-## Deprecations vermeiden
+## Avoiding deprecations
 
-- `AbstractCmsElementResolver::resolveDefinitionField()` und `resolveCriteriaForLazyLoadedRelations()` sind `@deprecated tag:v6.8.0`, nicht verwendet.
-- Composable `useCmsElement` ist in 6.7.15.1 `@experimental`/`@private`, daher das stabile Mixin `cms-element`.
+- `AbstractCmsElementResolver::resolveDefinitionField()` and `resolveCriteriaForLazyLoadedRelations()` are `@deprecated tag:v6.8.0`, not used.
+- The composable `useCmsElement` is `@experimental`/`@private` in 6.7.15.1, hence the stable mixin `cms-element`.
 
-## Lücken und Hinweise
+## Gaps and notes
 
-- ⚠ UNGEPRÜFT: Gerüst nicht gebaut/installiert (kein PHP, kein Admin-Build). JS per `node --check`, JSON per `JSON.parse`. PHP-Namespaces, Signaturen (`CmsElementResolverInterface`, `AbstractCmsElementResolver::resolveEntityValueToString`, `HtmlSanitizer::sanitize`, `CriteriaCollection`) am Quellcode gegengelesen, Vorbild: `TextCmsElementResolver`, `HtmlCmsElementResolver`, Core-Element `html`.
-- ⚠ UNGEPRÜFT: Meteor-Komponenten `mt-text-field`/`mt-textarea` mit `v-model` + `@update:model-value` (beide in `vue.adapter.ts` global registriert, Nutzungsmuster aus anderen Core-Modulen).
-- ⚠ LÜCKE: Medien-Auswahl und Daten-Mapping-UI (`sw-cms-mapping-field`, `sw-cms-inherit-wrapper`) sind nicht Teil des Gerüsts. Vorbild: Core-Elemente `image`, `text` unter `administration/Resources/app/administration/src/module/sw-cms/elements/`. Eine Media-Variante bräuchte `collect()` mit `MediaDefinition` und `defaultConfig.media.entity`.
-- ⚠ LÜCKE: Das Admin-Snippet-Laden basiert auf dem `SnippetFinder` (alle `<locale>.json` unter `Resources/app/administration/src`), nicht auf einem `snippets`-Eintrag. Siehe Referenz 18.
-- Block mit festem Slot-Typ `swag-example-element`: siehe [cms-block](../cms-block/README.md).
+- ⚠ UNVERIFIED: Scaffold not built/installed (no PHP, no admin build). JS via `node --check`, JSON via `JSON.parse`. PHP namespaces, signatures (`CmsElementResolverInterface`, `AbstractCmsElementResolver::resolveEntityValueToString`, `HtmlSanitizer::sanitize`, `CriteriaCollection`) cross-checked against the source code, model: `TextCmsElementResolver`, `HtmlCmsElementResolver`, core element `html`.
+- ⚠ UNVERIFIED: Meteor components `mt-text-field`/`mt-textarea` with `v-model` + `@update:model-value` (both registered globally in `vue.adapter.ts`, usage pattern from other core modules).
+- ⚠ GAP: Media selection and data mapping UI (`sw-cms-mapping-field`, `sw-cms-inherit-wrapper`) are not part of the scaffold. Model: core elements `image`, `text` under `administration/Resources/app/administration/src/module/sw-cms/elements/`. A media variant would need `collect()` with `MediaDefinition` and `defaultConfig.media.entity`.
+- ⚠ GAP: Admin snippet loading is based on the `SnippetFinder` (all `<locale>.json` under `Resources/app/administration/src`), not on a `snippets` entry. See reference 18.
+- Block with a fixed slot type `swag-example-element`: see [cms-block](../cms-block/README.md).
 
-## Referenzen
+## References
 
-- [21 CMS-Elemente](../../references/21-cms-elemente.md)
-- [22 CMS-Blöcke & Sichtbarkeit](../../references/22-cms-bloecke-sichtbarkeit.md)
-- [05 Services registrieren](../../references/05-services-registrieren.md)
-- [18 Snippets & Übersetzungen](../../references/18-snippets-uebersetzungen.md)
-- [14 Storefront-Twig-Templates](../../references/14-storefront-twig-templates.md)
-- [49 Build & Deployment](../../references/49-build-deployment.md)
-- Weitere Templates: [cms-block](../cms-block/README.md), [plugin](../plugin/README.md)
+- [21 CMS elements](../../references/21-cms-elements.md)
+- [22 CMS blocks & visibility](../../references/22-cms-blocks-visibility.md)
+- [05 Registering services](../../references/05-registering-services.md)
+- [18 Snippets & translations](../../references/18-snippets-translations.md)
+- [14 Storefront Twig templates](../../references/14-storefront-twig-templates.md)
+- [49 Build & deployment](../../references/49-build-deployment.md)
+- More templates: [cms-block](../cms-block/README.md), [plugin](../plugin/README.md)
 
-- Snippet-Dateien sind sprachneutral benannt (`de.json`/`en.json` bzw. `storefront.de.json`/`storefront.en.json`); regionale Namen (`de-DE.json`) beanstandet `bin/console translation:lint-filenames` ohne sprachneutrale Basisdatei, Reparatur mit `--fix` (siehe [T-18](../../references/18-snippets-uebersetzungen.md)).
+- Snippet files are named language-neutrally (`de.json`/`en.json` or `storefront.de.json`/`storefront.en.json`); `bin/console translation:lint-filenames` flags regional names (`de-DE.json`) without a language-neutral base file, fix with `--fix` (see [T-18](../../references/18-snippets-translations.md)).

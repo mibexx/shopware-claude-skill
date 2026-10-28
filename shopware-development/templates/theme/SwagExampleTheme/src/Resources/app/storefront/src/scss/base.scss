@@ -1,5 +1,5 @@
-// Eigene Styles: stehen in theme.json NACH "@Storefront".
-// $swag-example-* kommen aus config.fields in theme.json (Typ switch wird als 1/0 ausgegeben).
+// Custom styles: placed AFTER "@Storefront" in theme.json.
+// $swag-example-* come from config.fields in theme.json (type switch is output as 1/0).
 .header-main {
     min-height: #{$swag-example-header-height}px;
     border-bottom: 2px solid $sw-color-brand-primary;

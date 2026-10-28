@@ -1,37 +1,37 @@
-# Events und Subscriber (Referenz, Shopware 6.7.15.1)
+# Events and subscribers (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn ein Plugin auf Ereignisse im Core reagieren (Entities laden/schreiben, Storefront-Seiten, Warenkorb, HTTP) oder eigene Events dispatchen soll. Events dienen zum Anreichern und Beobachten; Logik ersetzen geschieht per Dekoration ([T-06 Service-Dekoration](./06-service-dekoration.md)).
+This reference applies when a plugin should react to events in the core (loading/writing entities, Storefront pages, cart, HTTP) or dispatch its own events. Events are for enriching and observing; replacing logic is done via decoration ([T-06 Service decoration](./06-service-decoration.md)).
 
-Abgrenzung: typisierte Ersetz-/Nachbearbeitungs-Hooks mit Ergebnis sind Extension Points ([T-08](./08-extension-points.md)); fachliche Events als Flow-Trigger siehe [T-09 Flow Builder](./09-flow-builder.md); Service-Registrierung allgemein in [T-05](./05-services-registrieren.md); DAL-Lese-/Schreib-API in [T-28](./28-dal-lesen-schreiben.md); Script-Hooks sind App-Feature ([T-10](./10-app-system-abgrenzung.md)).
+Scope: typed replace/post-processing hooks with a result are extension points ([T-08](./08-extension-points.md)); business events as flow triggers see [T-09 Flow Builder](./09-flow-builder.md); service registration in general in [T-05](./05-registering-services.md); DAL read/write API in [T-28](./28-dal-reading-writing.md); script hooks are an app feature ([T-10](./10-app-system-scope.md)).
 
-## 2. Konzepte
+## 2. Concepts
 
-- Shopware nutzt den Symfony-EventDispatcher. Service `event_dispatcher` ist ein `Shopware\Core\Framework\Event\NestedEventDispatcher` (`core/Framework/DependencyInjection/event.php`: `->decorate('event_dispatcher')`), der den Symfony-`EventDispatcher` (`framework-bundle`, Service `event_dispatcher`) umhüllt. `dispatch($event, $name)` ruft zuerst rekursiv alle verschachtelten Events (`NestedEvent::getEvents()`) auf, bei verschachtelten `GenericEvent` mit deren `getName()` als Name, und delegiert dann unverändert (`$event`, `$name`) an den inneren Dispatcher. Der Symfony-`EventDispatcher` nimmt ohne Namen `$event::class`. Im Debug-Modus kommt zusätzlich `debug.event_dispatcher` (`TraceableEventDispatcher`) als weiterer Decorator hinzu; die Reihenfolge der Decorator-Kette ist nicht geprüft.
-- Eventnamen sind **Klassennamen** (`ProductPageLoadedEvent::class`, `EntityWriteEvent::class`, `PreWriteValidationEvent::class`) oder **Strings** (nur DAL-Events wie `'product.loaded'`). Der Dispatch-Name ist `$event::class`, sofern der Dispatcher keinen Namen bekommt; `getName()` oder eine `EVENT_NAME`-Konstante ändern daran nichts. Ein String-Name gilt nur bei verschachtelten `GenericEvent` (`getName()`, z. B. `product.loaded`) oder wenn der Aufrufer ihn explizit mitgibt (`dispatch($event, 'name')`). Beispiel: `CheckoutOrderPlacedEvent` hat `EVENT_NAME = 'checkout.order.placed'`, `CartOrderRoute` dispatcht es aber ohne Namen (`core/Checkout/Cart/SalesChannel/CartOrderRoute.php`, `dispatch($event)`): ein Listener auf den String `'checkout.order.placed'` feuert nie, `CheckoutOrderPlacedEvent::class` verwenden. (Der String dient dem Flow Builder, siehe [T-09](./09-flow-builder.md).)
-- Subscriber: Klasse mit `EventSubscriberInterface::getSubscribedEvents()`, Service mit Tag `kernel.event_subscriber`. Format `Event => 'methode'` oder `Event => ['methode', priority]`. Einzelner Listener: Tag `kernel.event_listener` mit `event`, `method`, `priority`.
+- Shopware uses the Symfony EventDispatcher. The service `event_dispatcher` is a `Shopware\Core\Framework\Event\NestedEventDispatcher` (`core/Framework/DependencyInjection/event.php`: `->decorate('event_dispatcher')`), which wraps the Symfony `EventDispatcher` (`framework-bundle`, service `event_dispatcher`). `dispatch($event, $name)` first recursively dispatches all nested events (`NestedEvent::getEvents()`), for nested `GenericEvent`s using their `getName()` as the name, and then delegates unchanged (`$event`, `$name`) to the inner dispatcher. Without a name, the Symfony `EventDispatcher` uses `$event::class`. In debug mode, `debug.event_dispatcher` (`TraceableEventDispatcher`) is added as a further decorator; the order of the decorator chain has not been checked.
+- Event names are **class names** (`ProductPageLoadedEvent::class`, `EntityWriteEvent::class`, `PreWriteValidationEvent::class`) or **strings** (only DAL events such as `'product.loaded'`). The dispatch name is `$event::class` unless the dispatcher is given a name; `getName()` or an `EVENT_NAME` constant do not change this. A string name only applies to nested `GenericEvent`s (`getName()`, e.g. `product.loaded`) or when the caller passes it explicitly (`dispatch($event, 'name')`). Example: `CheckoutOrderPlacedEvent` has `EVENT_NAME = 'checkout.order.placed'`, but `CartOrderRoute` dispatches it without a name (`core/Checkout/Cart/SalesChannel/CartOrderRoute.php`, `dispatch($event)`): a listener on the string `'checkout.order.placed'` never fires; use `CheckoutOrderPlacedEvent::class`. (The string is used by the Flow Builder, see [T-09](./09-flow-builder.md).)
+- Subscriber: class with `EventSubscriberInterface::getSubscribedEvents()`, service with the tag `kernel.event_subscriber`. Format `Event => 'method'` or `Event => ['method', priority]`. Single listener: tag `kernel.event_listener` with `event`, `method`, `priority`.
 
-| Familie | Basis | Beispiel | Zweck |
+| Family | Base | Example | Purpose |
 |---|---|---|---|
-| Kernel | Symfony `KernelEvent` | `KernelEvents::REQUEST` | HTTP-Lebenszyklus, Header |
-| Page/Storefront | `Storefront\Page\PageLoadedEvent` (`NestedEvent`, `ShopwareSalesChannelEvent`; `getPage()`, `getRequest()`), `StorefrontRenderEvent` | `ProductPageLoadedEvent`, `GenericPageLoadedEvent` | Page-Struct erweitern (Extensions), Template-Parameter, Criteria |
-| Business/Flow | `FlowEventAware` | `CheckoutOrderPlacedEvent`, `MailBeforeSentEvent` | fachliche Ereignisse, Flow-Trigger |
-| DAL | `NestedEvent`+`GenericEvent` bzw. `Event`+`ShopwareEvent` | `product.written`, `PreWriteValidationEvent` | Persistenz-Lebenszyklus |
-| Cart | `core/Checkout/Cart/Event/*` | `BeforeLineItemAddedEvent`, `CartChangedEvent` | Warenkorb/Checkout ([T-36](./36-warenkorb.md)) |
+| Kernel | Symfony `KernelEvent` | `KernelEvents::REQUEST` | HTTP lifecycle, headers |
+| Page/Storefront | `Storefront\Page\PageLoadedEvent` (`NestedEvent`, `ShopwareSalesChannelEvent`; `getPage()`, `getRequest()`), `StorefrontRenderEvent` | `ProductPageLoadedEvent`, `GenericPageLoadedEvent` | Extend the page struct (extensions), template parameters, criteria |
+| Business/Flow | `FlowEventAware` | `CheckoutOrderPlacedEvent`, `MailBeforeSentEvent` | Business events, flow triggers |
+| DAL | `NestedEvent`+`GenericEvent` or `Event`+`ShopwareEvent` respectively | `product.written`, `PreWriteValidationEvent` | Persistence lifecycle |
+| Cart | `core/Checkout/Cart/Event/*` | `BeforeLineItemAddedEvent`, `CartChangedEvent` | Cart/checkout ([T-36](./36-cart.md)) |
 
-(Die Tabelle stammt aus dem Quellcode, nicht aus der Doku.)
+(The table is derived from the source code, not from the docs.)
 
-DAL-Events (`core/Framework/DataAbstractionLayer/Event/`):
-- `EntityLoadedEvent` (`<entity>.loaded`, `getEntities()`), `PartialEntityLoadedEvent` (`<entity>.partial_loaded`), Sales-Channel-Variante `sales_channel.<entity>.loaded`.
-- `EntityWrittenEvent` (`<entity>.written`, `getIds()`, `getWriteResults()`, `getPayloads()`; erst NACH dem Schreiben), `EntityDeletedEvent` (`<entity>.deleted`), `EntityWrittenContainerEvent` (Rückgabe von `create/update/upsert`).
-- `EntityWriteEvent` (Klassenname; VOR dem Schreiben eines Command-Batches; `getCommands()`, `getCommandsForEntity()`, `getIds($entity)`, `addSuccess()`/`addError()`), `EntityDeleteEvent` (vor Löschbefehlen). Beide haben private Konstruktoren (`create()` intern): Plugins erzeugen sie nicht.
-- `PreWriteValidationEvent` liegt unter `...\DataAbstractionLayer\Write\Validation\` (nicht `Event`); dispatcht innerhalb der Transaktion; `getCommands()`, `getCommandsForEntity()`, `getPrimaryKeys()`, `getExceptions()`.
-- Such-Events: `EntitySearchResultLoadedEvent` (`<entity>.search.result.loaded`), `EntityAggregationResultLoadedEvent`, `EntityIdSearchResultLoadedEvent`, `EntitySearchedEvent`.
+DAL events (`core/Framework/DataAbstractionLayer/Event/`):
+- `EntityLoadedEvent` (`<entity>.loaded`, `getEntities()`), `PartialEntityLoadedEvent` (`<entity>.partial_loaded`), sales channel variant `sales_channel.<entity>.loaded`.
+- `EntityWrittenEvent` (`<entity>.written`, `getIds()`, `getWriteResults()`, `getPayloads()`; only AFTER writing), `EntityDeletedEvent` (`<entity>.deleted`), `EntityWrittenContainerEvent` (return value of `create/update/upsert`).
+- `EntityWriteEvent` (class name; BEFORE writing a command batch; `getCommands()`, `getCommandsForEntity()`, `getIds($entity)`, `addSuccess()`/`addError()`), `EntityDeleteEvent` (before delete commands). Both have private constructors (`create()` is internal): plugins do not create them.
+- `PreWriteValidationEvent` lives under `...\DataAbstractionLayer\Write\Validation\` (not `Event`); dispatched inside the transaction; `getCommands()`, `getCommandsForEntity()`, `getPrimaryKeys()`, `getExceptions()`.
+- Search events: `EntitySearchResultLoadedEvent` (`<entity>.search.result.loaded`), `EntityAggregationResultLoadedEvent`, `EntityIdSearchResultLoadedEvent`, `EntitySearchedEvent`.
 
-HTTP-nahe Shopware-Events: `BeforeSendResponseEvent` (auch bei gecachten Antworten), `BeforeSendRedirectResponseEvent`, `Storefront\Event\StorefrontRedirectEvent`. Weitere Storefront-Events in `storefront/Event/` (`StorefrontRenderEvent`, `SwitchBuyBoxVariantEvent`, `ThemeCompilerConcatenatedStylesEvent`, `MaintenanceRedirectEvent`); Seiten-Events in `storefront/Page/<Bereich>/*PageLoadedEvent.php`, davor jeweils ein `*PageCriteriaEvent`.
+HTTP-related Shopware events: `BeforeSendResponseEvent` (also for cached responses), `BeforeSendRedirectResponseEvent`, `Storefront\Event\StorefrontRedirectEvent`. Further Storefront events in `storefront/Event/` (`StorefrontRenderEvent`, `SwitchBuyBoxVariantEvent`, `ThemeCompilerConcatenatedStylesEvent`, `MaintenanceRedirectEvent`); page events in `storefront/Page/<Area>/*PageLoadedEvent.php`, each preceded by a `*PageCriteriaEvent`.
 
-Verzeichnisbaum:
+Directory tree:
 ```
 custom/plugins/SwagExample/
 └── src/
@@ -42,11 +42,11 @@ custom/plugins/SwagExample/
     └── Resources/config/services.php
 ```
 
-## 3. Anleitung
+## 3. Instructions
 
-1. **Event finden**: Konstantenklassen `*Events.php` (z. B. `core/Content/Product/ProductEvents.php`), `BusinessEvents.php`; `grep -rn "extends NestedEvent\|extends Event\|implements FlowEventAware" vendor/shopware`; `grep -rn "eventDispatcher->dispatch" ...`. Laufzeit: `bin/console debug:event-dispatcher 'product.loaded'` (Symfony-Standard, siehe Lücken), Symfony-Profiler-Tab "Events". Business-Events: `bin/console debug:business-events`.
-2. **Subscriber** schreiben: `implements EventSubscriberInterface`, statisches `getSubscribedEvents()`, Abhängigkeiten per Konstruktor (`private readonly`).
-3. **Registrieren** als Service mit Tag `kernel.event_subscriber` (immer explizit, siehe Lücken).
+1. **Find the event**: constant classes `*Events.php` (e.g. `core/Content/Product/ProductEvents.php`), `BusinessEvents.php`; `grep -rn "extends NestedEvent\|extends Event\|implements FlowEventAware" vendor/shopware`; `grep -rn "eventDispatcher->dispatch" ...`. At runtime: `bin/console debug:event-dispatcher 'product.loaded'` (Symfony standard, see gaps), Symfony profiler tab "Events". Business events: `bin/console debug:business-events`.
+2. **Write the subscriber**: `implements EventSubscriberInterface`, static `getSubscribedEvents()`, dependencies via constructor (`private readonly`).
+3. **Register** as a service with the tag `kernel.event_subscriber` (always explicitly, see gaps).
 4. **CLI**:
    ```
    bin/console plugin:refresh
@@ -54,11 +54,11 @@ custom/plugins/SwagExample/
    bin/console cache:clear
    bin/console debug:event-dispatcher 'product.loaded'
    ```
-   Nach Änderungen an Service-Definition oder `getSubscribedEvents()` den Container-Cache leeren.
-5. **Eigenes Event**: `extends Symfony\Contracts\EventDispatcher\Event implements ShopwareEvent` (`getContext(): Context`); bei Sales-Channel-Bezug `ShopwareSalesChannelEvent`; verschachtelt `extends NestedEvent` mit `getEvents()`. `EventDispatcherInterface` (Service `event_dispatcher`) injizieren und `dispatch(new ExampleEvent(...))`, optional mit festem Namen als zweitem Argument.
-6. **Flow-fähige Events** (`FlowEventAware`, `#[IsFlowEventAware]` an Aware-Interfaces): siehe [T-09](./09-flow-builder.md). Das Attribut ist Marker für Aware-Interfaces, nicht für Event-Klassen.
+   After changes to the service definition or `getSubscribedEvents()`, clear the container cache.
+5. **Custom event**: `extends Symfony\Contracts\EventDispatcher\Event implements ShopwareEvent` (`getContext(): Context`); with sales channel relation `ShopwareSalesChannelEvent`; nested `extends NestedEvent` with `getEvents()`. Inject `EventDispatcherInterface` (service `event_dispatcher`) and `dispatch(new ExampleEvent(...))`, optionally with a fixed name as the second argument.
+6. **Flow-capable events** (`FlowEventAware`, `#[IsFlowEventAware]` on aware interfaces): see [T-09](./09-flow-builder.md). The attribute is a marker for aware interfaces, not for event classes.
 
-## 4. Beispiele
+## 4. Examples
 
 `src/Subscriber/ProductLoadedSubscriber.php`
 ```php
@@ -135,14 +135,14 @@ class ProductWrittenSubscriber implements EventSubscriberInterface
     {
         foreach ($event->getCommandsForEntity(ProductDefinition::ENTITY_NAME) as $command) {
             if ($command instanceof InsertCommand) {
-                // $command->getPayload() prüfen; Fehler per $event->getExceptions()->add(new \RuntimeException(...)) anhängen (WriteException::add(\Throwable), geworfen in EntityWriteGateway::validateCommands)
+                // Check $command->getPayload(); attach errors via $event->getExceptions()->add(new \RuntimeException(...)) (WriteException::add(\Throwable), thrown in EntityWriteGateway::validateCommands)
             }
         }
     }
 }
 ```
 
-`src/Subscriber/ProductPageSubscriber.php` (Page-Event; Twig: `{{ page.extensions.swagHello.text }}`)
+`src/Subscriber/ProductPageSubscriber.php` (page event; Twig: `{{ page.extensions.swagHello.text }}`)
 ```php
 <?php declare(strict_types=1);
 
@@ -163,7 +163,7 @@ class ProductPageSubscriber implements EventSubscriberInterface
 
     public function onProductPageLoaded(ProductPageLoadedEvent $event): void
     {
-        $event->getPage()->addExtension('swagHello', new ArrayStruct(['text' => 'Hallo']));
+        $event->getPage()->addExtension('swagHello', new ArrayStruct(['text' => 'Hello']));
     }
 }
 ```
@@ -180,7 +180,7 @@ use Symfony\Contracts\EventDispatcher\Event;
 
 class ExampleEvent extends Event implements ShopwareEvent
 {
-    // Nur gültig, wenn der Aufrufer ihn beim dispatch() explizit angibt.
+    // Only effective if the caller passes it explicitly to dispatch().
     final public const EVENT_NAME = 'swag_example.example';
 
     public function __construct(
@@ -220,12 +220,12 @@ class ExampleService
     public function run(string $payload, Context $context): void
     {
         $this->eventDispatcher->dispatch(new ExampleEvent($payload, $context));
-        // oder mit festem Namen: dispatch($event, ExampleEvent::EVENT_NAME); dann feuern NUR Listener auf diesen String, nicht auf ExampleEvent::class
+        // or with a fixed name: dispatch($event, ExampleEvent::EVENT_NAME); then ONLY listeners on this string fire, not those on ExampleEvent::class
     }
 }
 ```
 
-`src/Resources/config/services.php` (PHP-Format; XML ist in 6.7 deprecated, siehe Abschnitt 5)
+`src/Resources/config/services.php` (PHP format; XML is deprecated in 6.7, see section 5)
 ```php
 <?php declare(strict_types=1);
 
@@ -251,66 +251,66 @@ return static function (ContainerConfigurator $container): void {
 };
 ```
 
-Gerüst: [../templates/event-subscriber/README.md](../templates/event-subscriber/README.md). Plugin-Grundgerüst: [../templates/plugin/README.md](../templates/plugin/README.md).
+Scaffold: [../templates/event-subscriber/README.md](../templates/event-subscriber/README.md). Basic plugin scaffold: [../templates/plugin/README.md](../templates/plugin/README.md).
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- Subscriber ohne Tag `kernel.event_subscriber` wird nie aufgerufen (Core registriert so, z. B. `core/Content/DependencyInjection/product.php`).
-- Klassenbasierte Events (`EntityWriteEvent::class`, `PreWriteValidationEvent::class`, Page-Events) nicht mit Strings verwechseln; `PreWriteValidationEvent` liegt unter `Write\Validation`.
-- `*.written` für den Vorher-Zustand ist zu spät: dafür `EntityWriteEvent`/`EntityDeleteEvent` mit `addSuccess()`/`addError()`.
-- In `PreWriteValidationEvent` keine Repository-Writes (laufende Transaktion, Rekursion/Deadlock-Gefahr); nur validieren. (Empfehlung, nicht am Code belegt.)
-- Endlosschleife: Subscriber auf `product.written`, der selbst `product` schreibt, löst sich erneut aus; mit Guard (Context-State, Feldvergleich) absichern.
-- `product.loaded` läuft auch im Admin-Kontext, bei Varianten und in Massenladungen: keine DB-Abfrage pro Entity. Für Storefront-Produkte zusätzlich `sales_channel.product.loaded` und `product.partial_loaded` beachten.
-- Versionierte Entities: bei Bedarf `$event->getContext()->getVersionId() === Defaults::LIVE_VERSION` prüfen (Doku "listening-to-events"), sonst läuft der Subscriber auch bei Draft-Versionen.
-- Logik "ersetzen" per Event geht nicht; Dekoration nutzen ([T-06](./06-service-dekoration.md)) oder Extension Point ([T-08](./08-extension-points.md)).
-- Schwere Arbeit (Mail, HTTP) nicht synchron im Subscriber; in Message-Handler auslagern ([T-34](./34-message-queue.md)).
-- Container-Cache nach neuem Subscriber nicht geleert.
-- Doku nennt `BusinessEventInterface` als Suchbegriff (finding-events): existiert in 6.7.15.1 nicht mehr (kein Treffer in `core`/`storefront`); heute `FlowEventAware`.
-- `EntityWriteEvent::create()`/`EntityDeleteEvent::create()` sind interne Factories.
+- A subscriber without the tag `kernel.event_subscriber` is never called (the core registers this way, e.g. `core/Content/DependencyInjection/product.php`).
+- Do not confuse class-based events (`EntityWriteEvent::class`, `PreWriteValidationEvent::class`, page events) with strings; `PreWriteValidationEvent` lives under `Write\Validation`.
+- `*.written` is too late for the before state: use `EntityWriteEvent`/`EntityDeleteEvent` with `addSuccess()`/`addError()` for that.
+- No repository writes in `PreWriteValidationEvent` (running transaction, risk of recursion/deadlock); only validate. (Recommendation, not confirmed in the code.)
+- Infinite loop: a subscriber on `product.written` that itself writes `product` triggers itself again; protect with a guard (context state, field comparison).
+- `product.loaded` also runs in the Admin context, for variants and in bulk loads: no DB query per entity. For Storefront products, also consider `sales_channel.product.loaded` and `product.partial_loaded`.
+- Versioned entities: if needed, check `$event->getContext()->getVersionId() === Defaults::LIVE_VERSION` (docs "listening-to-events"), otherwise the subscriber also runs for draft versions.
+- "Replacing" logic via an event is not possible; use decoration ([T-06](./06-service-decoration.md)) or an extension point ([T-08](./08-extension-points.md)).
+- Do not do heavy work (mail, HTTP) synchronously in the subscriber; offload it to a message handler ([T-34](./34-message-queue.md)).
+- Container cache not cleared after adding a new subscriber.
+- The docs name `BusinessEventInterface` as a search term (finding-events): it no longer exists in 6.7.15.1 (no hit in `core`/`storefront`); today it is `FlowEventAware`.
+- `EntityWriteEvent::create()`/`EntityDeleteEvent::create()` are internal factories.
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-- `@deprecated tag:v6.8.0`: `NestedEvent::getFlatEventList()`, Teilmethode in `NestedEventCollection`, `EntityWrittenEvent::$events`/`$existences` samt Gettern (`getEvents()`, `getExistences()`), zugehörige Methode in `EntityWrittenContainerEvent` (Begründung im Code: "unused").
-- XML-Service-Definitionen im Plugin sind in 6.7 deprecated (`Bundle::triggerXmlConfigDeprecation`, 6.8 lädt keine XML mehr): `services.php` (alternativ `services.yaml`) verwenden. Geprüft: `Bundle::registerContainerFile` lädt XML, YAML und PHP.
-- Neu im Event-Set 6.7 (im Code vorhanden): `DocumentGeneratedEvent`, `DocumentDeletedEvent` (DocumentV2), `CustomerPasswordChangedEvent`, `RevocationRequestEvent`. ⚠ UNGEPRÜFT: ob sie in 6.6 fehlten.
+- `@deprecated tag:v6.8.0`: `NestedEvent::getFlatEventList()`, a partial method in `NestedEventCollection`, `EntityWrittenEvent::$events`/`$existences` including getters (`getEvents()`, `getExistences()`), the corresponding method in `EntityWrittenContainerEvent` (reason in the code: "unused").
+- XML service definitions in plugins are deprecated in 6.7 (`Bundle::triggerXmlConfigDeprecation`, 6.8 no longer loads XML): use `services.php` (alternatively `services.yaml`). Checked: `Bundle::registerContainerFile` loads XML, YAML and PHP.
+- New in the 6.7 event set (present in the code): `DocumentGeneratedEvent`, `DocumentDeletedEvent` (DocumentV2), `CustomerPasswordChangedEvent`, `RevocationRequestEvent`. ⚠ UNVERIFIED: whether they were missing in 6.6.
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] Eventname korrekt (Klasse vs. String; DAL: `<entity>.loaded` usw.)
-- [ ] Subscriber als Service mit Tag `kernel.event_subscriber` registriert
-- [ ] Service-Datei im PHP-Format (`services.php`), nicht XML
-- [ ] Methodensignatur nutzt exakt die Event-Klasse
-- [ ] Keine schwere/synchrone Arbeit und keine Einzel-Queries pro Entity in `*.loaded`
-- [ ] Selbstauslösende Writes (`*.written` schreibt dieselbe Entity) abgesichert
-- [ ] Bei versionierten Entities `LIVE_VERSION` geprüft, falls relevant
-- [ ] Vorher-Zustand nur über `EntityWriteEvent`/`EntityDeleteEvent`
-- [ ] `plugin:refresh`, `cache:clear` ausgeführt, Listener per `debug:event-dispatcher` kontrolliert
-- [ ] Für Logik-Ersatz stattdessen Dekoration/Extension Point erwogen
+- [ ] Event name correct (class vs. string; DAL: `<entity>.loaded` etc.)
+- [ ] Subscriber registered as a service with the tag `kernel.event_subscriber`
+- [ ] Service file in PHP format (`services.php`), not XML
+- [ ] Method signature uses exactly the event class
+- [ ] No heavy/synchronous work and no per-entity queries in `*.loaded`
+- [ ] Self-triggering writes (`*.written` writes the same entity) guarded
+- [ ] For versioned entities, `LIVE_VERSION` checked if relevant
+- [ ] Before state only via `EntityWriteEvent`/`EntityDeleteEvent`
+- [ ] `plugin:refresh`, `cache:clear` run, listener checked via `debug:event-dispatcher`
+- [ ] For replacing logic, decoration/extension point considered instead
 
-## 7. Quellen
+## 7. Sources
 
-Doku:
+Docs:
 - https://developer.shopware.com/docs/guides/plugins/plugins/framework/event/listening-to-events.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/framework/event/finding-events.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/framework/event/add-custom-event.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/framework/data-handling/using-database-events.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/architecture/events.html
 
-Quellcode (`vendor/shopware/`):
-- `core/Framework/DependencyInjection/event.php` (Decorator `NestedEventDispatcher`); `vendor/symfony/event-dispatcher/EventDispatcher.php` (`dispatch`: `$eventName ??= $event::class`)
+Source code (`vendor/shopware/`):
+- `core/Framework/DependencyInjection/event.php` (decorator `NestedEventDispatcher`); `vendor/symfony/event-dispatcher/EventDispatcher.php` (`dispatch`: `$eventName ??= $event::class`)
 - `core/Framework/Event/{NestedEventDispatcher,NestedEvent,ShopwareEvent,GenericEvent,ShopwareSalesChannelEvent,FlowEventAware,IsFlowEventAware,BusinessEventRegistry,BeforeSendResponseEvent}.php`
 - `core/Framework/DataAbstractionLayer/Event/{EntityLoadedEvent,EntityWrittenEvent,EntityWrittenContainerEvent,EntityWriteEvent,EntityDeleteEvent,EntityDeletedEvent}.php`
-- `core/Framework/DataAbstractionLayer/Write/Validation/PreWriteValidationEvent.php`; Dispatch in `core/Framework/DataAbstractionLayer/Dbal/EntityWriteGateway.php` (Z. 109, 134, 140)
+- `core/Framework/DataAbstractionLayer/Write/Validation/PreWriteValidationEvent.php`; dispatch in `core/Framework/DataAbstractionLayer/Dbal/EntityWriteGateway.php` (lines 109, 134, 140)
 - `core/Content/Product/ProductEvents.php`, `core/Content/DependencyInjection/product.php`
 - `core/Checkout/Cart/Event/CheckoutOrderPlacedEvent.php`, `core/Framework/Routing/{CoreSubscriber,RouteEventSubscriber}.php`
 - `storefront/Page/PageLoadedEvent.php`, `storefront/Page/Product/{ProductPageLoadedEvent,ProductPageLoader}.php`, `storefront/Event/StorefrontRenderEvent.php`
 - `core/Framework/Bundle.php` (`registerContainerFile`)
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ UNGEPRÜFT: `bin/console debug:event-dispatcher` wurde nicht ausgeführt (kein Container-Zugriff); Symfony-Standardbefehl, Annahme.
-- Autoconfiguration von `EventSubscriberInterface` greift in Plugins nur mit `->defaults()->autowire()->autoconfigure()` (live bestätigt); ohne `defaults()` nicht aktiv, Tag deshalb im Zweifel explizit setzen.
-- Belegt: `PreWriteValidationEvent::getExceptions()` liefert die `WriteException` des `WriteContext`; `add(\Throwable): WriteException` (`WriteException.php`), `tryToThrow()` wirft sie in `EntityWriteGateway::validateCommands()` direkt nach dem Dispatch (Z. 140-146, 833) und bricht die Transaktion ab. Für Feldfehler besser `WriteConstraintViolationException` (`core/Framework/Validation/`) verwenden; nicht ausgeführt.
-- ⚠ UNGEPRÜFT: Alle Beispiele nur gegen Quellcode-Signaturen geprüft, nicht in einer laufenden Instanz getestet.
-- ⚠ LÜCKE: 6.5/6.6-Verhalten (Entfernung `BusinessEventInterface`, älteres `BeforeDeleteEvent`) nicht ausgewertet.
-- Die Doku-Seite "architecture/events" unterscheidet Kernel-/Business-/Page-Events nicht ausdrücklich; Familientabelle stammt aus dem Code.
+- ⚠ UNVERIFIED: `bin/console debug:event-dispatcher` was not executed (no container access); Symfony standard command, assumption.
+- Autoconfiguration of `EventSubscriberInterface` only takes effect in plugins with `->defaults()->autowire()->autoconfigure()` (verified live); without `defaults()` it is not active, so set the tag explicitly when in doubt.
+- Confirmed: `PreWriteValidationEvent::getExceptions()` returns the `WriteException` of the `WriteContext`; `add(\Throwable): WriteException` (`WriteException.php`), `tryToThrow()` throws it in `EntityWriteGateway::validateCommands()` right after the dispatch (lines 140-146, 833) and aborts the transaction. For field errors, `WriteConstraintViolationException` (`core/Framework/Validation/`) is the better choice; not executed.
+- ⚠ UNVERIFIED: All examples only checked against source code signatures, not tested in a running instance.
+- ⚠ GAP: 6.5/6.6 behavior (removal of `BusinessEventInterface`, older `BeforeDeleteEvent`) not evaluated.
+- The docs page "architecture/events" does not explicitly distinguish kernel/business/page events; the family table is derived from the code.

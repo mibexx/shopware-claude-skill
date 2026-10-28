@@ -1,29 +1,29 @@
-# Mail-Templates und Mail-Daten (Referenz, Shopware 6.7.15.1)
+# Mail templates and mail data (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn ein Plugin einen eigenen Mail-Template-Typ samt Template anlegt, Variablen in Mails ergänzt (Events), Mails aus eigenem Code versendet oder die Zuordnung von Template, Sales Channel und Sprache klären muss.
+This reference applies when a plugin creates its own mail template type including a template, adds variables to mails (events), sends mails from its own code, or needs to clarify the assignment of template, sales channel and language.
 
-Abgrenzung: Flow-Aktionen und -Trigger (`action.mail.send`, eigene Flow-Events) in [T-09 Flow Builder](./09-flow-builder.md); Migrationen allgemein in [T-04](./04-datenbank-migrationen.md); Events/Subscriber in [T-07](./07-events-subscriber.md); Service-Dekoration in [T-06](./06-service-dekoration.md); Sales-Channel-Unterscheidung in [T-20](./20-sales-channel-unterscheidung.md).
+Scope: flow actions and triggers (`action.mail.send`, custom flow events) in [T-09 Flow Builder](./09-flow-builder.md); migrations in general in [T-04](./04-database-migrations.md); events/subscribers in [T-07](./07-events-subscriber.md); service decoration in [T-06](./06-service-decoration.md); sales channel distinction in [T-20](./20-sales-channel-distinction.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-- **Datenmodell** (`core/Content/MailTemplate/`):
-  - `mail_template_type` (`technical_name`, `available_entities`, übersetzter Name).
-  - `mail_template` (`system_default`, FK auf Typ); übersetzt in `mail_template_translation`: `subject`, `sender_name`, `description`, `content_html`, `content_plain`.
-  - `mail_header_footer` gehört zum **Sales Channel** (`sales_channel.mail_header_footer_id`, Feld `mailHeaderFooter`), nicht zum Template.
-- **Eigener Typ plus Template** per **Plugin-Migration** (`INSERT` in die vier Tabellen). Referenz: `Migration1763377570CreatePasswordChangeMailTemplate` (Transaktion, Existenzprüfung des Typs). Plugin-Migrationen liegen in `src/Migration` (Namespace `<PluginNamespace>\Migration`, `Bundle::getMigrationNamespace()`).
-- **Mail-Daten anreichern** über Events:
-  - `MailBeforeValidateEvent` (`mail.before.send`): ändert `data` und `templateData`; stoppbar (verhindert Versand).
-  - `MailTemplateRenderContextEvent`: läuft direkt vor dem Rendern, nur `templateData`, kennt den Sales Channel (`getSalesChannel()`).
-  - `MailBeforeSentEvent` (`mail.after.create.message`): fertige `Email`, z. B. für Anhänge; stoppbar. `MailSentEvent`: nach Versand.
-- **Versand**: `AbstractMailService::send(array $data, Context $context, array $templateData = []): ?Email` (Impl. `MailService`). Mit gespeichertem Template: `SendMailTemplate::send(SendMailTemplateParams, Context)`. Im Flow Builder: Aktion `action.mail.send` (`SendMailAction`).
-- **Zuordnung Sales Channel / Sprache**:
-  - Keine Tabelle `mail_template` <-> Sales Channel mehr (`mail_template_sales_channel` in 6.5 gelöscht, `Migration1675082889DropUnusedTables`). Das Template wird **pro Flow-Aktion** per `mailTemplateId` gewählt; Differenzierung über Flow-Regeln bzw. mehrere Flows.
-  - Der Sales Channel kommt aus `data['salesChannelId']` und bestimmt Absender, Header/Footer, Domain/Snippets.
-  - Die Sprache kommt aus `Context::getLanguageId()` und der Übersetzungskette (`SendMailTemplate::buildContext()`: `[languageId, parentLanguageId, Defaults::LANGUAGE_SYSTEM]`; in Flows `LanguageAware::LANGUAGE_ID`).
+- **Data model** (`core/Content/MailTemplate/`):
+  - `mail_template_type` (`technical_name`, `available_entities`, translated name).
+  - `mail_template` (`system_default`, FK to the type); translated in `mail_template_translation`: `subject`, `sender_name`, `description`, `content_html`, `content_plain`.
+  - `mail_header_footer` belongs to the **sales channel** (`sales_channel.mail_header_footer_id`, field `mailHeaderFooter`), not to the template.
+- **Custom type plus template** via a **plugin migration** (`INSERT` into the four tables). Reference: `Migration1763377570CreatePasswordChangeMailTemplate` (transaction, existence check of the type). Plugin migrations live in `src/Migration` (namespace `<PluginNamespace>\Migration`, `Bundle::getMigrationNamespace()`).
+- **Enriching mail data** via events:
+  - `MailBeforeValidateEvent` (`mail.before.send`): changes `data` and `templateData`; stoppable (prevents sending).
+  - `MailTemplateRenderContextEvent`: runs directly before rendering, only `templateData`, knows the sales channel (`getSalesChannel()`).
+  - `MailBeforeSentEvent` (`mail.after.create.message`): finished `Email`, e.g. for attachments; stoppable. `MailSentEvent`: after sending.
+- **Sending**: `AbstractMailService::send(array $data, Context $context, array $templateData = []): ?Email` (impl. `MailService`). With a stored template: `SendMailTemplate::send(SendMailTemplateParams, Context)`. In the Flow Builder: action `action.mail.send` (`SendMailAction`).
+- **Sales channel / language assignment**:
+  - There is no longer a `mail_template` <-> sales channel table (`mail_template_sales_channel` deleted in 6.5, `Migration1675082889DropUnusedTables`). The template is chosen **per flow action** via `mailTemplateId`; differentiation via flow rules or multiple flows.
+  - The sales channel comes from `data['salesChannelId']` and determines sender, header/footer, domain/snippets.
+  - The language comes from `Context::getLanguageId()` and the translation chain (`SendMailTemplate::buildContext()`: `[languageId, parentLanguageId, Defaults::LANGUAGE_SYSTEM]`; in flows `LanguageAware::LANGUAGE_ID`).
 
-Verzeichnisbaum Plugin-relativ:
+Directory tree plugin-relative:
 
 ```
 SwagExample/
@@ -34,34 +34,34 @@ SwagExample/
     └── Resources/config/services.php
 ```
 
-Core-Fundstellen: `core/Content/MailTemplate/Service/Event/*`, `core/Content/Mail/Service/{AbstractMailService,MailService,SendMailTemplate,SendMailTemplateParams}.php`, `core/Content/Flow/Dispatching/Action/SendMailAction.php`.
+Core locations: `core/Content/MailTemplate/Service/Event/*`, `core/Content/Mail/Service/{AbstractMailService,MailService,SendMailTemplate,SendMailTemplateParams}.php`, `core/Content/Flow/Dispatching/Action/SendMailAction.php`.
 
-## 3. Anleitung
+## 3. Instructions
 
-1. Plugin anlegen: `bin/console plugin:create SwagExample` ([T-02](./02-plugin-aufbau.md)).
-2. Migration nach Beispiel 4.1 anlegen (idempotent, kein Löschen im Plugin).
-3. Subscriber und Service-Registrierung (4.2, 4.3).
-4. Installieren und aktivieren (Migrationen laufen dabei; ersatzweise `database:migrate`):
+1. Create the plugin: `bin/console plugin:create SwagExample` ([T-02](./02-plugin-structure.md)).
+2. Create the migration following example 4.1 (idempotent, no deletion in the plugin).
+3. Subscriber and service registration (4.2, 4.3).
+4. Install and activate (migrations run during this; alternatively `database:migrate`):
    ```bash
    bin/console plugin:refresh && bin/console plugin:install --activate SwagExample
    bin/console database:migrate --all SwagExample
    bin/console cache:clear
    ```
-5. In der Administration (Einstellungen -> Shop -> E-Mail-Templates, `sw-mail-template`) das Template prüfen und per Vorschau testen (Route `api.action.mail_template.preview`).
-6. **Auslöser festlegen**: Flow Builder, Aktion "E-Mail senden" mit dem Template (`sw-flow-mail-send-modal`), oder Versand per Code (4.4). Ein Template allein versendet nichts.
-7. **Pro Sales Channel unterschiedlich**: Regel (Sales-Channel-Bedingung) an der Flow-Aktion oder je Sales Channel ein eigener Flow mit eigener `mailTemplateId`. Header/Footer im Sales Channel wählen.
-8. **Eigenes Flow-Event für den Mailversand**: muss `MailAware` implementieren (`getMailStruct(): MailRecipientStruct`, `getSalesChannelId()`). Muster: `CustomerPasswordChangedEvent`; dessen `EVENT_NAME` ist zugleich `technical_name` des Mail-Typs. Flow-Setup per Migration: `Migration1763377575SendEmailAfterPasswordChangeFlow` (`flow`, `flow_sequence`, `flow_template`). Details: [T-09](./09-flow-builder.md).
+5. In the Administration (Settings -> Shop -> Email templates, `sw-mail-template`), check the template and test it via preview (route `api.action.mail_template.preview`).
+6. **Define the trigger**: Flow Builder, action "Send email" with the template (`sw-flow-mail-send-modal`), or sending via code (4.4). A template alone sends nothing.
+7. **Different per sales channel**: rule (sales channel condition) on the flow action, or a separate flow per sales channel with its own `mailTemplateId`. Choose header/footer in the sales channel.
+8. **Custom flow event for sending mail**: must implement `MailAware` (`getMailStruct(): MailRecipientStruct`, `getSalesChannelId()`). Pattern: `CustomerPasswordChangedEvent`; its `EVENT_NAME` is also the `technical_name` of the mail type. Flow setup via migration: `Migration1763377575SendEmailAfterPasswordChangeFlow` (`flow`, `flow_sequence`, `flow_template`). Details: [T-09](./09-flow-builder.md).
 
-### Ablauf in `MailService::send()`
+### Sequence in `MailService::send()`
 
-1. `MailBeforeValidateEvent`; bei gestoppter Propagation `null`.
-2. `DataValidator` prüft `recipients`, `salesChannelId` (EntityExists), `contentHtml`, `contentPlain`, `subject`.
-3. Sales Channel laden (inkl. `mailHeaderFooter`, Domain der Context-Sprache); Translator mit Sales Channel/Sprache/Locale für Snippets.
-4. `createMail()`: ergänzt `templateData['salesChannel']`/`['salesChannelId']`, dispatcht `MailTemplateRenderContextEvent`, bestimmt Absender (`senderMail`/`senderEmail` aus Daten, sonst `core.basicInformation.email`, sonst `core.mailerSettings.senderAddress`, je Sales Channel), rendert Subject, Sender-Name und Inhalte inkl. Header/Footer (`MailTemplateContentBuilder`, `StringTemplateRenderer`). Im Testmodus (`SetupStagingEvent::CONFIG_FLAG` bzw. `testMode`) Zusatz-Header.
-5. Anhänge (`DataPart`), dann `MailBeforeSentEvent` (stoppbar).
-6. Versand über `AbstractMailSender`, danach `MailSentEvent`. Fehler: `MailErrorEvent` plus Log, Rückgabe `null`.
+1. `MailBeforeValidateEvent`; if propagation is stopped, `null`.
+2. `DataValidator` checks `recipients`, `salesChannelId` (EntityExists), `contentHtml`, `contentPlain`, `subject`.
+3. Load the sales channel (incl. `mailHeaderFooter`, domain of the context language); translator with sales channel/language/locale for snippets.
+4. `createMail()`: adds `templateData['salesChannel']`/`['salesChannelId']`, dispatches `MailTemplateRenderContextEvent`, determines the sender (`senderMail`/`senderEmail` from data, otherwise `core.basicInformation.email`, otherwise `core.mailerSettings.senderAddress`, per sales channel), renders subject, sender name and contents incl. header/footer (`MailTemplateContentBuilder`, `StringTemplateRenderer`). In test mode (`SetupStagingEvent::CONFIG_FLAG` or `testMode`), additional headers.
+5. Attachments (`DataPart`), then `MailBeforeSentEvent` (stoppable).
+6. Sending via `AbstractMailSender`, then `MailSentEvent`. Errors: `MailErrorEvent` plus log, return `null`.
 
-## 4. Beispiele
+## 4. Examples
 
 ### 4.1 `src/Migration/Migration1760000000AddMailTemplate.php`
 
@@ -139,7 +139,7 @@ class Migration1760000000AddMailTemplate extends MigrationStep
 }
 ```
 
-Weitere Sprachen: je Sprache eine Zeile in beide Translation-Tabellen; `language_id` per `SELECT language.id FROM language INNER JOIN locale ON locale.id = language.translation_code_id WHERE locale.code = :iso` (Vorbild `fetchLanguageIdByIso()` in der Core-Migration). Migrations-Gerüst: [../templates/migration/README.md](../templates/migration/README.md).
+More languages: one row per language in both translation tables; `language_id` via `SELECT language.id FROM language INNER JOIN locale ON locale.id = language.translation_code_id WHERE locale.code = :iso` (model `fetchLanguageIdByIso()` in the core migration). Migration scaffold: [../templates/migration/README.md](../templates/migration/README.md).
 
 ### 4.2 `src/Subscriber/MailDataSubscriber.php`
 
@@ -164,13 +164,13 @@ class MailDataSubscriber implements EventSubscriberInterface
 
     public function onBeforeValidate(MailBeforeValidateEvent $event): void
     {
-        // Variable fuer Twig im Template: {{ swagGreeting }}
+        // variable for Twig in the template: {{ swagGreeting }}
         $event->addTemplateData('swagGreeting', 'welcome back!');
     }
 
     public function onRenderContext(MailTemplateRenderContextEvent $event): void
     {
-        // laeuft nach dem Setzen von salesChannel/salesChannelId in templateData
+        // runs after salesChannel/salesChannelId have been set in templateData
         $event->addTemplateData('swagShop', $event->getSalesChannel()?->getTranslation('name'));
     }
 }
@@ -191,9 +191,9 @@ return static function (ContainerConfigurator $container): void {
 };
 ```
 
-(Service-Registrierung allgemein: [T-05](./05-services-registrieren.md); Subscriber: [../templates/event-subscriber/README.md](../templates/event-subscriber/README.md).)
+(Service registration in general: [T-05](./05-registering-services.md); subscribers: [../templates/event-subscriber/README.md](../templates/event-subscriber/README.md).)
 
-### 4.4 Versand aus eigenem Code
+### 4.4 Sending from your own code
 
 ```php
 use Shopware\Core\Content\Mail\Service\AbstractMailService;
@@ -201,16 +201,16 @@ use Shopware\Core\Content\Mail\Service\AbstractMailService;
 public function __construct(private readonly AbstractMailService $mailService) {}
 
 $this->mailService->send([
-    'recipients' => ['kunde@example.com' => 'Max Kunde'],
+    'recipients' => ['customer@example.com' => 'Max Customer'],
     'salesChannelId' => $salesChannelId,
-    'subject' => 'Hello {{ customer.firstName }}',   // wird mit templateData gerendert
+    'subject' => 'Hello {{ customer.firstName }}',   // rendered with templateData
     'senderName' => '{{ salesChannel.translated.name }}',
     'contentHtml' => '<p>Hi {{ customer.firstName }}</p>',
     'contentPlain' => 'Hi {{ customer.firstName }}',
 ], $context, ['customer' => $customer]);
 ```
 
-Registrierung: Für `AbstractMailService` existiert kein Service-Alias (nur die Service-ID `MailService::class`, `core/Content/DependencyInjection/mail_template.php`), Autowiring auf die abstrakte Klasse scheitert daher. Konkreten Service explizit übergeben:
+Registration: there is no service alias for `AbstractMailService` (only the service ID `MailService::class`, `core/Content/DependencyInjection/mail_template.php`), so autowiring to the abstract class fails. Pass the concrete service explicitly:
 
 ```php
 use Shopware\Core\Content\Mail\Service\MailService;
@@ -219,50 +219,50 @@ $services->set(MyMailSender::class)
     ->args([service(MailService::class)]);
 ```
 
-Mit gespeichertem Template: `SendMailTemplate::send(new SendMailTemplateParams($mailTemplateId, $languageId, [new Address('a@b.de', 'A')], ['customer' => $customer], [], $salesChannelId), $context)`. `SendMailTemplate` ist in 6.7.15.1 laut Klassenkopf nicht `@internal`, nur der Konstruktor.
+With a stored template: `SendMailTemplate::send(new SendMailTemplateParams($mailTemplateId, $languageId, [new Address('a@b.de', 'A')], ['customer' => $customer], [], $salesChannelId), $context)`. According to its class header, `SendMailTemplate` is not `@internal` in 6.7.15.1, only its constructor is.
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- **Variable leer**: `templateData` muss vor dem Rendern gesetzt werden (`MailBeforeValidateEvent` oder `MailTemplateRenderContextEvent`), im `MailBeforeSentEvent` ist es zu spät.
-- **Decoration statt Event**: `->decorate(MailService::class)` funktioniert (Service-ID `MailService::class`, `core/Content/DependencyInjection/mail_template.php`), die Doku zeigt `AbstractMailService` als Elternklasse mit `getDecorated()`. Für Datenanreicherung ist der Event-Subscriber besser.
-- **Mail kommt nicht an, ohne Fehler im Aufrufer**: `MailService::send()` wirft nicht, sondern gibt `null` zurück bei Render-/Body-/Versandfehler, gestoppter Propagation; `SendMailAction` fängt Exceptions und loggt nur. `MailErrorEvent` und Log prüfen.
-- **Absender leer**: Weder `core.basicInformation.email` noch `core.mailerSettings.senderAddress` gesetzt -> `MailErrorEvent`.
-- **Template beim Deinstallieren löschen**: Doku warnt (Inkonsistenzen); Core arbeitet idempotent.
-- **`salesChannelId` ungültig**: Validierung schlägt fehl (`EntityExists`).
-- **Typ ohne passendes Flow-Event**: Typ erscheint in der UI, wird aber nie ausgelöst.
-- **`available_entities` falsch**: Schlüssel müssen zu einem Provider mit Tag `shopware.mail.data_provider` passen, sonst `MailTemplateException::missingDataProvider` (Vorschau, `MailDataProvider::getTemplateData()`). Core-Provider (Tag-Key, `core/Content/DependencyInjection/shared.php`): `order`, `customer`, `customer_group`, `product`, `customer_recovery`, `newsletter_recipient`, `order_transaction`, `sales_channel`, `state_machine_state`, `user_recovery`.
-- **Header/Footer fehlt**: hängt am Sales Channel; ohne `mailHeaderFooter` wird das Template unverändert gesendet.
+- **Variable empty**: `templateData` must be set before rendering (`MailBeforeValidateEvent` or `MailTemplateRenderContextEvent`); in `MailBeforeSentEvent` it is too late.
+- **Decoration instead of event**: `->decorate(MailService::class)` works (service ID `MailService::class`, `core/Content/DependencyInjection/mail_template.php`), the docs show `AbstractMailService` as the parent class with `getDecorated()`. For data enrichment, the event subscriber is better.
+- **Mail does not arrive, without an error in the caller**: `MailService::send()` does not throw but returns `null` on render/body/sending errors or stopped propagation; `SendMailAction` catches exceptions and only logs. Check `MailErrorEvent` and the log.
+- **Sender empty**: neither `core.basicInformation.email` nor `core.mailerSettings.senderAddress` set -> `MailErrorEvent`.
+- **Deleting the template on uninstall**: the docs warn (inconsistencies); the core works idempotently.
+- **`salesChannelId` invalid**: validation fails (`EntityExists`).
+- **Type without a matching flow event**: the type appears in the UI but is never triggered.
+- **`available_entities` wrong**: keys must match a provider with tag `shopware.mail.data_provider`, otherwise `MailTemplateException::missingDataProvider` (preview, `MailDataProvider::getTemplateData()`). Core providers (tag key, `core/Content/DependencyInjection/shared.php`): `order`, `customer`, `customer_group`, `product`, `customer_recovery`, `newsletter_recipient`, `order_transaction`, `sales_channel`, `state_machine_state`, `user_recovery`.
+- **Header/footer missing**: it is attached to the sales channel; without `mailHeaderFooter` the template is sent unchanged.
 
-### Deprecations und Versionshinweise (6.5/6.6 -> 6.7)
+### Deprecations and version notes (6.5/6.6 -> 6.7)
 
-- `mail_template_sales_channel` in 6.5 gelöscht; zugehörige Events in `MailTemplateEvents` sind `@deprecated tag:v6.8.0` ohne Ersatz.
-- `mail_template_type.template_data`: `Deprecated('v6.7.12.0','v6.8.0.0')` (`MailTemplateTypeDefinition`), ebenso `MailTemplateTypeEntity::get/setTemplateData`; `SendMailAction::updateMailTemplateType` schreibt es nur bei inaktivem `v6.8.0.0`.
-- API-Routen `api.action.mail_template.validate` und `.build` deprecated (Entfernung 6.8); Ersatz `api.action.mail_template.preview` (`MailActionController`).
-- `MailSender`: Konstante zur Nachrichtengröße `@deprecated tag:v6.8.0` -> `shopware.messenger.message_max_kib_size`. `SalesChannelNotFoundException` `@deprecated tag:v6.8.0`.
-- `MailTemplateRenderContextEvent`, `SendMailTemplate`/`SendMailTemplateParams`, `MailTemplateSendService` existieren in 6.7.15.1; Einführungsversion nicht belegt.
-- Neue Mail-Typen in 6.7 u. a. `order.payment_method.changed`, `revocation_request.merchant/customer`, `customer.password.changed`. Der Core nutzt `MailBeforeValidateEvent`/`MailBeforeSentEvent` selbst (`GaranLabelMailSubscriber`: Daten und Inline-Anhänge).
-- Admin-Modul `sw-mail-template` hat unter `Feature.isActive('V6_8_0_0')` eine andere Routenstruktur.
-- Doku-Seiten `add-data-to-mails`/`add-mail-template` sind erreichbar, erwähnen aber weder `MailTemplateRenderContextEvent` noch den Typ-/Flow-Zusammenhang.
+- `mail_template_sales_channel` deleted in 6.5; the related events in `MailTemplateEvents` are `@deprecated tag:v6.8.0` without replacement.
+- `mail_template_type.template_data`: `Deprecated('v6.7.12.0','v6.8.0.0')` (`MailTemplateTypeDefinition`), as are `MailTemplateTypeEntity::get/setTemplateData`; `SendMailAction::updateMailTemplateType` only writes it when `v6.8.0.0` is inactive.
+- API routes `api.action.mail_template.validate` and `.build` deprecated (removal 6.8); replacement `api.action.mail_template.preview` (`MailActionController`).
+- `MailSender`: constant for message size `@deprecated tag:v6.8.0` -> `shopware.messenger.message_max_kib_size`. `SalesChannelNotFoundException` `@deprecated tag:v6.8.0`.
+- `MailTemplateRenderContextEvent`, `SendMailTemplate`/`SendMailTemplateParams`, `MailTemplateSendService` exist in 6.7.15.1; introduction version not confirmed.
+- New mail types in 6.7 include, among others, `order.payment_method.changed`, `revocation_request.merchant/customer`, `customer.password.changed`. The core itself uses `MailBeforeValidateEvent`/`MailBeforeSentEvent` (`GaranLabelMailSubscriber`: data and inline attachments).
+- The Admin module `sw-mail-template` has a different route structure under `Feature.isActive('V6_8_0_0')`.
+- The docs pages `add-data-to-mails`/`add-mail-template` are reachable, but mention neither `MailTemplateRenderContextEvent` nor the type/flow relationship.
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] Typ `technical_name` eindeutig (bei Flow-Trigger = `EVENT_NAME` des Events)
-- [ ] Migration idempotent, in Transaktion, Translations mindestens für Systemsprache
-- [ ] `available_entities` passt zu registrierten Data-Providern
-- [ ] Zusätzliche Variablen per Event vor dem Rendern gesetzt
-- [ ] Auslöser vorhanden (Flow mit Aktion "E-Mail senden" oder Code-Versand)
-- [ ] Sales-Channel-Differenzierung über Flow-Regeln/Flows und Header/Footer geprüft
-- [ ] Absenderadresse konfiguriert
-- [ ] Vorschau in der Administration getestet, `MailErrorEvent`/Log geprüft
-- [ ] Template wird im Plugin nicht beim Deinstallieren gelöscht
+- [ ] Type `technical_name` unique (for a flow trigger = `EVENT_NAME` of the event)
+- [ ] Migration idempotent, in a transaction, translations at least for the system language
+- [ ] `available_entities` matches registered data providers
+- [ ] Additional variables set via event before rendering
+- [ ] Trigger present (flow with action "Send email" or sending via code)
+- [ ] Sales channel differentiation via flow rules/flows and header/footer checked
+- [ ] Sender address configured
+- [ ] Preview tested in the Administration, `MailErrorEvent`/log checked
+- [ ] The plugin does not delete the template on uninstall
 
-## 7. Quellen
+## 7. Sources
 
-Doku (2026-10-28 abgerufen):
+Docs (retrieved 2026-10-28):
 - https://developer.shopware.com/docs/guides/plugins/plugins/content/mail/add-data-to-mails.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/content/mail/add-mail-template.html
 
-Quellcode (`core/`):
+Source code (`core/`):
 - `Content/Mail/Service/{AbstractMailService,MailService,SendMailTemplate,SendMailTemplateParams}.php`
 - `Content/MailTemplate/Service/Event/{MailBeforeValidateEvent,MailTemplateRenderContextEvent,MailBeforeSentEvent,MailSentEvent,MailErrorEvent}.php`
 - `Content/MailTemplate/{MailTemplateDefinition,MailTemplateTypes}.php`, `Aggregate/MailTemplateType/MailTemplateTypeDefinition.php`, `Service/{MailTemplateContentBuilder,MailDataProvider,MailTemplateSendService}.php`, `Api/MailActionController.php`
@@ -271,9 +271,9 @@ Quellcode (`core/`):
 - `Content/DependencyInjection/{mail,mail_template,shared}.php`, `Content/Product/Garan/GaranLabelMailSubscriber.php`, `System/SalesChannel/SalesChannelDefinition.php`, `Framework/Bundle.php` (`getMigrationNamespace`)
 - Admin: `module/sw-mail-template/index.js`, `module/sw-flow/component/modals/sw-flow-mail-send-modal/index.js`
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ UNGEPRÜFT: Beispiele (Migration, Subscriber, Versand) und CLI nicht in einer laufenden Installation ausgeführt; Migration nach Core-Vorbild geschrieben. Twig-Variablen `customer`/`salesChannel` setzen ein passendes Flow-Event bzw. beim Direktversand übergebene `templateData` voraus.
-- ⚠ LÜCKE: Dass das Flow-Trigger-Event dieselbe Bezeichnung wie `technical_name` trägt, ist aus dem Core-Muster abgeleitet; wie die Administration Templates pro Event filtert, nur in Teilen gelesen. Wie ein eigenes Event über `BusinessEventCollector` im Flow Builder erscheint, nicht vertieft.
-- ⚠ LÜCKE: Einführungsversion von `MailTemplateRenderContextEvent`, `SendMailTemplate`, `MailTemplateSendService` nicht belegt; ob das Äquivalent in 6.6 existiert, ungeprüft.
-- ⚠ UNGEPRÜFT: Wirkung von `SetupStagingEvent::CONFIG_FLAG` (Testmodus) nur aus `createMail()` abgeleitet; Spracherkennung in Flows (`LanguageAware::LANGUAGE_ID`, `LanguageStorer`) nicht im Detail geprüft.
+- ⚠ UNVERIFIED: Examples (migration, subscriber, sending) and CLI not executed in a running installation; migration written following the core model. The Twig variables `customer`/`salesChannel` require a matching flow event or `templateData` passed when sending directly.
+- ⚠ GAP: That the flow trigger event carries the same name as `technical_name` is derived from the core pattern; how the Administration filters templates per event was only partly read. How a custom event appears in the Flow Builder via `BusinessEventCollector` was not explored in depth.
+- ⚠ GAP: Introduction version of `MailTemplateRenderContextEvent`, `SendMailTemplate`, `MailTemplateSendService` not confirmed; whether the equivalent exists in 6.6 is unverified.
+- ⚠ UNVERIFIED: The effect of `SetupStagingEvent::CONFIG_FLAG` (test mode) only derived from `createMail()`; language detection in flows (`LanguageAware::LANGUAGE_ID`, `LanguageStorer`) not checked in detail.

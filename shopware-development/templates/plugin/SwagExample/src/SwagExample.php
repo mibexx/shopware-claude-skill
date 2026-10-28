@@ -14,20 +14,20 @@ class SwagExample extends Plugin
 {
     public function install(InstallContext $installContext): void
     {
-        // Laeuft VOR den Migrationen. Eigene Plugin-Services sind hier NICHT verfuegbar.
+        // Runs BEFORE the migrations. The plugin's own services are NOT available here.
     }
 
     public function postInstall(InstallContext $installContext): void
     {
-        // Laeuft nach Migrationen und nach dem Setzen von installedAt.
+        // Runs after migrations and after installedAt has been set.
     }
 
     public function update(UpdateContext $updateContext): void
     {
-        // Laeuft VOR den Migrationen des Updates. Nur einmalige Datenanpassungen,
-        // Schemaaenderungen gehoeren in Migrationen.
-        // $updateContext->getCurrentPluginVersion() = bisher installierte Version
-        // $updateContext->getUpdatePluginVersion()  = Zielversion
+        // Runs BEFORE the update's migrations. Only one-off data adjustments,
+        // schema changes belong in migrations.
+        // $updateContext->getCurrentPluginVersion() = previously installed version
+        // $updateContext->getUpdatePluginVersion()  = target version
     }
 
     public function postUpdate(UpdateContext $updateContext): void
@@ -36,8 +36,8 @@ class SwagExample extends Plugin
 
     public function activate(ActivateContext $activateContext): void
     {
-        // Plugin ist installiert; Kernel wurde mit dem Plugin neu gebootet.
-        // Migrationen laufen hier NICHT (autoMigrate ist false; nur mit setAutoMigrate(true) in activate()).
+        // The plugin is installed; the kernel has been rebooted with the plugin.
+        // Migrations do NOT run here (autoMigrate is false; only with setAutoMigrate(true) in activate()).
     }
 
     public function deactivate(DeactivateContext $deactivateContext): void
@@ -52,9 +52,9 @@ class SwagExample extends Plugin
             return;
         }
 
-        // Der Core loescht keine Plugin-Tabellen. Reihenfolge: abhaengige Tabellen zuerst.
-        // Tabellen existieren nur, wenn die Vorlage templates/migration (bzw. entity) verwendet wird.
-        // $this->container ist typisiert nullable (PHPStan Level 8: method.nonObject), daher Laufzeit-Check statt @var.
+        // The core does not delete plugin tables. Order: dependent tables first.
+        // Tables only exist if the template templates/migration (or entity) is used.
+        // $this->container is typed nullable (PHPStan level 8: method.nonObject), hence a runtime check instead of @var.
         $connection = $this->container?->get(Connection::class);
         if (!$connection instanceof Connection) {
             return;
@@ -64,8 +64,8 @@ class SwagExample extends Plugin
         $connection->executeStatement('DROP TABLE IF EXISTS `swag_example`');
     }
 
-    // Optionale Ueberschreibungen (Defaults siehe core/Framework/Plugin.php):
-    // public function executeComposerCommands(): bool { return true; } // composer require/remove bei Install/Uninstall
-    // public function rebuildContainer(): bool { return false; }        // nur CLI wirksam
-    // public function enrichPrivileges(): array { return []; }          // zusaetzliche ACL-Privilegien
+    // Optional overrides (for defaults see core/Framework/Plugin.php):
+    // public function executeComposerCommands(): bool { return true; } // composer require/remove on install/uninstall
+    // public function rebuildContainer(): bool { return false; }        // only effective in the CLI
+    // public function enrichPrivileges(): array { return []; }          // additional ACL privileges
 }

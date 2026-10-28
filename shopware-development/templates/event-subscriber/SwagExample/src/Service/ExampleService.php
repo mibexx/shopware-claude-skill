@@ -14,8 +14,8 @@ class ExampleService
 
     public function run(string $payload, Context $context): void
     {
-        // Mit festem Namen dispatchen, dann koennen Subscriber ExampleEvent::EVENT_NAME verwenden.
-        // Ohne zweiten Parameter ist der Eventname der Klassenname (ExampleEvent::class).
+        // Dispatch with a fixed name, then subscribers can use ExampleEvent::EVENT_NAME.
+        // Without the second parameter the event name is the class name (ExampleEvent::class).
         $this->eventDispatcher->dispatch(new ExampleEvent($payload, $context), ExampleEvent::EVENT_NAME);
     }
 }

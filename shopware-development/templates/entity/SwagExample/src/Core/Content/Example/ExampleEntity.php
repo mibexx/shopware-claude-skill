@@ -6,7 +6,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
 use SwagExample\Core\Content\Example\Aggregate\ExampleTranslation\ExampleTranslationCollection;
 
-// Properties mindestens protected, NICHT readonly (Hydrator setzt sie).
+// Properties at least protected, NOT readonly (the hydrator sets them).
 class ExampleEntity extends Entity
 {
     use EntityIdTrait;

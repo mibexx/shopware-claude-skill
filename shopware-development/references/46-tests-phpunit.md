@@ -1,23 +1,23 @@
-# PHP-Tests mit PHPUnit (Referenz, Shopware 6.7.15.1)
+# PHP tests with PHPUnit (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn für ein Plugin PHPUnit-Tests eingerichtet oder geschrieben werden: Bootstrap, Unit-Tests ohne Kernel, Integrationstests mit Datenbank, Store-/Admin-API-Tests, Fixtures.
+This reference applies when PHPUnit tests are set up or written for a plugin: bootstrap, unit tests without a kernel, integration tests with a database, Store/Admin API tests, fixtures.
 
-Abgrenzung: JS-Tests (Jest/Vitest) in [T-47](./47-tests-jest.md); PHPStan/Code-Style in [T-48](./48-statische-analyse.md); Plugin-Gerüst in [T-02](./02-plugin-aufbau.md); Konventionen in [T-45](./45-coding-guidelines.md).
+Scope: JS tests (Jest/Vitest) in [T-47](./47-tests-jest.md); PHPStan/code style in [T-48](./48-static-analysis.md); plugin scaffold in [T-02](./02-plugin-structure.md); conventions in [T-45](./45-coding-guidelines.md).
 
-Lauffähige Vorlage mit Einrichtung, Ausführung im Docker-Setup und Fallstricken: [../templates/testing/README.md](../templates/testing/README.md); Code-Qualität (PHPStan, php-cs-fixer): [../templates/quality/README.md](../templates/quality/README.md); JS-Tests: [../templates/testing-js/README.md](../templates/testing-js/README.md). Dieselben Beispiele wurden im Docker-Setup des Projekts real ausgeführt (Abschnitt 3, Schritt 5; Quellen).
+Runnable template with setup, execution in the Docker setup and pitfalls: [../templates/testing/README.md](../templates/testing/README.md); code quality (PHPStan, php-cs-fixer): [../templates/quality/README.md](../templates/quality/README.md); JS tests: [../templates/testing-js/README.md](../templates/testing-js/README.md). The same examples were actually run in the project's Docker setup (section 3, step 5; Sources).
 
-## 2. Konzepte
+## 2. Concepts
 
-- **Bootstrap:** `Shopware\Core\TestBootstrapper` (`core/TestBootstrapper.php`) lädt `.env`, hängt `_test` an den DB-Namen, startet den Kernel und führt bei fehlendem Schema `system:install --create-database --force --drop-database --basic-setup --no-assign-theme` aus (das **droppt die Test-DB**). `addCallingPlugin()` liest den Plugin-Namen aus der `composer.json` (`extra.shopware-plugin-class`, letztes Namenssegment). `addActivePlugins('Name')` installiert/aktiviert weitere Plugins. `setForceInstallPlugins(true)` erzwingt `plugin:refresh` und `plugin:install --activate --reinstall`, auch bei vorhandener Test-DB. Weitere Methoden (verifiziert): `setPlatformEmbedded`, `setDatabaseUrl`, `getDatabaseUrl`, `getClassLoader`, `setProjectDir`, `setForceInstall`, `setLoadEnvFile`, `setEnableCommercial`.
-- **Unit-Test:** kein Kernel, kein Container; Services direkt instanziieren, Abhängigkeiten als Stubs. Helfer: `Shopware\Core\Test\Stub\DataAbstractionLayer\StaticEntityRepository`, `…\Stub\SystemConfigService\StaticSystemConfigService`, `…\Stub\Framework\IdsCollection`.
-- **Integrationstest:** Trait `IntegrationTestBehaviour` (bündelt `KernelTestBehaviour`, `DatabaseTransactionBehaviour` u. a.); jeder Test läuft in einer Transaktion, die zurückgerollt wird. Container über `static::getContainer()`.
-- **API-Tests:** `SalesChannelApiTestBehaviour` (`getSalesChannelBrowser()` legt Test-Sales-Channel an und setzt `sw-access-key`; `login()`, `createSalesChannelContext()`); `AdminApiTestBehaviour::getBrowser()`.
-- **Weitere Traits:** `BasicTestDataBehaviour` (`getValidPaymentMethodId()`, `getValidCountryId()`, `getDeDeLanguageId()`), `QueueTestBehaviour`, `EnvTestBehaviour`, `AppSystemTestBehaviour`, `MailTemplateTestBehaviour`, `CacheTestBehaviour`.
-- **Fixtures:** `IdsCollection` (stabile UUIDs je Schlüssel: `create`, `get`, `getIdArray`, `getBytes`, `getList`, `all`, `prefixed`); `ProductBuilder` (`core/Content/Test/Product/ProductBuilder.php`, `build()`, `write($container)`).
-- **Stabilität:** Test-Helfer sind größtenteils `@internal` bzw. `@final` (`ProductBuilder`, `KernelLifecycleManager` `@internal`, `IdsCollection` `@final`); keine BC-Garantie, Plugins nutzen sie trotzdem.
-- **Voraussetzung:** Die Installation enthält **kein PHPUnit** und kein `symfony/browser-kit` (kein `vendor/phpunit`, keine `require-dev`); Dev-Setup nötig (Abschnitt 3, Schritt 1). Auch ein reiner Unit-Lauf braucht mit diesem Bootstrap die Test-DB (der Bootstrapper bootet den Kernel und installiert bei Bedarf).
+- **Bootstrap:** `Shopware\Core\TestBootstrapper` (`core/TestBootstrapper.php`) loads `.env`, appends `_test` to the DB name, boots the kernel and, if the schema is missing, runs `system:install --create-database --force --drop-database --basic-setup --no-assign-theme` (this **drops the test DB**). `addCallingPlugin()` reads the plugin name from `composer.json` (`extra.shopware-plugin-class`, last name segment). `addActivePlugins('Name')` installs/activates further plugins. `setForceInstallPlugins(true)` forces `plugin:refresh` and `plugin:install --activate --reinstall`, even if a test DB exists. Further methods (verified): `setPlatformEmbedded`, `setDatabaseUrl`, `getDatabaseUrl`, `getClassLoader`, `setProjectDir`, `setForceInstall`, `setLoadEnvFile`, `setEnableCommercial`.
+- **Unit test:** no kernel, no container; instantiate services directly, dependencies as stubs. Helpers: `Shopware\Core\Test\Stub\DataAbstractionLayer\StaticEntityRepository`, `…\Stub\SystemConfigService\StaticSystemConfigService`, `…\Stub\Framework\IdsCollection`.
+- **Integration test:** trait `IntegrationTestBehaviour` (bundles `KernelTestBehaviour`, `DatabaseTransactionBehaviour`, among others); each test runs in a transaction that is rolled back. Container via `static::getContainer()`.
+- **API tests:** `SalesChannelApiTestBehaviour` (`getSalesChannelBrowser()` creates a test sales channel and sets `sw-access-key`; `login()`, `createSalesChannelContext()`); `AdminApiTestBehaviour::getBrowser()`.
+- **Further traits:** `BasicTestDataBehaviour` (`getValidPaymentMethodId()`, `getValidCountryId()`, `getDeDeLanguageId()`), `QueueTestBehaviour`, `EnvTestBehaviour`, `AppSystemTestBehaviour`, `MailTemplateTestBehaviour`, `CacheTestBehaviour`.
+- **Fixtures:** `IdsCollection` (stable UUIDs per key: `create`, `get`, `getIdArray`, `getBytes`, `getList`, `all`, `prefixed`); `ProductBuilder` (`core/Content/Test/Product/ProductBuilder.php`, `build()`, `write($container)`).
+- **Stability:** test helpers are mostly `@internal` or `@final` (`ProductBuilder`, `KernelLifecycleManager` `@internal`, `IdsCollection` `@final`); no BC guarantee, plugins use them anyway.
+- **Prerequisite:** the installation contains **no PHPUnit** and no `symfony/browser-kit` (no `vendor/phpunit`, no `require-dev`); a dev setup is required (section 3, step 1). Even a pure unit run needs the test DB with this bootstrap (the bootstrapper boots the kernel and installs if needed).
 
 ```
 custom/plugins/SwagExample/
@@ -30,39 +30,39 @@ custom/plugins/SwagExample/
     └── Integration/Route/ExampleRouteTest.php
 ```
 
-Referenz im Core: `core/TestBootstrap.php` (`setPlatformEmbedded(false)`, `setEnableCommercial()`), Stubs unter `core/Test/Stub/…`, Traits unter `core/Framework/Test/TestCaseBase/`, Fixtures-Traits `core/Test/Integration/Traits/{CustomerTestTrait,EntityFixturesBase,OrderFixture}.php`.
+Reference in core: `core/TestBootstrap.php` (`setPlatformEmbedded(false)`, `setEnableCommercial()`), stubs under `core/Test/Stub/…`, traits under `core/Framework/Test/TestCaseBase/`, fixture traits `core/Test/Integration/Traits/{CustomerTestTrait,EntityFixturesBase,OrderFixture}.php`.
 
-## 3. Anleitung
+## 3. Instructions
 
-1. Dev-Abhängigkeiten ins **Projekt** (das `require-dev` eines Plugins installiert der Projekt-Composer nicht): `docker compose exec web composer require --dev shopware/dev-tools` zieht laut Packagist-Metadaten `shopware/dev-tools` 1.6.0 (`require`: `phpunit/phpunit ^9.6 | ^10 | ^11.4 | ^12 | ^13`, `symfony/browser-kit ^5.4 | ^6 | ^7`, Faker, Web-Profiler) beides nach. Per `composer require --dev --dry-run shopware/dev-tools phpunit/phpunit symfony/browser-kit` im Projekt aufgelöst (Composer 2.10.3, PHP 8.4.27): PHPUnit 13.4.5, `symfony/browser-kit` 7.4.21, `symfony/dom-crawler` 8.1.5, `shopware/dev-tools` 1.6.0, ohne Konflikt mit den Projektpaketen (Symfony 7.4). `symfony/browser-kit` ist zwingend für `SalesChannelApiTestBehaviour`/`AdminApiTestBehaviour` (sie liefern `KernelBrowser`; ohne das Paket Fatal Error). PHPUnit ≥ 10 (Traits nutzen `PHPUnit\Framework\Attributes` wie `#[Before]`/`#[After]`). Praktisch ausgeführt wurden die Tests mit PHPUnit 11.5.57 und 13.4.5 aus einem separaten Verzeichnis `/tmp/qa` im Container (kein Eingriff in `composer.json`; Aufruf mit `php -d auto_prepend_file=/var/www/html/vendor/autoload.php /tmp/qa/vendor/bin/phpunit …`, siehe [../templates/testing/README.md](../templates/testing/README.md)). ⚠ UNGEPRÜFT: reale Installation ins Projekt (nur Dry-Run), PHPUnit 12. ⚠ LÜCKE: von Shopware für 6.7.15.1 empfohlene PHPUnit-Version nicht belegt.
-2. `composer.json` des Plugins mit `extra.shopware-plugin-class` und `autoload-dev` ergänzen. Das `autoload-dev` eines Plugins wertet der Projekt-Composer nicht aus; den Test-Namespace registriert der Test-Bootstrap per `addPsr4` (Abschnitt 4).
-3. `phpunit.xml.dist` und `tests/TestBootstrap.php` anlegen (Abschnitt 4).
-4. DB: `TestBootstrapper::getDatabaseUrl()` nimmt `DATABASE_URL` und hängt `_test` an (`shopware` wird `shopware_test`); eigene URL über `->setDatabaseUrl(...)`. DB-User braucht `CREATE/DROP`. Im Docker-Setup des Projekts hat der User `shopware` nur `ALL PRIVILEGES ON shopware.*`: Lauf bricht ab mit `1044 Access denied for user 'shopware'@'%' to database 'shopware_test'`. Gelöst durch `-e DATABASE_URL=mysql://root:root@database:3306/shopware` (nur für den Testlauf; Compose-Dev-Root-Passwort `root`), dann entsteht `shopware_test`, die Hauptdatenbank bleibt unberührt. ⚠ UNGEPRÜFT: dauerhafter `GRANT` auf `shopware_test.*`.
-5. Ausführen im Docker-Setup (aus dem Projektverzeichnis mit `compose.yaml`; im Container `/var/www/html`, Pfade relativ dazu):
+1. Dev dependencies go into the **project** (the project Composer does not install a plugin's `require-dev`): `docker compose exec web composer require --dev shopware/dev-tools` pulls in both, according to the Packagist metadata of `shopware/dev-tools` 1.6.0 (`require`: `phpunit/phpunit ^9.6 | ^10 | ^11.4 | ^12 | ^13`, `symfony/browser-kit ^5.4 | ^6 | ^7`, Faker, Web Profiler). Resolved in the project via `composer require --dev --dry-run shopware/dev-tools phpunit/phpunit symfony/browser-kit` (Composer 2.10.3, PHP 8.4.27): PHPUnit 13.4.5, `symfony/browser-kit` 7.4.21, `symfony/dom-crawler` 8.1.5, `shopware/dev-tools` 1.6.0, with no conflict with the project packages (Symfony 7.4). `symfony/browser-kit` is mandatory for `SalesChannelApiTestBehaviour`/`AdminApiTestBehaviour` (they return a `KernelBrowser`; without the package: fatal error). PHPUnit ≥ 10 (the traits use `PHPUnit\Framework\Attributes` such as `#[Before]`/`#[After]`). In practice the tests were run with PHPUnit 11.5.57 and 13.4.5 from a separate directory `/tmp/qa` in the container (no change to `composer.json`; invoked with `php -d auto_prepend_file=/var/www/html/vendor/autoload.php /tmp/qa/vendor/bin/phpunit …`, see [../templates/testing/README.md](../templates/testing/README.md)). ⚠ UNVERIFIED: actual installation into the project (dry run only), PHPUnit 12. ⚠ GAP: the PHPUnit version recommended by Shopware for 6.7.15.1 is not documented.
+2. Extend the plugin's `composer.json` with `extra.shopware-plugin-class` and `autoload-dev`. The project Composer does not evaluate a plugin's `autoload-dev`; the test bootstrap registers the test namespace via `addPsr4` (section 4).
+3. Create `phpunit.xml.dist` and `tests/TestBootstrap.php` (section 4).
+4. DB: `TestBootstrapper::getDatabaseUrl()` takes `DATABASE_URL` and appends `_test` (`shopware` becomes `shopware_test`); custom URL via `->setDatabaseUrl(...)`. The DB user needs `CREATE/DROP`. In the project's Docker setup the user `shopware` only has `ALL PRIVILEGES ON shopware.*`: the run aborts with `1044 Access denied for user 'shopware'@'%' to database 'shopware_test'`. Solved with `-e DATABASE_URL=mysql://root:root@database:3306/shopware` (for the test run only; Compose dev root password `root`); `shopware_test` is then created and the main database stays untouched. ⚠ UNVERIFIED: permanent `GRANT` on `shopware_test.*`.
+5. Running in the Docker setup (from the project directory containing `compose.yaml`; in the container `/var/www/html`, paths relative to it):
 
 ```bash
-# Tools im Projekt installiert (⚠ UNGEPRÜFT, nur Dry-Run)
+# Tools installed in the project (⚠ UNVERIFIED, dry run only)
 docker compose exec -e DATABASE_URL=mysql://root:root@database:3306/shopware web \
   vendor/bin/phpunit --configuration custom/plugins/SwagExample/phpunit.xml.dist
 docker compose exec -e DATABASE_URL=... web vendor/bin/phpunit --configuration custom/plugins/SwagExample/phpunit.xml.dist --testsuite unit
 docker compose exec -e DATABASE_URL=... web vendor/bin/phpunit --configuration custom/plugins/SwagExample/phpunit.xml.dist --filter ExampleRouteTest
 
-# Tools in /tmp/qa (praktisch gelaufen, grün: 3 Tests, 5 Assertions)
+# Tools in /tmp/qa (actually run, green: 3 tests, 5 assertions)
 docker compose exec -e DATABASE_URL=mysql://root:root@database:3306/shopware web \
   php -d auto_prepend_file=/var/www/html/vendor/autoload.php /tmp/qa/vendor/bin/phpunit \
   --configuration custom/plugins/SwagExample/phpunit.xml.dist
 ```
 
-   Umgebung im Container: `APP_ENV=dev` und `DATABASE_URL` auf `shopware`. Damit der Kernel mit `test.service_container` startet, setzt `phpunit.xml.dist` `APP_ENV=test` mit `force="true"` (`<server>` und `<env>`); ohne das scheitern alle Integrationstests mit `Unable to run tests against kernel without test.service_container`. Jeder Lauf (auch `--testsuite unit`) bootet den Kernel: erster Lauf `system:install --create-database --drop-database --basic-setup` für `shopware_test`, danach pro Lauf `plugin:refresh` und `plugin:install --activate --reinstall` (wegen `setForceInstallPlugins(true)`); `FORCE_INSTALL=1` installiert die Test-DB neu. Code Coverage: im Container ist weder Xdebug noch PCOV geladen (⚠ UNGEPRÜFT). CI/Release: dieselben Befehle ohne `docker compose exec`, eigene Test-DB mit CREATE/DROP-Recht, Dev-Pakete nicht ins Plugin-ZIP/Produktiv-Deployment ([T-49](./49-build-deployment.md)).
+   Environment in the container: `APP_ENV=dev` and `DATABASE_URL` pointing to `shopware`. So that the kernel starts with `test.service_container`, `phpunit.xml.dist` sets `APP_ENV=test` with `force="true"` (`<server>` and `<env>`); without it all integration tests fail with `Unable to run tests against kernel without test.service_container`. Every run (including `--testsuite unit`) boots the kernel: the first run executes `system:install --create-database --drop-database --basic-setup` for `shopware_test`, after that each run executes `plugin:refresh` and `plugin:install --activate --reinstall` (because of `setForceInstallPlugins(true)`); `FORCE_INSTALL=1` reinstalls the test DB. Code coverage: neither Xdebug nor PCOV is loaded in the container (⚠ UNVERIFIED). CI/release: the same commands without `docker compose exec`, own test DB with CREATE/DROP privileges, dev packages not in the plugin ZIP/production deployment ([T-49](./49-build-deployment.md)).
 
-6. Unit-Tests: `#[CoversClass]` genau einer Klasse, Stubs statt Mocks. Repositories: `StaticEntityRepository::of(Collection::class, [[…Ergebnisse je Aufruf…]])`; Schreibpayloads danach in `->creates`, `->updates`, `->upserts`, `->deletes`.
-7. Integrationstests: Traits einbinden, Container über `static::getContainer()`.
-8. Store-API: `$this->getSalesChannelBrowser()`, `$this->login($browser)` (Kunde `…@example.com`, Passwort `shopware`, setzt `sw-context-token`). Admin-API: `AdminApiTestBehaviour`, `assertEntityExists($browser, 'product', $id)`.
-9. Deprecations gegen 6.8 testen: `docker compose exec -e V6_8_0_0=1 -e DATABASE_URL=… web vendor/bin/phpunit …` (siehe [T-45](./45-coding-guidelines.md); mit `V6_8_0_0=1` lief der Store-API-Test im Docker-Setup grün).
+6. Unit tests: `#[CoversClass]` of exactly one class, stubs instead of mocks. Repositories: `StaticEntityRepository::of(Collection::class, [[…results per call…]])`; write payloads afterwards in `->creates`, `->updates`, `->upserts`, `->deletes`.
+7. Integration tests: include the traits, container via `static::getContainer()`.
+8. Store API: `$this->getSalesChannelBrowser()`, `$this->login($browser)` (customer `…@example.com`, password `shopware`, sets `sw-context-token`). Admin API: `AdminApiTestBehaviour`, `assertEntityExists($browser, 'product', $id)`.
+9. Testing deprecations against 6.8: `docker compose exec -e V6_8_0_0=1 -e DATABASE_URL=… web vendor/bin/phpunit …` (see [T-45](./45-coding-guidelines.md); with `V6_8_0_0=1` the Store API test ran green in the Docker setup).
 
-## 4. Beispiele
+## 4. Examples
 
-`composer.json` (Auszug)
+`composer.json` (excerpt)
 
 ```json
 {
@@ -74,7 +74,7 @@ docker compose exec -e DATABASE_URL=mysql://root:root@database:3306/shopware web
 }
 ```
 
-`phpunit.xml.dist` (PHPUnit 10+/11-Schema; die Doku zeigt noch das 9.3-Schema; vollständige, ausgeführte Fassung in [../templates/testing/](../templates/testing/README.md))
+`phpunit.xml.dist` (PHPUnit 10+/11 schema; the docs still show the 9.3 schema; complete, executed version in [../templates/testing/](../templates/testing/README.md))
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -107,16 +107,16 @@ docker compose exec -e DATABASE_URL=mysql://root:root@database:3306/shopware web
 use Shopware\Core\TestBootstrapper;
 
 $bootstrapper = (new TestBootstrapper())
-    ->setPlatformEmbedded(true) // Plugin liegt in custom/plugins (Default: true)
+    ->setPlatformEmbedded(true) // plugin lives in custom/plugins (default: true)
     ->addCallingPlugin()
     ->setForceInstallPlugins(true)
     ->bootstrap();
 
-// Test-Namespace explizit registrieren: das autoload-dev des Plugins greift im Projekt-Composer nicht.
+// Register the test namespace explicitly: the plugin's autoload-dev does not apply in the project Composer.
 $bootstrapper->getClassLoader()->addPsr4('SwagExample\\Tests\\', __DIR__);
 ```
 
-Beleg: `TestBootstrapper::addPluginAutoloadDev()` (liest `autoload-dev` der aktiven Plugins) wird nur in `getClassLoader()` aufgerufen; `bootstrap()` selbst nutzt `vendor/autoload.php` direkt. Der explizite `addPsr4` ist daher der verlässliche Weg. `autoload-dev` in der Plugin-`composer.json` bleibt für IDE/Standalone-Läufe sinnvoll.
+Evidence: `TestBootstrapper::addPluginAutoloadDev()` (reads `autoload-dev` of the active plugins) is only called in `getClassLoader()`; `bootstrap()` itself uses `vendor/autoload.php` directly. The explicit `addPsr4` is therefore the reliable way. `autoload-dev` in the plugin `composer.json` remains useful for IDE/standalone runs.
 
 `src/Service/PriceFormatter.php`
 
@@ -140,7 +140,7 @@ class PriceFormatter
 }
 ```
 
-`tests/Unit/Service/PriceFormatterTest.php` (ohne Kernel)
+`tests/Unit/Service/PriceFormatterTest.php` (without kernel)
 
 ```php
 <?php declare(strict_types=1);
@@ -164,7 +164,7 @@ class PriceFormatterTest extends TestCase
 }
 ```
 
-`tests/Integration/Route/ExampleRouteTest.php` (Store-API, DB, ProductBuilder)
+`tests/Integration/Route/ExampleRouteTest.php` (Store API, DB, ProductBuilder)
 
 ```php
 <?php declare(strict_types=1);
@@ -184,7 +184,7 @@ class ExampleRouteTest extends TestCase
 
     public function testProductIsReadableViaStoreApi(): void
     {
-        $browser = $this->getSalesChannelBrowser(); // legt Sales Channel an
+        $browser = $this->getSalesChannelBrowser(); // creates a sales channel
         $ids = new IdsCollection();
 
         (new ProductBuilder($ids, 'SW-T46'))
@@ -201,56 +201,56 @@ class ExampleRouteTest extends TestCase
 }
 ```
 
-Geprüft: `PriceFormatterTest` (Unit) und der Store-API-Test (hier `ExampleRouteTest`, in der Vorlage `ProductStoreApiTest` mit `SW-QA`) liefen im Docker-Setup grün (PHPUnit 11.5.57 und 13.4.5; zusätzlich ein DAL-Test mit `ProductBuilder`/`product.repository`, siehe Vorlage). Ein Integrationstest, der `PriceFormatter` direkt über `static::getContainer()->get(PriceFormatter::class)` holte, scheiterte, solange der private Service sonst nirgends referenziert war (siehe Fallstricke).
+Verified: `PriceFormatterTest` (unit) and the Store API test (here `ExampleRouteTest`, in the template `ProductStoreApiTest` with `SW-QA`) ran green in the Docker setup (PHPUnit 11.5.57 and 13.4.5; additionally a DAL test with `ProductBuilder`/`product.repository`, see template). An integration test that fetched `PriceFormatter` directly via `static::getContainer()->get(PriceFormatter::class)` failed as long as the private service was not referenced anywhere else (see pitfalls).
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- Fatal Error "Class Symfony\Component\BrowserKit\… not found" in den Test-Behaviours (`SalesChannelApiTestBehaviour`, `AdminApiTestBehaviour`): `symfony/browser-kit` fehlt.
-- Test-Klassen `SwagExample\Tests\…` nicht gefunden: `addPsr4` im Test-Bootstrap fehlt (Plugin-`autoload-dev` wird nicht geladen).
-- `Class "Shopware\Core\TestBootstrapper" not found` (PHPUnit aus separatem Verzeichnis `/tmp/qa`): Projekt-Autoloader nicht geladen, `php -d auto_prepend_file=/var/www/html/vendor/autoload.php` nutzen (bei Installation im Projekt ⚠ UNGEPRÜFT nicht nötig).
-- `Unable to run tests against kernel without test.service_container`: `APP_ENV` ist `dev` (Container-Variable gewinnt gegen `.env`/`phpunit.xml`); `<server name="APP_ENV" value="test" force="true"/>` setzen.
-- `1044 Access denied … to database 'shopware_test'`: Compose-User `shopware` hat nur Rechte auf `shopware`; `DATABASE_URL` mit Root-User übergeben (Schritt 4).
-- `The "…" service or alias has been removed or inlined when the container was compiled` bei `getContainer()->get(MeinService::class)`: ungenutzte private Services entfernt der Container; über öffentliche Einstiegspunkte testen oder `->public()` setzen.
-- Test-DB wird jedes Mal neu installiert oder `system:install failed`: DB-User ohne `CREATE/DROP`-Rechte oder `DATABASE_URL` fehlt; prüfen, welche `…_test`-DB wirklich genutzt wird.
-- Plugin-Tabellen fehlen in vorhandener Test-DB: `setForceInstallPlugins(true)` fehlt.
-- "The previous test case's transaction was not closed properly" / "Too many Nesting Levels" (`DatabaseTransactionBehaviour`): eigene Transaktionen nicht geschlossen oder DDL/`TRUNCATE` im Test (implizites Commit).
-- `getSalesChannelApiSalesChannelId()` wirft `LogicException`, wenn zuvor kein Browser erzeugt wurde.
-- `ProductBuilder::visibility()` nutzt als Default `TestDefaults::SALES_CHANNEL`; für den Test-Browser die dynamisch erzeugte Sales-Channel-ID übergeben.
-- Kernel/Traits in Unit-Tests: langsam und gegen die Core-Regeln; `createMock()` ohne `->expects()`: `createStub()` genügt.
-- Alte Doku-Beispiele (PHPUnit-9.3-Schema, `@covers`-Annotationen) funktionieren mit aktuellem PHPUnit nur eingeschränkt: Attribute und `<source>` statt `<coverage><include>` verwenden.
-- Fixtures überleben die Transaktion nicht; `SalesChannelApiTestBehaviour` löscht seinen Sales Channel zusätzlich im `#[After]`.
-- Feature-Flag-Attribut `Shopware\Core\Test\Annotation\DisabledFeatures` ist `@internal` und für Core-Tests gedacht.
+- Fatal error "Class Symfony\Component\BrowserKit\… not found" in the test behaviours (`SalesChannelApiTestBehaviour`, `AdminApiTestBehaviour`): `symfony/browser-kit` is missing.
+- Test classes `SwagExample\Tests\…` not found: `addPsr4` is missing in the test bootstrap (plugin `autoload-dev` is not loaded).
+- `Class "Shopware\Core\TestBootstrapper" not found` (PHPUnit from the separate directory `/tmp/qa`): project autoloader not loaded; use `php -d auto_prepend_file=/var/www/html/vendor/autoload.php` (not needed when installed in the project, ⚠ UNVERIFIED).
+- `Unable to run tests against kernel without test.service_container`: `APP_ENV` is `dev` (the container variable wins over `.env`/`phpunit.xml`); set `<server name="APP_ENV" value="test" force="true"/>`.
+- `1044 Access denied … to database 'shopware_test'`: Compose user `shopware` only has privileges on `shopware`; pass `DATABASE_URL` with the root user (step 4).
+- `The "…" service or alias has been removed or inlined when the container was compiled` on `getContainer()->get(MeinService::class)`: the container removes unused private services; test via public entry points or set `->public()`.
+- Test DB is reinstalled every time or `system:install failed`: DB user without `CREATE/DROP` privileges or `DATABASE_URL` missing; check which `…_test` DB is actually used.
+- Plugin tables missing in an existing test DB: `setForceInstallPlugins(true)` is missing.
+- "The previous test case's transaction was not closed properly" / "Too many Nesting Levels" (`DatabaseTransactionBehaviour`): own transactions not closed, or DDL/`TRUNCATE` in the test (implicit commit).
+- `getSalesChannelApiSalesChannelId()` throws a `LogicException` if no browser was created beforehand.
+- `ProductBuilder::visibility()` defaults to `TestDefaults::SALES_CHANNEL`; for the test browser, pass the dynamically created sales channel ID.
+- Kernel/traits in unit tests: slow and against the core rules; `createMock()` without `->expects()`: `createStub()` is sufficient.
+- Old docs examples (PHPUnit 9.3 schema, `@covers` annotations) only work to a limited extent with current PHPUnit: use attributes and `<source>` instead of `<coverage><include>`.
+- Fixtures do not survive the transaction; `SalesChannelApiTestBehaviour` additionally deletes its sales channel in `#[After]`.
+- The feature flag attribute `Shopware\Core\Test\Annotation\DisabledFeatures` is `@internal` and intended for core tests.
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-- Belegt (6.7.15.1): Lifecycle über PHPUnit-Attribute `#[Before]`/`#[After]`; Bootstrapper nutzt `CompletionGuard::register()` und PHPUnit-Extensions (`core/Test/PHPUnit/Extension/{FeatureFlag,DatabaseDiff,Datadog,Common}`).
-- Stubs (`core/Test/Stub/…`, generisches `StaticEntityRepository::of()`) sind die Unit-Test-Basis. ⚠ UNGEPRÜFT: In 6.5/6.6 lag `StaticEntityRepository` verbreitet im Namespace `Shopware\Core\Framework\Test\…` (nur Erinnerung); ob 6.5 identische `TestBootstrapper`-Signaturen hat, nicht geprüft.
+- Documented (6.7.15.1): lifecycle via PHPUnit attributes `#[Before]`/`#[After]`; the bootstrapper uses `CompletionGuard::register()` and PHPUnit extensions (`core/Test/PHPUnit/Extension/{FeatureFlag,DatabaseDiff,Datadog,Common}`).
+- Stubs (`core/Test/Stub/…`, generic `StaticEntityRepository::of()`) are the basis for unit tests. ⚠ UNVERIFIED: in 6.5/6.6 `StaticEntityRepository` commonly lived in the namespace `Shopware\Core\Framework\Test\…` (from memory only); whether 6.5 has identical `TestBootstrapper` signatures was not checked.
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] `phpunit/phpunit` ≥ 10 und `symfony/browser-kit` (empfohlen auch `shopware/dev-tools`) als Dev-Abhängigkeit installiert
-- [ ] `autoload-dev` und `extra.shopware-plugin-class` in `composer.json`
-- [ ] `tests/TestBootstrap.php` mit `addCallingPlugin()`, `setForceInstallPlugins(true)` und `getClassLoader()->addPsr4(...)` für den Test-Namespace
-- [ ] `phpunit.xml.dist` mit Suites `unit` und `integration`, `<source>` statt `<coverage>`
-- [ ] Test-DB (`…_test`) mit CREATE/DROP-Rechten erreichbar (Docker: `DATABASE_URL` mit Root-User, siehe Schritt 4)
-- [ ] `APP_ENV=test` per `<server … force="true"/>` in `phpunit.xml.dist` (Container setzt `dev`)
-- [ ] Unit-Tests ohne Kernel, `#[CoversClass]`, Stubs
-- [ ] Integrationstests mit `IntegrationTestBehaviour`; keine ungeschlossenen Transaktionen
-- [ ] Store-API-Tests mit `getSalesChannelBrowser()` und passender Sales-Channel-ID
-- [ ] Lauf mit `V6_8_0_0=1` in CI
+- [ ] `phpunit/phpunit` ≥ 10 and `symfony/browser-kit` (also recommended: `shopware/dev-tools`) installed as dev dependencies
+- [ ] `autoload-dev` and `extra.shopware-plugin-class` in `composer.json`
+- [ ] `tests/TestBootstrap.php` with `addCallingPlugin()`, `setForceInstallPlugins(true)` and `getClassLoader()->addPsr4(...)` for the test namespace
+- [ ] `phpunit.xml.dist` with suites `unit` and `integration`, `<source>` instead of `<coverage>`
+- [ ] Test DB (`…_test`) reachable with CREATE/DROP privileges (Docker: `DATABASE_URL` with root user, see step 4)
+- [ ] `APP_ENV=test` via `<server … force="true"/>` in `phpunit.xml.dist` (the container sets `dev`)
+- [ ] Unit tests without kernel, `#[CoversClass]`, stubs
+- [ ] Integration tests with `IntegrationTestBehaviour`; no unclosed transactions
+- [ ] Store API tests with `getSalesChannelBrowser()` and the matching sales channel ID
+- [ ] Run with `V6_8_0_0=1` in CI
 
-## 7. Quellen
+## 7. Sources
 
-Doku: https://developer.shopware.com/docs/guides/plugins/plugins/testing/php-unit.html (erreichbar; PHPUnit-9.3-Beispiele), https://developer.shopware.com/docs/resources/guidelines/code/core/unit-tests.html. `/docs/guides/development/testing/` nicht abgerufen.
+Docs: https://developer.shopware.com/docs/guides/plugins/plugins/testing/php-unit.html (reachable; PHPUnit 9.3 examples), https://developer.shopware.com/docs/resources/guidelines/code/core/unit-tests.html. `/docs/guides/development/testing/` not fetched.
 
-Quellcode (unter `vendor/shopware/`): `core/TestBootstrapper.php` (`bootstrap`, `addCallingPlugin`, `addActivePlugins`, `setForceInstallPlugins`), `core/TestBootstrap.php`, `core/Framework/Test/TestCaseBase/{IntegrationTestBehaviour,KernelTestBehaviour,DatabaseTransactionBehaviour,SalesChannelApiTestBehaviour,AdminApiTestBehaviour,BasicTestDataBehaviour,KernelLifecycleManager,QueueTestBehaviour,EnvTestBehaviour}.php`, `core/Framework/Test/TestKernel.php`, `core/Test/AppSystemTestBehaviour.php`, `core/Test/Stub/Framework/IdsCollection.php`, `core/Test/Stub/DataAbstractionLayer/{StaticEntityRepository,StaticSalesChannelRepository}.php`, `core/Test/Stub/SystemConfigService/StaticSystemConfigService.php`, `core/Content/Test/Product/ProductBuilder.php`.
+Source code (under `vendor/shopware/`): `core/TestBootstrapper.php` (`bootstrap`, `addCallingPlugin`, `addActivePlugins`, `setForceInstallPlugins`), `core/TestBootstrap.php`, `core/Framework/Test/TestCaseBase/{IntegrationTestBehaviour,KernelTestBehaviour,DatabaseTransactionBehaviour,SalesChannelApiTestBehaviour,AdminApiTestBehaviour,BasicTestDataBehaviour,KernelLifecycleManager,QueueTestBehaviour,EnvTestBehaviour}.php`, `core/Framework/Test/TestKernel.php`, `core/Test/AppSystemTestBehaviour.php`, `core/Test/Stub/Framework/IdsCollection.php`, `core/Test/Stub/DataAbstractionLayer/{StaticEntityRepository,StaticSalesChannelRepository}.php`, `core/Test/Stub/SystemConfigService/StaticSystemConfigService.php`, `core/Content/Test/Product/ProductBuilder.php`.
 
-Praxisprüfung (28.10.2026, Docker-Setup des Projekts, Container `web`: PHP 8.4.27, Composer 2.10.3, Netzwerk/Packagist erreichbar, MariaDB 11.8, DB-User `shopware` nur auf `shopware.*`): Tools in `/tmp/qa` installiert, temporäres Plugin aus den Vorlagen angelegt, `unit` + `integration` grün (3 Tests); danach alles entfernt. Packagist: `shopware/dev-tools` 1.6.0 (Metadaten).
+Hands-on verification (2026-10-28, project Docker setup, container `web`: PHP 8.4.27, Composer 2.10.3, network/Packagist reachable, MariaDB 11.8, DB user `shopware` only on `shopware.*`): tools installed in `/tmp/qa`, temporary plugin created from the templates, `unit` + `integration` green (3 tests); everything removed afterwards. Packagist: `shopware/dev-tools` 1.6.0 (metadata).
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- Praktisch belegt: Unit-, DAL- und Store-API-Test laufen (PHPUnit 11.5.57 und 13.4.5), Docker-spezifische Fallstricke (DB-Rechte, `APP_ENV`, Autoloader, private Services).
-- ⚠ UNGEPRÜFT: reale Installation der Dev-Tools ins Projekt (nur `--dry-run` aufgelöst), PHPUnit 12, dauerhafter `GRANT`, Coverage (kein Xdebug/PCOV im Container), Unit-Läufe ohne DB, Admin-API-Test, Mail-/Queue-/App-Behaviours.
-- ⚠ LÜCKE: von Shopware empfohlene PHPUnit-Version für 6.7.15.1 nicht belegt (`shopware/dev-tools` 1.6.0 erlaubt `^9.6` bis `^13`); `/docs/guides/development/testing/` nicht geprüft.
-- ⚠ LÜCKE: `@internal` für `IntegrationTestBehaviour` & Co. per grep nicht gefunden (belegt nur für `ProductBuilder`, `KernelLifecycleManager`); API-Stabilität nicht zugesichert.
-- ⚠ UNGEPRÜFT: Versionsvergleich zu 6.5/6.6 nur teilweise belegt.
+- Verified in practice: unit, DAL and Store API tests run (PHPUnit 11.5.57 and 13.4.5), Docker-specific pitfalls (DB privileges, `APP_ENV`, autoloader, private services).
+- ⚠ UNVERIFIED: actual installation of the dev tools into the project (only resolved with `--dry-run`), PHPUnit 12, permanent `GRANT`, coverage (no Xdebug/PCOV in the container), unit runs without DB, Admin API test, mail/queue/app behaviours.
+- ⚠ GAP: the PHPUnit version recommended by Shopware for 6.7.15.1 is not documented (`shopware/dev-tools` 1.6.0 allows `^9.6` to `^13`); `/docs/guides/development/testing/` not checked.
+- ⚠ GAP: `@internal` for `IntegrationTestBehaviour` & co. not found via grep (documented only for `ProductBuilder`, `KernelLifecycleManager`); API stability not guaranteed.
+- ⚠ UNVERIFIED: version comparison with 6.5/6.6 only partially documented.

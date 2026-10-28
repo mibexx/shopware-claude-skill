@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils';
 import './index';
 
 async function createWrapper(propsData = {}) {
-    // Template-Vererbung/Twig-Bloecke werden von Shopware.Component.build aufgeloest
+    // template inheritance/Twig blocks are resolved by Shopware.Component.build
     return mount(await Shopware.Component.build('swag-example-counter'), {
         props: propsData,
         global: {
@@ -19,13 +19,13 @@ describe('src/component/swag-example-counter', () => {
         wrapper?.unmount();
     });
 
-    it('zeigt den Startwert', async () => {
+    it('shows the start value', async () => {
         wrapper = await createWrapper({ start: 3 });
 
         expect(wrapper.find('.swag-example-counter__value').text()).toBe('3');
     });
 
-    it('erhoeht den Zaehler und emittiert change', async () => {
+    it('increments the counter and emits change', async () => {
         wrapper = await createWrapper();
 
         await wrapper.find('.swag-example-counter__button').trigger('click');

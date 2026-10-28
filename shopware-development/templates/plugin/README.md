@@ -1,51 +1,51 @@
-# Template: plugin (Wurzel-Vorlage)
+# Template: plugin (root template)
 
-Shopware 6.7.15.1. Gerüst eines Plugins: `composer.json`, Plugin-Klasse mit allen Lifecycle-Methoden, Service-Registrierung per `services.php` (Standard) sowie `services.xml.dist` als deprecated Alternative. Alle anderen Vorlagen-Verzeichnisse (`config`, `migration`, `entity`, `event-subscriber`, `decorator`, ...) enthalten nur ihre eigenen Dateien in derselben Struktur (`SwagExample/src/...`) und werden in dieses Gerüst hineinkopiert.
+Shopware 6.7.15.1. Scaffold of a plugin: `composer.json`, plugin class with all lifecycle methods, service registration via `services.php` (standard) and `services.xml.dist` as a deprecated alternative. All other template directories (`config`, `migration`, `entity`, `event-subscriber`, `decorator`, ...) contain only their own files in the same structure (`SwagExample/src/...`) and are copied into this scaffold.
 
-## Dateibaum
+## File tree
 
 ```
 SwagExample/
 ├── composer.json
 └── src/
-    ├── SwagExample.php                      # Plugin-Klasse (extends Shopware\Core\Framework\Plugin)
+    ├── SwagExample.php                      # plugin class (extends Shopware\Core\Framework\Plugin)
     └── Resources/
         └── config/
-            ├── services.php                 # Services (Standard in 6.7)
-            └── services.xml.dist            # Alternative (deprecated), siehe unten
+            ├── services.php                 # services (standard in 6.7)
+            └── services.xml.dist            # alternative (deprecated), see below
 ```
 
-Weitere übliche Orte (von anderen Vorlagen befüllt): `src/Migration/` (Namespace `SwagExample\Migration`, wird automatisch registriert), `src/Resources/config/config.xml`, `src/Resources/app/administration|storefront/`, `src/Resources/views/`, `tests/` (autoload-dev `SwagExample\Tests\`). Das Plugin-Icon liegt standardmäßig unter `src/Resources/config/plugin.png` (Binärdatei, nicht Teil dieser Vorlage).
+Other common locations (filled by other templates): `src/Migration/` (namespace `SwagExample\Migration`, registered automatically), `src/Resources/config/config.xml`, `src/Resources/app/administration|storefront/`, `src/Resources/views/`, `tests/` (autoload-dev `SwagExample\Tests\`). The plugin icon lives by default at `src/Resources/config/plugin.png` (binary file, not part of this template).
 
-## Platzhalter
+## Placeholders
 
-| Platzhalter | Bedeutung | Ersetzen durch |
+| Placeholder | Meaning | Replace with |
 |---|---|---|
-| `SwagExample` (Verzeichnis, Klasse, Bundle-Name) | Plugin-Name, PascalCase, Klassenname = Dateiname | z. B. `AcmeShop` |
-| `SwagExample\` (Namespace) | PSR-4-Namespace (`composer.json` `autoload.psr-4` und `extra.shopware-plugin-class`) | z. B. `Acme\Shop\` |
-| `swag/example` | Composer-Paketname (maßgeblich für Abhängigkeiten) | `vendor/paket` |
-| `swag_example` | Tabellen-/Entity-Name (in `uninstall()`) | `<prefix>_<name>` |
-| `extra.label` / `extra.description` | Pflicht bzw. optional, je Locale (`de-DE`, `en-GB`) | eigene Texte |
-| `~6.7.0` | Constraint auf `shopware/core`, nicht auf Patch-Stand pinnen | beibehalten |
+| `SwagExample` (directory, class, bundle name) | Plugin name, PascalCase, class name = file name | e.g. `AcmeShop` |
+| `SwagExample\` (namespace) | PSR-4 namespace (`composer.json` `autoload.psr-4` and `extra.shopware-plugin-class`) | e.g. `Acme\Shop\` |
+| `swag/example` | Composer package name (decisive for dependencies) | `vendor/package` |
+| `swag_example` | Table/entity name (in `uninstall()`) | `<prefix>_<name>` |
+| `extra.label` / `extra.description` | Required or optional respectively, per locale (`de-DE`, `en-GB`) | your own texts |
+| `~6.7.0` | Constraint on `shopware/core`, do not pin to a patch level | keep |
 
-## composer.json: Pflichtfelder (laut `PluginFinder`)
+## composer.json: required fields (according to `PluginFinder`)
 
-`type = shopware-platform-plugin`, `extra.shopware-plugin-class` (FQCN), `extra.label` (nicht leer), `autoload.psr-4` oder `psr-0`. Fehlt etwas davon, taucht das Plugin nicht in `plugin:list` auf. Optional: `extra.description`, `manufacturerLink`, `supportLink`, `copyright`, `plugin-icon`. Abhängigkeiten zu anderen Plugins: normales `require`/`conflict` mit dem Composer-Namen.
+`type = shopware-platform-plugin`, `extra.shopware-plugin-class` (FQCN), `extra.label` (not empty), `autoload.psr-4` or `psr-0`. If any of these is missing, the plugin does not show up in `plugin:list`. Optional: `extra.description`, `manufacturerLink`, `supportLink`, `copyright`, `plugin-icon`. Dependencies on other plugins: normal `require`/`conflict` with the Composer name.
 
-## Lifecycle (Reihenfolge)
+## Lifecycle (order)
 
-- Install: Pre-Event, Systemconfig-Defaults aus `config.xml`, `install()`, Migrationen, Custom Fields, `installedAt`, `postInstall()`, Post-Event.
-- Update: `update()`, Migrationen, Custom Fields, DB-Version, `postUpdate()`.
-- Activate / Deactivate: Kernel wird neu gebootet, `activate()` läuft auf der neuen Instanz (Plugin-Services verfügbar). Migrationen laufen bei Activate nur, wenn `activate()` selbst `setAutoMigrate(true)` setzt (Core setzt es vorher auf false).
-- Uninstall: `uninstall()` läuft immer, auch mit `keepUserData()`. Der Core löscht Migrationseinträge, Systemconfig und Custom Fields (ohne `keepUserData`), aber NICHT eigene Tabellen/Spalten: das erledigt `uninstall()` (Vorlage enthält den `keepUserData`-Guard und `DROP TABLE IF EXISTS`; Zeilen entfernen, wenn es keine Tabellen gibt).
-- In `install()` sind eigene Plugin-Services nicht verfügbar (Container wird erst bei Activate neu gebaut). Der Konstruktor der Plugin-Klasse ist `final`; keine Konstruktor-Injection.
-- Schemaänderungen immer per Migration (siehe ../migration/README.md), nicht in `install()`/`update()`.
+- Install: pre-event, system config defaults from `config.xml`, `install()`, migrations, custom fields, `installedAt`, `postInstall()`, post-event.
+- Update: `update()`, migrations, custom fields, DB version, `postUpdate()`.
+- Activate / Deactivate: the kernel is rebooted, `activate()` runs on the new instance (plugin services available). Migrations only run on activate if `activate()` itself sets `setAutoMigrate(true)` (the core sets it to false beforehand).
+- Uninstall: `uninstall()` always runs, even with `keepUserData()`. The core deletes migration entries, system config and custom fields (without `keepUserData`), but NOT your own tables/columns: `uninstall()` takes care of that (the template contains the `keepUserData` guard and `DROP TABLE IF EXISTS`; remove the lines if there are no tables).
+- In `install()` your own plugin services are not available (the container is only rebuilt on activate). The plugin class constructor is `final`; no constructor injection.
+- Always make schema changes via migration (see ../migration/README.md), not in `install()`/`update()`.
 
-## Services registrieren
+## Registering services
 
-Geladen wird per Glob `Resources/config/services.*` (XML, YAML, PHP). XML ist in 6.7 deprecated (`Bundle::registerContainerFile`, Entfernung 6.8.0.0, löst eine Deprecation aus). Daher: `services.php` verwenden. `services.xml.dist` hat absichtlich eine Endung, die nicht geladen wird; wer XML braucht, benennt sie um und löscht `services.php` (sonst werden beide geladen).
+Loading happens via the glob `Resources/config/services.*` (XML, YAML, PHP). XML is deprecated in 6.7 (`Bundle::registerContainerFile`, removal in 6.8.0.0, triggers a deprecation). Therefore: use `services.php`. `services.xml.dist` deliberately has an extension that is not loaded; if you need XML, rename it and delete `services.php` (otherwise both are loaded).
 
-Ausschnitt `src/Resources/config/services.php`, Variante A (explizit, Core-Stil, in den Vorlagen verwendet):
+Excerpt `src/Resources/config/services.php`, variant A (explicit, core style, used in the templates):
 
 ```php
 $services->set(\SwagExample\Service\MyService::class)
@@ -55,7 +55,7 @@ $services->set(\SwagExample\Subscriber\MySubscriber::class)
     ->tag('kernel.event_subscriber');
 ```
 
-Variante B (Autowire + Autoconfigure, `src` scannen). Live bestätigt: Plugin installiert und aktiviert, Subscriber und Decorator funktionieren; Autoconfigure greift nur mit `->defaults()->autowire()->autoconfigure()`:
+Variant B (autowire + autoconfigure, scan `src`). Verified live: plugin installed and activated, subscriber and decorator work; autoconfigure only takes effect with `->defaults()->autowire()->autoconfigure()`:
 
 ```php
 $services->defaults()->autowire()->autoconfigure();
@@ -63,48 +63,48 @@ $services->defaults()->autowire()->autoconfigure();
 $services->load('SwagExample\\', __DIR__ . '/../../')
     ->exclude([__DIR__ . '/../../Resources', __DIR__ . '/../../Migration', __DIR__ . '/../../SwagExample.php']);
 
-// skalare Argumente lassen sich nicht autowiren
+// scalar arguments cannot be autowired
 $services->set(\SwagExample\Service\MyService::class)->arg('$greeting', 'Hello');
 ```
 
-Es gibt keinen Autowiring-Default: ohne `defaults()->autowire()` müssen Argumente per `->args([...])` und Tags per `->tag(...)` angegeben werden. Controller, Routen und per `$container->get()` abgerufene Services brauchen `->public()`. Details und Tag-Übersicht: ../../references/05-services-registrieren.md.
+There is no autowiring default: without `defaults()->autowire()` arguments must be specified via `->args([...])` and tags via `->tag(...)`. Controllers, routes and services retrieved via `$container->get()` need `->public()`. Details and tag overview: ../../references/05-registering-services.md.
 
-## Einbindung / CLI
+## Integration / CLI
 
 ```bash
-# Gerüst nach custom/plugins/ kopieren (oder custom/static-plugins/) und Platzhalter ersetzen
+# Copy the scaffold to custom/plugins/ (or custom/static-plugins/) and replace the placeholders
 bin/console plugin:refresh
 bin/console plugin:install --activate -c SwagExample
 bin/console cache:clear
 
-# Alternativ ein Gerüst vom Core erzeugen lassen (legt services.php inkrementell an)
+# Alternatively let the core generate a scaffold (creates services.php incrementally)
 bin/console plugin:create SwagExample SwagExample
 
-bin/console plugin:update SwagExample -c          # nach Versionserhöhung in composer.json + plugin:refresh
+bin/console plugin:update SwagExample -c          # after a version bump in composer.json + plugin:refresh
 bin/console plugin:deactivate SwagExample
 bin/console plugin:uninstall SwagExample --keep-user-data
-bin/console plugin:uninstall SwagExample          # löscht Daten (Aufräumcode in uninstall())
+bin/console plugin:uninstall SwagExample          # deletes data (cleanup code in uninstall())
 ```
 
-Prüfen: `bin/console debug:container <ServiceId>`, `bin/console lint:container` (Symfony-Standardbefehle).
+Check: `bin/console debug:container <ServiceId>`, `bin/console lint:container` (standard Symfony commands).
 
-## Optionale Plugin-Methoden (in der Vorlage auskommentiert)
+## Optional plugin methods (commented out in the template)
 
-`executeComposerCommands(): bool` (Default `false`, führt `composer require/remove` aus; wirkungslos bei `shopware.deployment.cluster_setup`), `rebuildContainer(): bool` (Default `true`, nur in der CLI wirksam), `enrichPrivileges(): array`, `configureRoutes(...)`. Wird `build()` überschrieben, immer `parent::build($container)` aufrufen.
+`executeComposerCommands(): bool` (default `false`, runs `composer require/remove`; has no effect with `shopware.deployment.cluster_setup`), `rebuildContainer(): bool` (default `true`, only effective in the CLI), `enrichPrivileges(): array`, `configureRoutes(...)`. If `build()` is overridden, always call `parent::build($container)`.
 
-## Verweise
+## References
 
-- ../../references/02-plugin-aufbau.md
+- ../../references/02-plugin-structure.md
 - ../../references/03-plugin-lifecycle.md
-- ../../references/05-services-registrieren.md
-- ../../references/01-projektstruktur-dev-umgebung.md
+- ../../references/05-registering-services.md
+- ../../references/01-project-structure-dev-environment.md
 - ../../references/49-build-deployment.md
-- Passende Vorlagen: ../config/README.md, ../migration/README.md, ../entity/README.md, ../event-subscriber/README.md, ../decorator/README.md, ../theme/README.md
+- Matching templates: ../config/README.md, ../migration/README.md, ../entity/README.md, ../event-subscriber/README.md, ../decorator/README.md, ../theme/README.md
 
-## Hinweise und Lücken
+## Notes and gaps
 
-- Deprecations (6.7, Entfernung 6.8.0.0): `services.xml`, `routes.xml` und Package-Konfig als XML; `plugin:list --json` (stattdessen `--format json`). `config.xml` (Plugin-Konfiguration) ist davon nach aktuellem Wissen nicht betroffen (Annahme).
-- Live bestätigt (Review-Runden 1–3): Vorlage installiert, aktiviert und deinstalliert (mit und ohne `--keep-user-data`) in Shopware 6.7.15.1. `composer.json` ist als JSON geprüft; Signaturen der Lifecycle-Methoden und Contexts gegen `core/Framework/Plugin.php` geprüft.
-- ⚠ LÜCKE: `plugin.png` (Icon) ist nicht enthalten. Die Plugin-Klasse nutzt `$this->container` (Symfony-`Bundle`); in `install()` nur Core-Services daraus holen.
-- ⚠ LÜCKE: Das Verhalten eines Plugin-eigenen Subscribers auf `Plugin*Event` vor der Aktivierung ist nicht belegt (Container enthält Plugin-Services erst nach Aktivierung).
-- ⚠ LÜCKE: Zip-Plugins mit Drittbibliotheken (`vendor/` mitliefern, Store-Limit) sind nur in der Referenz beschrieben, nicht als Vorlage.
+- Deprecations (6.7, removal in 6.8.0.0): `services.xml`, `routes.xml` and package config as XML; `plugin:list --json` (use `--format json` instead). `config.xml` (plugin configuration) is, to current knowledge, not affected (assumption).
+- Verified live (review rounds 1–3): template installed, activated and uninstalled (with and without `--keep-user-data`) in Shopware 6.7.15.1. `composer.json` checked as JSON; signatures of the lifecycle methods and contexts checked against `core/Framework/Plugin.php`.
+- ⚠ GAP: `plugin.png` (icon) is not included. The plugin class uses `$this->container` (Symfony `Bundle`); in `install()` only fetch core services from it.
+- ⚠ GAP: The behavior of a plugin's own subscriber on `Plugin*Event` before activation is not established (the container only contains plugin services after activation).
+- ⚠ GAP: Zip plugins with third-party libraries (shipping `vendor/`, store limit) are only described in the reference, not as a template.

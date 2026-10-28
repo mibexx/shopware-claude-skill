@@ -1,6 +1,6 @@
-// JS-Einstieg des Themes (wird per Storefront-Build nach dist/ gebaut, siehe README).
-// Eigene Storefront-JS-Plugins registrieren: siehe templates/storefront-js-plugin/README.md
-// Beispiel (auskommentiert):
+// JS entry point of the theme (built into dist/ by the storefront build, see README).
+// Registering custom storefront JS plugins: see templates/storefront-js-plugin/README.md
+// Example (commented out):
 //
 // window.PluginManager.register(
 //     'SwagExampleThemePlugin',

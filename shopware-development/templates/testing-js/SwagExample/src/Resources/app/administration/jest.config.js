@@ -1,11 +1,11 @@
 const path = require('path');
 
-// Pfad zur Administration-Quelle inkl. node_modules (siehe README: dort muss "npm ci" gelaufen sein).
-// Standard: Composer-Projekt, Plugin unter custom/plugins/SwagExample.
+// Path to the administration source incl. node_modules (see README: "npm ci" must have run there).
+// Default: Composer project, plugin under custom/plugins/SwagExample.
 const adminPath = process.env.ADMIN_PATH
     || path.resolve(__dirname, '../../../../../../../vendor/shopware/administration/Resources/app/administration');
 
-// Das Preset liest ADMIN_PATH selbst (moduleNameMapper fuer "src/...") und globals.adminPath (Setup).
+// The preset reads ADMIN_PATH itself (moduleNameMapper for "src/...") and globals.adminPath (setup).
 process.env.ADMIN_PATH = adminPath;
 process.env.TZ = process.env.TZ || 'UTC';
 
@@ -18,7 +18,7 @@ module.exports = {
     testEnvironment: 'jsdom',
     collectCoverage: false,
     moduleNameMapper: {
-        // gleiche Vue-Instanz wie die Administration (Preset-Setup nutzt dieselbe Datei)
+        // same Vue instance as the administration (the preset setup uses the same file)
         '^vue$': path.join(adminPath, 'node_modules/vue/dist/vue.cjs.js'),
         '\\.(css|less|scss)$': '@shopware-ag/jest-preset-sw6-admin/@tool/__mocks__/styleMock.js',
         '^src(.*)$': `${adminPath}/src$1`,
@@ -33,6 +33,6 @@ module.exports = {
     transformIgnorePatterns: [
         '/node_modules/(?!(@shopware-ag/meteor-component-library|@shopware-ag/meteor-icon-kit|uuidv7)/)',
     ],
-    // Nur Plugin-Tests; Core-Specs unter adminPath werden nicht gesucht
+    // Plugin tests only; core specs under adminPath are not searched
     testMatch: ['<rootDir>/src/**/*.spec.js', '<rootDir>/src/**/*.spec.ts'],
 };

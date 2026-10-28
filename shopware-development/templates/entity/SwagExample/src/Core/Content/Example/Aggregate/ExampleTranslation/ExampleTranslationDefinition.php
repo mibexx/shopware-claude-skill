@@ -34,7 +34,7 @@ class ExampleTranslationDefinition extends EntityTranslationDefinition
 
     protected function defineFields(): FieldCollection
     {
-        // FK (swag_example_id), language_id und Rueckassoziationen liefert getBaseFields() der Basisklasse.
+        // FK (swag_example_id), language_id and reverse associations are provided by the base class's getBaseFields().
         return new FieldCollection([
             (new StringField('name', 'name'))->addFlags(new ApiAware()),
         ]);

@@ -1,8 +1,8 @@
 # Template: migration (MigrationStep)
 
-Shopware 6.7.15.1. Eine Migration legt das Datenbankschema an. Die Vorlage erzeugt die Tabellen `swag_example` und `swag_example_translation` passend zur Vorlage ../entity/README.md (Das DAL legt nie selbst Tabellen an).
+Shopware 6.7.15.1. A migration creates the database schema. The template creates the tables `swag_example` and `swag_example_translation` matching the template ../entity/README.md (the DAL never creates tables itself).
 
-## Dateibaum
+## File tree
 
 ```
 SwagExample/
@@ -11,57 +11,57 @@ SwagExample/
         └── Migration1730000000CreateSwagExampleTable.php
 ```
 
-Das Verzeichnis `src/Migration` und der Namespace `<PluginNamespace>\Migration` sind fix (`Bundle::getMigrationNamespace()/getMigrationPath()`); der Pfad wird automatisch als Migration-Source registriert, eine `services.php`-Registrierung ist NICHT nötig. Wurzel-Gerüst: ../plugin/README.md
+The directory `src/Migration` and the namespace `<PluginNamespace>\Migration` are fixed (`Bundle::getMigrationNamespace()/getMigrationPath()`); the path is registered automatically as a migration source, a `services.php` registration is NOT needed. Root scaffold: ../plugin/README.md
 
-## Platzhalter
+## Placeholders
 
-| Platzhalter | Bedeutung | Ersetzen durch |
+| Placeholder | Meaning | Replace with |
 |---|---|---|
-| `1730000000` (Dateiname, Klassenname, `getCreationTimestamp()`) | Unix-Timestamp, bestimmt die Reihenfolge | aktueller Timestamp (`date +%s`); alle drei Stellen identisch |
-| `CreateSwagExampleTable` | Beschreibung im Klassennamen | sprechender Name |
+| `1730000000` (file name, class name, `getCreationTimestamp()`) | Unix timestamp, determines the order | current timestamp (`date +%s`); identical in all three places |
+| `CreateSwagExampleTable` | Description in the class name | descriptive name |
 | `SwagExample\Migration` | Namespace | `<PluginNamespace>\Migration` |
-| `swag_example`, `swag_example_translation` | Tabellennamen (= Entity-Namen) | `<prefix>_<name>` |
-| Spalten | `technical_name`, `active`, `name` | passend zur Entity-Definition |
+| `swag_example`, `swag_example_translation` | Table names (= entity names) | `<prefix>_<name>` |
+| Columns | `technical_name`, `active`, `name` | matching the entity definition |
 
-## Regeln
+## Rules
 
-- Dateiname = Klassenname = `Migration<Timestamp><Beschreibung>`; die Reihenfolge entscheidet allein `getCreationTimestamp()` (Werte `< 1` oder `>= 2147483647` sind unplausibel und werfen). Datei, Klasse und Namespace müssen übereinstimmen: jede `.php`-Datei in `src/Migration/` muss ladbar sein.
-- Idempotent schreiben (`IF NOT EXISTS`, Hilfsmethoden `addColumn`, `dropColumnIfExists`, `dropTableIfExists`, `dropIndexIfExists`, `dropForeignKeyIfExists`; Prüfungen `columnExists($connection, $table, $column)` und `indexExists($connection, $table, $index)`; alle `protected` in `MigrationStep`, Aufruf per `$this->`. `TableHelper` ist `@internal`/`@final` und nicht für Plugins gedacht).
-- Veröffentlichte Migrationen nie ändern, stattdessen eine neue anlegen. Kein Rollback, keine umschließende Transaktion.
-- Rückwärtskompatibel (Expand/Contract): Neues in `update()`, Destruktives (DROP, Rename) erst später in `updateDestructive()`. `plugin:install` und `plugin:update` führen automatisch NUR `update()` aus (bei `plugin:activate` nur mit `setAutoMigrate(true)` in `activate()`), `updateDestructive()` nie.
-- Kurz halten (Guideline: unter 10 Sekunden).
-- Fremdschlüssel-`ON DELETE` zusätzlich zu den DAL-Flags setzen (`CascadeDelete` wirkt nur beim Löschen über das DAL).
-- Mapping-Tabellen (n:m) haben keine DAL-Timestamps; siehe ../entity/README.md.
+- File name = class name = `Migration<Timestamp><Description>`; the order is determined solely by `getCreationTimestamp()` (values `< 1` or `>= 2147483647` are implausible and throw). File, class and namespace must match: every `.php` file in `src/Migration/` must be loadable.
+- Write idempotently (`IF NOT EXISTS`, helper methods `addColumn`, `dropColumnIfExists`, `dropTableIfExists`, `dropIndexIfExists`, `dropForeignKeyIfExists`; checks `columnExists($connection, $table, $column)` and `indexExists($connection, $table, $index)`; all `protected` in `MigrationStep`, called via `$this->`. `TableHelper` is `@internal`/`@final` and not intended for plugins).
+- Never change published migrations, create a new one instead. No rollback, no enclosing transaction.
+- Backward compatible (expand/contract): new things in `update()`, destructive things (DROP, rename) only later in `updateDestructive()`. `plugin:install` and `plugin:update` automatically run ONLY `update()` (on `plugin:activate` only with `setAutoMigrate(true)` in `activate()`), never `updateDestructive()`.
+- Keep it short (guideline: under 10 seconds).
+- Set foreign key `ON DELETE` in addition to the DAL flags (`CascadeDelete` only takes effect when deleting via the DAL).
+- Mapping tables (n:m) have no DAL timestamps; see ../entity/README.md.
 
-## Einbindung / CLI
+## Integration / CLI
 
 ```bash
-# Skelett erzeugen (Template enthaelt update(), aber kein updateDestructive())
+# Generate a skeleton (the template contains update(), but no updateDestructive())
 bin/console database:create-migration -p SwagExample --name CreateSwagExampleTable
 
-# oder aus dem Entity-Schema generieren (Plugin muss aktiv sein; ohne --bundle wuerde in den CORE geschrieben!)
+# or generate from the entity schema (plugin must be active; without --bundle it would write into the CORE!)
 bin/console dal:migration:create swag_example,swag_example_translation --bundle=SwagExample
 
-# ausfuehren
-bin/console plugin:refresh && bin/console plugin:install --activate SwagExample   # laeuft automatisch bei install/update
+# execute
+bin/console plugin:refresh && bin/console plugin:install --activate SwagExample   # runs automatically on install/update
 bin/console database:migrate SwagExample --all
-bin/console database:migrate-destructive SwagExample --all                         # nur manuell
-bin/console dal:validate                                                           # Schema gegen Definitionen pruefen
+bin/console database:migrate-destructive SwagExample --all                         # manual only
+bin/console dal:validate                                                           # check schema against definitions
 ```
 
-Aufräumen beim Deinstallieren: `Plugin::uninstall()` (Vorlage in ../plugin/SwagExample/src/SwagExample.php) löscht die Tabellen nur bei `!keepUserData()`. Ohne `keepUserData` entfernt der Core die Zeilen aus der Tabelle `migration`, eine Neuinstallation führt die Migrationen erneut aus. Automatik pro Lifecycle-Schritt abschaltbar mit `InstallContext::setAutoMigrate(false)` und `getMigrationCollection()->migrateInPlace()`.
+Cleaning up on uninstall: `Plugin::uninstall()` (template in ../plugin/SwagExample/src/SwagExample.php) deletes the tables only when `!keepUserData()`. Without `keepUserData` the core removes the rows from the `migration` table; a reinstall runs the migrations again. The automation can be switched off per lifecycle step with `InstallContext::setAutoMigrate(false)` and `getMigrationCollection()->migrateInPlace()`.
 
-## Verweise
+## References
 
-- ../../references/04-datenbank-migrationen.md
+- ../../references/04-database-migrations.md
 - ../../references/03-plugin-lifecycle.md
 - ../../references/27-dal-entities.md
-- Vorlagen: ../plugin/README.md, ../entity/README.md
+- Templates: ../plugin/README.md, ../entity/README.md
 
-## Hinweise und Lücken
+## Notes and gaps
 
-- Deprecation: `MigrationStep::indexExists()` (`#[ExceptionChange(v6.8.0)]`); mit `v6.8.0.0` gibt er `false` statt `TableNotFoundException`. Weiter `$this->indexExists()` nutzen; `TableHelper` (`@internal`, `@final`) nicht direkt aufrufen.
-- Geprüft: Methodensignaturen gegen `core/Framework/Migration/MigrationStep.php`; SQL-Muster aus dem Scaffold-Stub und der Recherche.
-- ⚠ UNGEPRÜFT: Das SQL wurde nicht gegen eine Datenbank ausgeführt (kein PHP/DB lokal).
-- ⚠ UNGEPRÜFT: Ob `dal:migration:create` bei bereits angelegter Tabelle keine Datei erzeugt (Annahme, Delta zur DB); Ergebnis des `@internal`-Befehls immer prüfen.
-- ⚠ LÜCKE: Versionierte Entities (`version_id`-Primärschlüssel, `ReferenceVersionField`) und Vererbung (`parent_id`) sind nur als Hinweis in ../entity/README.md, nicht als Migration enthalten.
+- Deprecation: `MigrationStep::indexExists()` (`#[ExceptionChange(v6.8.0)]`); with `v6.8.0.0` it returns `false` instead of `TableNotFoundException`. Keep using `$this->indexExists()`; do not call `TableHelper` (`@internal`, `@final`) directly.
+- Checked: method signatures against `core/Framework/Migration/MigrationStep.php`; SQL patterns from the scaffold stub and the research.
+- ⚠ UNVERIFIED: The SQL was not executed against a database (no PHP/DB locally).
+- ⚠ UNVERIFIED: Whether `dal:migration:create` creates no file when the table already exists (assumption, delta to the DB); always check the result of the `@internal` command.
+- ⚠ GAP: Versioned entities (`version_id` primary key, `ReferenceVersionField`) and inheritance (`parent_id`) are only included as a note in ../entity/README.md, not as a migration.

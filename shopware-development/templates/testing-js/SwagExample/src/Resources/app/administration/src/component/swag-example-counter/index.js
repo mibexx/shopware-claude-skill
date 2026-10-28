@@ -1,7 +1,7 @@
 import template from './swag-example-counter.html.twig';
 
 /**
- * Minimale Beispiel-Komponente nur fuer das Test-Geruest (kein Teil des admin-module-Templates).
+ * Minimal example component only for the test scaffold (not part of the admin-module template).
  */
 Shopware.Component.register('swag-example-counter', {
     template,

@@ -1,74 +1,74 @@
-# Storefront-Styling, Assets und Icons (Referenz, Shopware 6.7.15.1)
+# Storefront styling, assets and icons (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn SCSS, Bilder, Fonts oder SVG-Icons für die Storefront eines Plugins oder Themes eingebunden werden. Sie erklärt Einstiegspunkte, Reihenfolge der SCSS-Auflösung, Asset-Pfade und den `sw_icon`-Tag.
-Abgrenzung: Theme-Anlage und `theme.json` im Ganzen siehe [T-11 Theme-Grundlagen](./11-theme-grundlagen.md), Theme-Config-Felder und SCSS-Variablen siehe [T-12 Theme-Config](./12-theme-config-scss-variablen.md), Twig-Blöcke siehe [T-14 Twig-Templates](./14-storefront-twig-templates.md), JS siehe [T-15 JS-Plugins](./15-storefront-js-plugins.md), Build/Watch siehe [T-49 Build und Deployment](./49-build-deployment.md).
+This reference applies when SCSS, images, fonts or SVG icons are included in the Storefront of a plugin or theme. It explains entry points, the order of SCSS resolution, asset paths and the `sw_icon` tag.
+Scope: theme creation and `theme.json` as a whole see [T-11 Theme basics](./11-theme-basics.md), theme config fields and SCSS variables see [T-12 Theme config](./12-theme-config-scss-variables.md), Twig blocks see [T-14 Twig templates](./14-storefront-twig-templates.md), JS see [T-15 JS plugins](./15-storefront-js-plugins.md), build/watch see [T-49 Build and deployment](./49-build-deployment.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-- **Kein Webpack für SCSS.** SCSS wird serverseitig von `ScssPhpCompiler` (scssphp) in `ThemeCompiler` kompiliert (`bin/console theme:compile`). Nur JS braucht einen Build.
-- **Plugin:** Genau die Datei `src/Resources/app/storefront/src/scss/base.scss` wird automatisch erkannt (`StorefrontPluginConfigurationFactory::getScssEntryFileInDir`, nur dieser Dateiname, Tiefe 0). Weitere Dateien müssen per `@import` aus ihr eingebunden werden.
-- **Theme:** Einstiegspunkte stehen in `theme.json` unter `style`. Die Vorlage von `theme:create` erzeugt `overrides.scss` → `@Storefront` → `base.scss`. `overrides.scss` muss VOR `@Storefront` stehen, weil Core-Variablen mit `!default` deklariert sind.
-- **Auflösung (`ThemeFileResolver`, `ThemeCompiler`):** `style` wird in Reihenfolge abgearbeitet. `@Storefront` (oder `@<ThemeName>`) löst die Style-Dateien dieses Themes rekursiv auf. `@Plugins` fügt die `base.scss` aller Nicht-Theme-Plugins an. `@StorefrontBootstrap` bindet `base.scss` des Storefront-Bundles samt `vendor`-Mapping ein. `@Bundle/pfad/datei.scss` verweist auf eine einzelne Datei eines Bundles. Ein Eintrag kann `resolve` enthalten (z. B. `"vendor": "app/storefront/vendor"`), damit `~vendor/...` aufgelöst wird.
-- **Vorab gesetzte Variablen:** `compileStyles` setzt vor den Imports `$sw-features`, danach die Theme-Variablen (`config.fields`-Keys wie `$sw-color-brand-primary`, `$theme-id`, `$sw-asset-<package>-url`). Sie sind in jeder Style-Datei ohne Import verfügbar. Felder mit `"scss": false` werden nicht ausgegeben.
-- **Core-SCSS** (`storefront/Resources/app/storefront/src/scss`): `base.scss` importiert nach 7-1-Muster `abstract` (nur Variablen/Mixins/Funktionen), `vendor/bootstrap` (Bootstrap 5.3.8), `base/`, `component/`, `layout/`, `page/`. `skin/shopware/_base.scss` ist ein zweiter Einstieg (Shopware-Optik).
+- **No webpack for SCSS.** SCSS is compiled server-side by `ScssPhpCompiler` (scssphp) in `ThemeCompiler` (`bin/console theme:compile`). Only JS needs a build.
+- **Plugin:** Exactly the file `src/Resources/app/storefront/src/scss/base.scss` is detected automatically (`StorefrontPluginConfigurationFactory::getScssEntryFileInDir`, only this file name, depth 0). Further files must be included from it via `@import`.
+- **Theme:** Entry points are listed in `theme.json` under `style`. The `theme:create` template generates `overrides.scss` → `@Storefront` → `base.scss`. `overrides.scss` must come BEFORE `@Storefront`, because core variables are declared with `!default`.
+- **Resolution (`ThemeFileResolver`, `ThemeCompiler`):** `style` is processed in order. `@Storefront` (or `@<ThemeName>`) resolves the style files of that theme recursively. `@Plugins` appends the `base.scss` of all non-theme plugins. `@StorefrontBootstrap` includes `base.scss` of the Storefront bundle including the `vendor` mapping. `@Bundle/path/file.scss` refers to a single file of a bundle. An entry can contain `resolve` (e.g. `"vendor": "app/storefront/vendor"`) so that `~vendor/...` is resolved.
+- **Pre-set variables:** Before the imports, `compileStyles` sets `$sw-features`, then the theme variables (`config.fields` keys such as `$sw-color-brand-primary`, `$theme-id`, `$sw-asset-<package>-url`). They are available in every style file without an import. Fields with `"scss": false` are not output.
+- **Core SCSS** (`storefront/Resources/app/storefront/src/scss`): following the 7-1 pattern, `base.scss` imports `abstract` (only variables/mixins/functions), `vendor/bootstrap` (Bootstrap 5.3.8), `base/`, `component/`, `layout/`, `page/`. `skin/shopware/_base.scss` is a second entry point (Shopware look).
 - **Assets:**
 
-| Art | Ablage | Wirkung | Twig | SCSS |
+| Kind | Location | Effect | Twig | SCSS |
 |---|---|---|---|---|
-| Theme-Asset | Ordner aus `theme.json` → `asset` | `theme:compile` kopiert nach `public/theme/<theme-id>/assets` | `asset('assets/x.png', 'theme')` | `#{$app-css-relative-asset-path}/x.png` |
-| Plugin-Asset | `src/Resources/public` | `bin/console assets:install` nach `public/bundles/<pluginname>/` | `asset('bundles/<name>/x.png', 'asset')` | `#{$sw-asset-public-url}/bundles/<name>/x.png` |
+| Theme asset | folder from `theme.json` → `asset` | `theme:compile` copies to `public/theme/<theme-id>/assets` | `asset('assets/x.png', 'theme')` | `#{$app-css-relative-asset-path}/x.png` |
+| Plugin asset | `src/Resources/public` | `bin/console assets:install` to `public/bundles/<pluginname>/` | `asset('bundles/<name>/x.png', 'asset')` | `#{$sw-asset-public-url}/bundles/<name>/x.png` |
 
-- **BEM:** Der Core hält BEM nicht strikt ein (nur 12 Stellen mit `&__`/`&--`). Empfehlung (Konvention, kein Shopware-Zwang): Bootstrap-5-Utilities und CSS-Variablen (`var(--#{$prefix}...)`) bevorzugen, eigene Klassen mit eigenem Präfix versehen.
+- **BEM:** The core does not follow BEM strictly (only 12 places with `&__`/`&--`). Recommendation (convention, not enforced by Shopware): prefer Bootstrap 5 utilities and CSS variables (`var(--#{$prefix}...)`), give your own classes your own prefix.
 
-Verzeichnisbaum (Theme, so erzeugt von `bin/console theme:create`; Plugin analog ohne `theme.json`):
+Directory tree (theme, as generated by `bin/console theme:create`; plugin analogously without `theme.json`):
 
 ```
 custom/plugins/SwagExample/
 └── src/
-    ├── SwagExample.php                       # Theme: extends Plugin implements ThemeInterface
+    ├── SwagExample.php                       # theme: extends Plugin implements ThemeInterface
     └── Resources/
         ├── theme.json
         ├── views/storefront/...
-        ├── public/                           # Plugin-Assets für assets:install
+        ├── public/                           # plugin assets for assets:install
         └── app/storefront/
             ├── src/
-            │   ├── main.js                   # JS-Einstieg (main.ts hat Vorrang)
-            │   ├── assets/                   # Theme-Assets (Bilder, Fonts, Icon-Packs)
+            │   ├── main.js                   # JS entry (main.ts takes precedence)
+            │   ├── assets/                   # theme assets (images, fonts, icon packs)
             │   │   └── icon-pack/custom-icons/*.svg
             │   └── scss/
-            │       ├── overrides.scss        # Variablen-Overrides (vor @Storefront)
-            │       ├── base.scss             # Haupt-Einstieg
+            │       ├── overrides.scss        # variable overrides (before @Storefront)
+            │       ├── base.scss             # main entry
             │       └── base/_typography.scss
-            └── dist/                         # Build-Ausgabe (JS)
+            └── dist/                         # build output (JS)
 ```
 
-Die Vorlage nutzt `components/`/`pages/` (Plural), der Core `component/`/`page/`. Beides ist frei wählbar, weil alles per `@import` aus `base.scss` kommt. Unterstrich-Präfix und `.scss`-Endung dürfen im Import fehlen (`ThemeCompiler::getImportFileExtension`).
+The template uses `components/`/`pages/` (plural), the core `component/`/`page/`. Either is freely selectable, because everything comes from `base.scss` via `@import`. The underscore prefix and the `.scss` extension may be omitted in the import (`ThemeCompiler::getImportFileExtension`).
 
-## 3. Anleitung
+## 3. Instructions
 
-1. Theme anlegen: `bin/console theme:create SwagExample` (Gerüst siehe oben), dann `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample`.
-2. Variablen-Overrides in `overrides.scss`, eigene Styles in `base.scss` plus Teil-Dateien (`@import 'base/typography';`).
-3. Assets nach `src/Resources/app/storefront/src/assets` legen und in `theme.json` unter `asset` eintragen (`@Storefront` zuerst, sonst fehlen Core-Icons/Logos/Fonts).
-4. Icon-Pack: SVGs in einen Ordner legen und unter `iconSets` registrieren.
-5. Theme einem Sales Channel zuweisen: `bin/console theme:change` (interaktiv).
-6. Kompilieren: `bin/console theme:compile` (Optionen u. a. `--sync`, `--active-only`, `--only-themes`, `--keep-assets`). Config neu einlesen: `bin/console theme:refresh`, prüfen: `bin/console theme:dump`.
-7. Plugin-Assets (`Resources/public`): `bin/console assets:install` (`--force` ignoriert das Manifest).
-8. Live-Entwicklung: `composer run watch:storefront` bzw. `shopware-cli project storefront-watch` (Details und Port siehe [T-49](./49-build-deployment.md)).
-9. Icon-Hilfsbefehl: `bin/console theme:prepare-icons <path> <package>` (Optionen `--fillcolor`, `--fillrule`, `--cleanup`) bereitet SVG-Sprites vor.
+1. Create the theme: `bin/console theme:create SwagExample` (scaffold see above), then `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample`.
+2. Variable overrides in `overrides.scss`, your own styles in `base.scss` plus partial files (`@import 'base/typography';`).
+3. Put assets in `src/Resources/app/storefront/src/assets` and register them in `theme.json` under `asset` (`@Storefront` first, otherwise core icons/logos/fonts are missing).
+4. Icon pack: put SVGs in a folder and register it under `iconSets`.
+5. Assign the theme to a sales channel: `bin/console theme:change` (interactive).
+6. Compile: `bin/console theme:compile` (options among others `--sync`, `--active-only`, `--only-themes`, `--keep-assets`). Re-read config: `bin/console theme:refresh`, inspect: `bin/console theme:dump`.
+7. Plugin assets (`Resources/public`): `bin/console assets:install` (`--force` ignores the manifest).
+8. Live development: `composer run watch:storefront` or `shopware-cli project storefront-watch` (details and port see [T-49](./49-build-deployment.md)).
+9. Icon helper command: `bin/console theme:prepare-icons <path> <package>` (options `--fillcolor`, `--fillrule`, `--cleanup`) prepares SVG sprites.
 
-Icon-Tag (`utilities/icon.html.twig`, `IconTokenParser`):
-- Parameter in `style { ... }`: `size`, `color`, `rotation`, `flip`, `class`, `pack`, `namespace`, `ariaHidden`, `ariaLabel`.
-- Mit `themeIconConfig[pack]` (aus `iconSets`): Lookup `@<ThemeName>/<path>/<name>.svg`. Sonst `@<namespace>/assets/icon/<pack>/<name>.svg` mit Default `namespace = 'Storefront'`, `pack = 'default'`. Mitgelieferte Packs: `default`, `solid`.
-- CSS-Klassen: `icon icon-<name>` bzw. `icon icon-<pack> icon-<pack>-<name>` plus Größen-/Farbklassen.
-- Plugin-Icon ohne `iconSets` (Doku-Variante): `{% sw_icon 'done-outline-24px' style { 'namespace': 'SwagExample' } %}`, Datei `src/Resources/app/storefront/dist/assets/icon/default/done-outline-24px.svg`.
+Icon tag (`utilities/icon.html.twig`, `IconTokenParser`):
+- Parameters in `style { ... }`: `size`, `color`, `rotation`, `flip`, `class`, `pack`, `namespace`, `ariaHidden`, `ariaLabel`.
+- With `themeIconConfig[pack]` (from `iconSets`): lookup `@<ThemeName>/<path>/<name>.svg`. Otherwise `@<namespace>/assets/icon/<pack>/<name>.svg` with default `namespace = 'Storefront'`, `pack = 'default'`. Bundled packs: `default`, `solid`.
+- CSS classes: `icon icon-<name>` or `icon icon-<pack> icon-<pack>-<name>` plus size/color classes.
+- Plugin icon without `iconSets` (docs variant): `{% sw_icon 'done-outline-24px' style { 'namespace': 'SwagExample' } %}`, file `src/Resources/app/storefront/dist/assets/icon/default/done-outline-24px.svg`.
 
-Event-Hooks: `ThemeCompilerEnrichScssVariablesEvent` (eigene SCSS-Variablen ergänzen), `ThemeCompilerConcatenatedStylesEvent` (Import-Liste ändern). Details zu Events siehe [T-07](./07-events-subscriber.md).
+Event hooks: `ThemeCompilerEnrichScssVariablesEvent` (add your own SCSS variables), `ThemeCompilerConcatenatedStylesEvent` (change the import list). For details on events see [T-07](./07-events-subscriber.md).
 
-## 4. Beispiele
+## 4. Examples
 
-Gerüst: [../templates/theme/README.md](../templates/theme/README.md).
+Scaffold: [../templates/theme/README.md](../templates/theme/README.md).
 
 `src/Resources/theme.json`
 ```json
@@ -105,7 +105,7 @@ Gerüst: [../templates/theme/README.md](../templates/theme/README.md).
 
 `src/Resources/app/storefront/src/scss/overrides.scss`
 ```scss
-// Muss VOR @Storefront stehen, weil Core-Variablen mit !default deklariert sind.
+// Must come BEFORE @Storefront, because core variables are declared with !default.
 $font-size-base: 1rem;
 $border-radius: 0.25rem;
 ```
@@ -144,49 +144,49 @@ body { -webkit-font-smoothing: antialiased; }
     {{ parent() }}
 {% endblock %}
 ```
-Voraussetzung: `src/assets/icon-pack/custom-icons/heart.svg` existiert. Der Block `base_main_inner` ist in `base.html.twig` und `page/content/index.html.twig` belegt.
+Prerequisite: `src/assets/icon-pack/custom-icons/heart.svg` exists. The block `base_main_inner` is confirmed in `base.html.twig` and `page/content/index.html.twig`.
 
-Plugin ohne Theme: `src/Resources/app/storefront/src/scss/base.scss`
+Plugin without theme: `src/Resources/app/storefront/src/scss/base.scss`
 ```scss
 .swag-example-badge {
     background-image: url('#{$sw-asset-public-url}/bundles/swagexample/badge.png');
 }
 ```
-Datei: `src/Resources/public/badge.png`, danach `bin/console assets:install`.
+File: `src/Resources/public/badge.png`, then `bin/console assets:install`.
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- `overrides.scss` nach `@Storefront`: Overrides wirken nicht (`!default`-Variablen schon gesetzt). Das gilt auch für `$sw-*` aus `skin/shopware/abstract/variables`.
-- Theme-Asset nach Änderung nicht sichtbar: `theme:compile` fehlt, Ordner nicht unter `asset` registriert oder `@Storefront` in `asset` vergessen.
-- Plugin-Asset 404: `assets:install` nicht gelaufen oder falscher Bundle-Name. Er ist der kleingeschriebene Plugin-Name ohne Suffix `bundle` (`AssetService::getTargetDirectory`). Package `asset` statt `theme` nutzen.
-- Falsches Asset-Package im Twig: `'theme'` für Theme-Dateien, `'asset'`/`'public'` für `bundles/...`. `ThemeAssetPackage::prependThemePath` hängt für Pfade mit `/assets` `/theme/<themeId>` an.
-- Plugin ohne `base.scss` bekommt keinen SCSS-Eintrag. `scss/sub/base.scss` wird NICHT gefunden.
-- Fonts per `url()` mit absolutem Pfad brechen pro Theme-ID. Immer `$app-css-relative-asset-path` nutzen (`'../../' + $theme-id + '/assets'`).
-- Icon-Pack ohne `iconSets` und ohne `namespace`: Suche in `@Storefront/assets/icon/<pack>/` liefert leer (`ignore_missing`). Laut Doku sind Custom Assets nicht Teil der Theme-Vererbung. Bei Apps ist `iconSets` zwingend.
-- Core-Dateien direkt ändern (geht bei Updates verloren), Inline-Styles/`!important` statt Variablen: Anti-Pattern.
+- `overrides.scss` after `@Storefront`: overrides do not take effect (`!default` variables are already set). This also applies to `$sw-*` from `skin/shopware/abstract/variables`.
+- Theme asset not visible after a change: `theme:compile` missing, folder not registered under `asset`, or `@Storefront` forgotten in `asset`.
+- Plugin asset 404: `assets:install` has not run or wrong bundle name. It is the lowercased plugin name without the suffix `bundle` (`AssetService::getTargetDirectory`). Use package `asset` instead of `theme`.
+- Wrong asset package in Twig: `'theme'` for theme files, `'asset'`/`'public'` for `bundles/...`. `ThemeAssetPackage::prependThemePath` prepends `/theme/<themeId>` for paths with `/assets`.
+- A plugin without `base.scss` gets no SCSS entry. `scss/sub/base.scss` is NOT found.
+- Fonts via `url()` with an absolute path break per theme ID. Always use `$app-css-relative-asset-path` (`'../../' + $theme-id + '/assets'`).
+- Icon pack without `iconSets` and without `namespace`: the lookup in `@Storefront/assets/icon/<pack>/` returns empty (`ignore_missing`). According to the docs, custom assets are not part of theme inheritance. For apps, `iconSets` is mandatory.
+- Changing core files directly (lost on updates), inline styles/`!important` instead of variables: anti-pattern.
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-- Bootstrap in 6.7.15.1: **5.3.8** (`package.json`). Der Kommentar in `vendor/_bootstrap.scss` verlinkt noch 5.2-Doku (veraltet). Der Core nutzt CSS-Variablen/`$prefix` (z. B. `_product-box.scss`).
-- Neu im Resolver (6.7.15.1 belegt): `@StorefrontBootstrap`, `@Bundle/pfad`-Einzeldatei-Referenzen, rekursive Auflösung mit Dedup. Zudem `ThemeRuntimeConfig`/`ThemeRuntimeConfigService` (Icon-Sets in `prepareIconSets`).
-- `theme:compile --no-cleanup`: `[DEPRECATED]` ohne Wirkung. Aufräumen macht die geplante Aufgabe `theme.delete_files`.
-- JS-Einstieg: `main.ts` wird zusätzlich zu `main.js` erkannt (`getEntryFile`). Das Skript-Layout ist „async“ (`dist/storefront/js/<name>/<name>.js`).
-- `shopware-cli project storefront-build` ist ein CLI-Tool, kein Shopware-Befehl.
+- Bootstrap in 6.7.15.1: **5.3.8** (`package.json`). The comment in `vendor/_bootstrap.scss` still links 5.2 docs (outdated). The core uses CSS variables/`$prefix` (e.g. `_product-box.scss`).
+- New in the resolver (confirmed in 6.7.15.1): `@StorefrontBootstrap`, `@Bundle/path` single-file references, recursive resolution with dedup. Also `ThemeRuntimeConfig`/`ThemeRuntimeConfigService` (icon sets in `prepareIconSets`).
+- `theme:compile --no-cleanup`: `[DEPRECATED]` without effect. Cleanup is done by the scheduled task `theme.delete_files`.
+- JS entry: `main.ts` is detected in addition to `main.js` (`getEntryFile`). The script layout is "async" (`dist/storefront/js/<name>/<name>.js`).
+- `shopware-cli project storefront-build` is a CLI tool, not a Shopware command.
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] `base.scss` liegt exakt unter `src/Resources/app/storefront/src/scss/base.scss`.
-- [ ] Theme: `overrides.scss` steht in `theme.json` vor `@Storefront`.
-- [ ] `asset` in `theme.json` enthält `@Storefront` vor dem eigenen Ordner.
-- [ ] Fonts/Bilder in SCSS über `$app-css-relative-asset-path` (Theme) bzw. `$sw-asset-public-url` (Plugin).
-- [ ] Twig nutzt `asset(..., 'theme')` bzw. `asset('bundles/...', 'asset')` passend zum Ablageort.
-- [ ] Eigene Icon-Packs sind unter `iconSets` registriert (bei Apps Pflicht).
-- [ ] `bin/console theme:compile` bzw. `assets:install` nach Änderungen ausgeführt.
-- [ ] Eigene CSS-Klassen tragen ein Plugin-Präfix, keine Core-Dateien kopiert.
+- [ ] `base.scss` is located exactly at `src/Resources/app/storefront/src/scss/base.scss`.
+- [ ] Theme: `overrides.scss` comes before `@Storefront` in `theme.json`.
+- [ ] `asset` in `theme.json` contains `@Storefront` before your own folder.
+- [ ] Fonts/images in SCSS via `$app-css-relative-asset-path` (theme) or `$sw-asset-public-url` (plugin).
+- [ ] Twig uses `asset(..., 'theme')` or `asset('bundles/...', 'asset')` matching the storage location.
+- [ ] Custom icon packs are registered under `iconSets` (mandatory for apps).
+- [ ] `bin/console theme:compile` or `assets:install` executed after changes.
+- [ ] Your own CSS classes carry a plugin prefix, no core files copied.
 
-## 7. Quellen
+## 7. Sources
 
-Doku:
+Docs:
 - https://developer.shopware.com/docs/guides/plugins/plugins/storefront/styling/add-custom-styling.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/storefront/styling/add-custom-assets.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/storefront/styling/add-icons.html
@@ -194,15 +194,15 @@ Doku:
 - https://developer.shopware.com/docs/guides/plugins/themes/assets/add-assets-to-theme.html
 - https://developer.shopware.com/docs/guides/plugins/themes/assets/add-icons.html
 
-Quellcode (relativ zu `vendor/shopware/`): `storefront/Theme/ThemeCompiler.php` (`compileStyles`, `dumpVariables`, `getAssets`, `getResolveImportPathsCallback`), `ThemeFileResolver.php`, `ScssPhpCompiler.php`, `ThemeAssetPackage.php`, `StorefrontPluginConfiguration/StorefrontPluginConfigurationFactory.php` (`getScssEntryFileInDir`, `getEntryFile`), `ThemeRuntimeConfigService.php`, `Command/{ThemeCreateCommand,ThemeCompileCommand,ThemeChangeCommand,ThemeDumpCommand,ThemeRefreshCommand,ThemePrepareIconsCommand}.php`, `Framework/Twig/TokenParser/IconTokenParser.php`, `Resources/views/storefront/utilities/icon.html.twig`, `core/Framework/Adapter/Asset/AssetInstallCommand.php`, `core/Framework/Plugin/Util/AssetService.php`, `storefront/Resources/app/storefront/src/scss/abstract/variables/_custom.scss` (`$app-css-relative-asset-path`).
+Source code (relative to `vendor/shopware/`): `storefront/Theme/ThemeCompiler.php` (`compileStyles`, `dumpVariables`, `getAssets`, `getResolveImportPathsCallback`), `ThemeFileResolver.php`, `ScssPhpCompiler.php`, `ThemeAssetPackage.php`, `StorefrontPluginConfiguration/StorefrontPluginConfigurationFactory.php` (`getScssEntryFileInDir`, `getEntryFile`), `ThemeRuntimeConfigService.php`, `Command/{ThemeCreateCommand,ThemeCompileCommand,ThemeChangeCommand,ThemeDumpCommand,ThemeRefreshCommand,ThemePrepareIconsCommand}.php`, `Framework/Twig/TokenParser/IconTokenParser.php`, `Resources/views/storefront/utilities/icon.html.twig`, `core/Framework/Adapter/Asset/AssetInstallCommand.php`, `core/Framework/Plugin/Util/AssetService.php`, `storefront/Resources/app/storefront/src/scss/abstract/variables/_custom.scss` (`$app-css-relative-asset-path`).
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ UNGEPRÜFT: Aussagen zu 6.5/6.6 stammen nicht aus dem Code (nur 6.7.15.1 installiert).
-- ⚠ UNGEPRÜFT: Ob scssphp alle Sass-Features von Bootstrap 5.3 unterstützt, wurde nicht geprüft; belegt ist nur, dass scssphp der Compiler ist.
-- ⚠ UNGEPRÜFT: `composer run watch:storefront` und Port 9998 stammen aus der Doku, nicht aus dem Skript (siehe T-49).
-- ⚠ UNGEPRÜFT: Dass `plugin:install`/`plugin:update` automatisch `assets:install` ausführen, ist eine Annahme.
-- ⚠ UNGEPRÜFT: Größen-Werte von `size` (`sm`, `lg` …) und das `solid`-Pack stammen aus der Doku, die CSS-Klassen wurden nicht einzeln geprüft.
-- ⚠ UNGEPRÜFT: `SCSSValidator` kann Config-Werte mit Sonderzeichen verwerfen (nur `validate`-Modus, Details nicht geprüft).
-- ⚠ LÜCKE: Die BEM-Aussage stützt sich auf Grep-Zählung und Stichproben; eine offizielle BEM-Regel wurde nicht gefunden.
-- Befehle sind aus `AsCommand`/`addOption` abgelesen, nicht ausgeführt.
+- ⚠ UNVERIFIED: statements about 6.5/6.6 do not come from the code (only 6.7.15.1 installed).
+- ⚠ UNVERIFIED: whether scssphp supports all Sass features of Bootstrap 5.3 has not been checked; it is only confirmed that scssphp is the compiler.
+- ⚠ UNVERIFIED: `composer run watch:storefront` and port 9998 come from the docs, not from the script (see T-49).
+- ⚠ UNVERIFIED: that `plugin:install`/`plugin:update` run `assets:install` automatically is an assumption.
+- ⚠ UNVERIFIED: size values of `size` (`sm`, `lg` …) and the `solid` pack come from the docs; the CSS classes were not checked individually.
+- ⚠ UNVERIFIED: `SCSSValidator` can reject config values with special characters (only in `validate` mode, details not checked).
+- ⚠ GAP: the BEM statement relies on a grep count and spot checks; no official BEM rule was found.
+- Commands were read from `AsCommand`/`addOption`, not executed.

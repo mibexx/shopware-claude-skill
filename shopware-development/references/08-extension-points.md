@@ -1,30 +1,30 @@
-# Extension Points (Referenz, Shopware 6.7.15.1)
+# Extension points (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Extension Points sind typisierte Hook-Punkte, über die ein Plugin Kernlogik des Cores ersetzen (`pre`), nachbearbeiten (`post`) oder Fehler abfangen (`error`) kann, mit typisiertem Ergebnis. Diese Referenz greift, wenn ein Core-Extension-Point konsumiert oder ein eigener veröffentlicht werden soll.
+Extension points are typed hook points through which a plugin can replace core logic (`pre`), post-process it (`post`) or catch errors (`error`), with a typed result. This reference applies when a core extension point is to be consumed or a custom one published.
 
-Abgrenzung: reine Beobachtung/Anreicherung per Event ([T-07](./07-events-subscriber.md)); Ersetzen eines ganzen Services per Dekoration ([T-06](./06-service-dekoration.md)); Flow-Trigger/-Actions in [T-09](./09-flow-builder.md). Doku-Empfehlung: Extension Points für Kernlogik-Änderung, Events für Seiteneffekte (Mail, Logging, externe Systeme).
+Scope: pure observation/enrichment via events ([T-07](./07-events-subscriber.md)); replacing an entire service via decoration ([T-06](./06-service-decoration.md)); flow triggers/actions in [T-09](./09-flow-builder.md). Docs recommendation: extension points for changing core logic, events for side effects (mail, logging, external systems).
 
-## 2. Konzepte
+## 2. Concepts
 
-- Basisklasse `Shopware\Core\Framework\Extensions\Extension` (abstrakt, `StoppableEventInterface`): Eingaben als `public readonly`-Properties, dazu veränderbares `$result` und `$exception`. Core-Extension-Klassen sind `final`.
-- Publisher: `ExtensionDispatcher::publish(string $name, Extension $extension, callable $function)` (`final readonly`, Konstruktor `@internal`, Service-ID = Klassenname). Die Standardlogik wird als Closure übergeben.
-- Ablauf von `publish()` (am Code geprüft):
+- Base class `Shopware\Core\Framework\Extensions\Extension` (abstract, `StoppableEventInterface`): inputs as `public readonly` properties, plus mutable `$result` and `$exception`. Core extension classes are `final`.
+- Publisher: `ExtensionDispatcher::publish(string $name, Extension $extension, callable $function)` (`final readonly`, constructor `@internal`, service ID = class name). The default logic is passed as a closure.
+- Flow of `publish()` (verified against the source code):
   1. dispatch `{NAME}.pre`
-  2. wenn Propagation nicht gestoppt: `$extension->result = $function(...$extension->getParams())`; bei `\Throwable`: `exception` setzen, Propagation zurücksetzen, dispatch `{NAME}.error`; ist danach `result === null`, wird die Exception erneut geworfen, sonst verschluckt
-  3. `resetPropagation()`, dispatch `{NAME}.post` (läuft **immer**, auch nach `stopPropagation()` in `pre`)
-  4. Rückgabe `$extension->result()`
-- `pre` + `result` setzen + `stopPropagation()` ersetzt die Core-Logik; `post` verändert das Ergebnis; `error` kann durch Setzen von `result` den Fehler abfangen.
-- Eventnamen im Subscriber: `MyExtension::onPre()`, `::onPost()`, `::onError()` (lesen `static::NAME`) oder String `'<NAME>.pre'`.
-- Exceptions aus `pre`-Listenern laufen nicht durch den `try` und gehen direkt nach oben.
+  2. if propagation has not been stopped: `$extension->result = $function(...$extension->getParams())`; on `\Throwable`: set `exception`, reset propagation, dispatch `{NAME}.error`; if `result === null` afterwards, the exception is rethrown, otherwise swallowed
+  3. `resetPropagation()`, dispatch `{NAME}.post` (runs **always**, even after `stopPropagation()` in `pre`)
+  4. return `$extension->result()`
+- `pre` + setting `result` + `stopPropagation()` replaces the core logic; `post` changes the result; `error` can catch the error by setting `result`.
+- Event names in the subscriber: `MyExtension::onPre()`, `::onPost()`, `::onError()` (read `static::NAME`) or the string `'<NAME>.pre'`.
+- Exceptions from `pre` listeners do not pass through the `try` and propagate straight up.
 
-Extension Points in 6.7.15.1 (alle `core/`; Außerhalb von `core/` gibt es keine):
+Extension points in 6.7.15.1 (all in `core/`; there are none outside `core/`):
 
-| NAME | Klasse (unter `core/`) | Result | Parameter |
+| NAME | Class (under `core/`) | Result | Parameters |
 |---|---|---|---|
 | `checkout.place-order` | `Checkout/Cart/Extension/CheckoutPlaceOrderExtension` | `OrderPlaceResult` | `cart`, `context`, `data` |
-| `checkout.cart.rule-load` | `Checkout/Cart/Extension/CheckoutCartRuleLoaderExtension` | `RuleLoaderResult` | `salesChannelContext`, `originalCart`, `cartBehavior`, `new` (`protected readonly bool`, nicht öffentliche API, aber in `getParams()` und damit Pflichtparameter der Closure; `CartRuleLoader::_load(...)`) |
+| `checkout.cart.rule-load` | `Checkout/Cart/Extension/CheckoutCartRuleLoaderExtension` | `RuleLoaderResult` | `salesChannelContext`, `originalCart`, `cartBehavior`, `new` (`protected readonly bool`, not public API, but included in `getParams()` and therefore a required parameter of the closure; `CartRuleLoader::_load(...)`) |
 | `html-renderer` | `Checkout/Document/Extension/HtmlRendererExtension` | `string` | `document` |
 | `pdf-renderer` | `Checkout/Document/Extension/PdfRendererExtension` | `string` | `document` |
 | `cms-slots-data.collect` | `Content/Cms/Extension/CmsSlotsDataCollectExtension` | `array<string, CriteriaCollection>` | `slots`, `resolverContext` |
@@ -41,12 +41,12 @@ Extension Points in 6.7.15.1 (alle `core/`; Außerhalb von `core/` gibt es keine
 | `cache-hash.required` | `Framework/Adapter/Cache/Http/Extension/CacheHashRequiredExtension` | `bool` | `request`, `salesChannelContext`, `cart` |
 | `cache-response.resolve-rule-areas` | `Framework/Adapter/Cache/Http/Extension/ResolveCacheRelevantRuleIdsExtension` | `array<string>` | `request`, `ruleAreas`, `salesChannelContext` |
 | `canonical-redirect` | `Framework/Routing/Extension/CanonicalRedirectExtension` | `?Response` | `request` |
-| `sales-channel-file.render-parameters` | `System/SalesChannel/File/Rendering/Extension/SalesChannelFileRenderParametersExtension` | `array<string,mixed>` | `file`, `context`, `salesChannel` (vollständig laut Konstruktor) |
+| `sales-channel-file.render-parameters` | `System/SalesChannel/File/Rendering/Extension/SalesChannelFileRenderParametersExtension` | `array<string,mixed>` | `file`, `context`, `salesChannel` (complete according to the constructor) |
 | `storefront.snippets` | `System/Snippet/Extension/StorefrontSnippetsExtension` | `array<string,string>` | `snippets`, `locale`, `catalog`, `snippetSetId`, `fallbackLocale`, `salesChannelId`, `unusedThemes` |
 
-`FrameworkExtension` und `ServiceExtension` sind Symfony-DI-Extensions, keine Extension Points (beim Grep ausfiltern).
+`FrameworkExtension` and `ServiceExtension` are Symfony DI extensions, not extension points (filter them out when grepping).
 
-Verzeichnisbaum eines Plugins mit eigenem Extension Point:
+Directory tree of a plugin with its own extension point:
 ```
 custom/plugins/SwagExample/
 └── src/
@@ -57,29 +57,29 @@ custom/plugins/SwagExample/
     └── Resources/config/services.php
 ```
 
-## 3. Anleitung
+## 3. Instructions
 
-**A. Finden**
-1. `grep -rl "extends Extension\b" vendor/shopware/core --include=*.php` (Ordner `*/Extension/`; `DependencyInjection`-Treffer ignorieren).
-2. Publisher: `grep -rn "ExtensionDispatcher\|->publish(" vendor/shopware/core`. Dort sieht man die Core-Closure und deren Parameter.
-3. Eventname = `NAME` + `.pre|.post|.error`; die Extension-Klasse ist der Typ-Hint des Listeners.
-4. Laufzeit: `bin/console debug:event-dispatcher "listing-loader.resolve.pre"` (Symfony-Standard, für Extension-Namen nicht verifiziert).
+**A. Finding**
+1. `grep -rl "extends Extension\b" vendor/shopware/core --include=*.php` (folders `*/Extension/`; ignore `DependencyInjection` hits).
+2. Publisher: `grep -rn "ExtensionDispatcher\|->publish(" vendor/shopware/core`. There you can see the core closure and its parameters.
+3. Event name = `NAME` + `.pre|.post|.error`; the extension class is the listener's type hint.
+4. At runtime: `bin/console debug:event-dispatcher "listing-loader.resolve.pre"` (Symfony standard, not verified for extension names).
 
-**B. Konsumieren**
-1. Subscriber mit `EventSubscriberInterface`, Namen per `XyzExtension::onPre()` usw.; Methodensignatur = Extension-Klasse.
-2. `pre`: `result` setzen **und** `stopPropagation()` (sonst läuft die Core-Closure und überschreibt `result`).
-3. `post`: `$extension->result()` lesen/ändern.
-4. `error`: `$extension->exception` auswerten; `result` setzen = Fehler schlucken.
-5. Als `kernel.event_subscriber` registrieren; Priorität via `[Name::onPre() => ['method', 100]]`.
+**B. Consuming**
+1. Subscriber with `EventSubscriberInterface`, names via `XyzExtension::onPre()` etc.; method signature = extension class.
+2. `pre`: set `result` **and** call `stopPropagation()` (otherwise the core closure runs and overwrites `result`).
+3. `post`: read/modify `$extension->result()`.
+4. `error`: evaluate `$extension->exception`; setting `result` = swallowing the error.
+5. Register as `kernel.event_subscriber`; priority via `[Name::onPre() => ['method', 100]]`.
 
-**C. Eigenen Extension Point anlegen**
-1. `final class XyzExtension extends Extension` mit `@extends Extension<ResultType>` und `public const NAME` (Konvention `<plugin>.<aktion>`).
-2. Eingaben als `public readonly`-Constructor-Properties; **Namen = Parameternamen der Standardlogik**.
-3. Standardlogik als Methode, per First-Class-Callable `$this->method(...)` an `publish()`.
-4. `ExtensionDispatcher` injizieren.
+**C. Creating a custom extension point**
+1. `final class XyzExtension extends Extension` with `@extends Extension<ResultType>` and `public const NAME` (convention `<plugin>.<action>`).
+2. Inputs as `public readonly` constructor properties; **names = parameter names of the default logic**.
+3. Default logic as a method, passed to `publish()` as a first-class callable `$this->method(...)`.
+4. Inject `ExtensionDispatcher`.
 5. `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample && bin/console cache:clear`.
 
-## 4. Beispiele
+## 4. Examples
 
 `src/Extension/ShippingLabelExtension.php`
 ```php
@@ -95,7 +95,7 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
  */
 final class ShippingLabelExtension extends Extension
 {
-    // Pflicht: wird von onPre()/onPost()/onError() per static::NAME gelesen
+    // Required: read by onPre()/onPost()/onError() via static::NAME
     public const NAME = 'swag-example.shipping-label';
 
     public function __construct(
@@ -131,7 +131,7 @@ class ShippingLabelService
         );
     }
 
-    // Parametername MUSS dem Property-Namen der Extension entsprechen (Spread mit String-Keys = benannte Argumente)
+    // Parameter name MUST match the extension's property name (spread with string keys = named arguments)
     private function doCreateLabel(string $orderNumber, SalesChannelContext $context): string
     {
         return 'DEFAULT-' . $orderNumber;
@@ -162,11 +162,11 @@ class ShippingLabelSubscriber implements EventSubscriberInterface
     public function replaceForVip(ShippingLabelExtension $extension): void
     {
         if (!str_starts_with($extension->orderNumber, 'VIP')) {
-            return; // Core-Logik laufen lassen
+            return; // Let the core logic run
         }
 
         $extension->result = 'VIP-LABEL-' . $extension->orderNumber;
-        $extension->stopPropagation(); // Closure wird übersprungen, post läuft trotzdem
+        $extension->stopPropagation(); // Closure is skipped, post still runs
     }
 
     public function prefixResult(ShippingLabelExtension $extension): void
@@ -176,7 +176,7 @@ class ShippingLabelSubscriber implements EventSubscriberInterface
 
     public function fallback(ShippingLabelExtension $extension): void
     {
-        // $extension->exception enthält den Fehler; Ergebnis setzen = Exception wird nicht erneut geworfen
+        // $extension->exception contains the error; setting a result = exception is not rethrown
         $extension->result = 'FALLBACK-' . $extension->orderNumber;
     }
 }
@@ -204,9 +204,9 @@ return static function (ContainerConfigurator $container): void {
 };
 ```
 
-Ergebnis: `createLabel('1000', $ctx)` ergibt `[DEFAULT-1000]`, `createLabel('VIP1', $ctx)` ergibt `[VIP-LABEL-VIP1]`.
+Result: `createLabel('1000', $ctx)` yields `[DEFAULT-1000]`, `createLabel('VIP1', $ctx)` yields `[VIP-LABEL-VIP1]`.
 
-Core-Beispiel für paarweises pre/post/error (`core/Checkout/Promotion/Cart/PromotionRedemptionLocker.php`):
+Core example for paired pre/post/error (`core/Checkout/Promotion/Cart/PromotionRedemptionLocker.php`):
 ```php
 public static function getSubscribedEvents(): array
 {
@@ -217,63 +217,63 @@ public static function getSubscribedEvents(): array
     ];
 }
 ```
-Zustand wird in `pre` per `$extension->addExtension(...)` angelegt (`ExtendableTrait`) und in `post`/`error` aufgeräumt. Weiteres `post`-Beispiel: `core/System/SalesChannel/File/Rendering/SalesChannelFileStoreApiMcpSubscriber.php`.
+State is created in `pre` via `$extension->addExtension(...)` (`ExtendableTrait`) and cleaned up in `post`/`error`. Another `post` example: `core/System/SalesChannel/File/Rendering/SalesChannelFileStoreApiMcpSubscriber.php`.
 
-Plugin-Grundgerüst: [../templates/plugin/README.md](../templates/plugin/README.md); Subscriber-Gerüst: [../templates/event-subscriber/README.md](../templates/event-subscriber/README.md).
+Basic plugin scaffold: [../templates/plugin/README.md](../templates/plugin/README.md); subscriber scaffold: [../templates/event-subscriber/README.md](../templates/event-subscriber/README.md).
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-1. **Closure-Parameternamen passen nicht zu den Extension-Properties.** `getParams()` (`get_object_vars($this)` im Scope der Basisklasse, daher auch `protected` Properties wie `new` bei `checkout.cart.rule-load`) liefert ein assoziatives Array (alle Properties außer `result`, `propagationStopped`, `exception`, `extensions`); der Spread wirkt als benannte Argumente, unbekannter/fehlender Name ergibt `\Error`. Die Doku (creating-custom-extension) zeigt eine parameterlose Closure `function() use (...)`: bei Extensions mit Properties nicht lauffähig (`publish()` ruft `$function(...$extension->getParams())`; PHP wirft bei unbekannten benannten Argumenten `\Error`; aus dem Code abgeleitet, nicht ausgeführt).
-2. `stopPropagation()` ohne `result`: Core-Logik übersprungen, Ergebnis `null` (bei nicht-nullable Typ `TypeError` beim Aufrufer).
-3. `result` in `pre` setzen, aber nicht stoppen: Core-Closure überschreibt es.
-4. `post` läuft immer, auch nach `stopPropagation()` in `pre`.
-5. `error` läuft nur, wenn die Closure geworfen hat; Exceptions aus `pre`-Listenern werden nicht gefangen.
-6. Ein `result` im `error`-Listener unterdrückt die Exception stillschweigend; bei `void`-Extensions (`FlowExecutorExtension`, `ProductPriceCalculationExtension`) fehlt ein sinnvoller Wert dafür.
-7. `NAME` fehlt, oder Name im Listener hartcodiert: Doku mischt `my-plugin.custom-extension` mit `my-plugin.product-filter.pre`. Immer `Klasse::onPre()` nutzen.
-8. Core-Extension-Klassen sind `final`, Konstruktor `@internal`: nicht erweitern/instanziieren; öffentlich sind Klassenname, `NAME` und `public`-Properties.
-9. `readonly`-Properties sind nicht änderbar; bewusst nicht readonly sind z. B. `ResolveListingIdsExtension::$criteria`, `ResolveCacheRelevantRuleIdsExtension::$ruleAreas`, `StorefrontSnippetsExtension::$snippets`. Sonst über `result`.
-10. `stopPropagation()` in einem Listener überspringt nur die in der Reihenfolge danach folgenden Listener desselben Events (Symfony prüft `isPropagationStopped()` vor jedem Listener); Listener davor sind schon gelaufen. In `pre` wird außerdem die Core-Closure übersprungen. `publish()` ruft vor `post` (und nach einem Fehler vor `error`) `resetPropagation()`: ein Stopp in `pre` oder `error` wirkt nicht auf `post`; ein Stopp in `post` hält nur weitere `post`-Listener auf.
-11. Extension Point statt Event für reine Seiteneffekte ist falsch; Decoration nur, wenn kein Extension Point existiert (mehrere Plugins mit derselben Decoration brechen sich gegenseitig, Listener-Ketten nicht).
+1. **Closure parameter names do not match the extension properties.** `getParams()` (`get_object_vars($this)` in the scope of the base class, hence also `protected` properties such as `new` in `checkout.cart.rule-load`) returns an associative array (all properties except `result`, `propagationStopped`, `exception`, `extensions`); the spread acts as named arguments, an unknown/missing name results in `\Error`. The docs (creating-custom-extension) show a parameterless closure `function() use (...)`: not runnable for extensions with properties (`publish()` calls `$function(...$extension->getParams())`; PHP throws `\Error` for unknown named arguments; derived from the code, not executed).
+2. `stopPropagation()` without `result`: core logic skipped, result `null` (with a non-nullable type, `TypeError` at the caller).
+3. Setting `result` in `pre` but not stopping: the core closure overwrites it.
+4. `post` always runs, even after `stopPropagation()` in `pre`.
+5. `error` only runs if the closure threw; exceptions from `pre` listeners are not caught.
+6. A `result` in the `error` listener silently suppresses the exception; for `void` extensions (`FlowExecutorExtension`, `ProductPriceCalculationExtension`) there is no meaningful value for it.
+7. `NAME` missing, or name hard-coded in the listener: the docs mix `my-plugin.custom-extension` with `my-plugin.product-filter.pre`. Always use `Class::onPre()`.
+8. Core extension classes are `final`, constructor `@internal`: do not extend/instantiate them; public are the class name, `NAME` and the `public` properties.
+9. `readonly` properties cannot be changed; deliberately not readonly are e.g. `ResolveListingIdsExtension::$criteria`, `ResolveCacheRelevantRuleIdsExtension::$ruleAreas`, `StorefrontSnippetsExtension::$snippets`. Otherwise go through `result`.
+10. `stopPropagation()` in a listener only skips the listeners of the same event that come after it in order (Symfony checks `isPropagationStopped()` before each listener); listeners before it have already run. In `pre`, the core closure is also skipped. `publish()` calls `resetPropagation()` before `post` (and, after an error, before `error`): a stop in `pre` or `error` does not affect `post`; a stop in `post` only halts further `post` listeners.
+11. Using an extension point instead of an event for pure side effects is wrong; decoration only if no extension point exists (multiple plugins with the same decoration break each other, listener chains do not).
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-- `ResolveRemoteThumbnailUrlExtension`: Properties `mediaPath` und `mediaUpdatedAt` sind `@deprecated tag:v6.8.0` (Wert stattdessen in `mediaEntity`). Sonst keine `@deprecated` in `core/Framework/Extensions`.
-- XML-Service-Definitionen sind für Plugins in 6.7 deprecated; `services.php` verwenden ([T-05](./05-services-registrieren.md)).
-- 6.5/6.6: Erweiterung üblicherweise über Events und Decoration (`AbstractXyzRoute::getDecorated()`); in 6.7 zusätzlich Extension Points. Beispiel `CartOrderRoute` publiziert Events und nutzt `checkout.place-order`; `getDecorated()` wirft `DecorationPatternException`.
-- `CheckoutPlaceOrderExtension` implementiert zusätzlich `ShopwareSalesChannelEvent` und `CartEvent`.
-- ⚠ UNGEPRÜFT: Einführungsversion der Extension Points (Annahme: 6.6/6.7-Linie, in 6.5 nicht vorhanden).
+- `ResolveRemoteThumbnailUrlExtension`: properties `mediaPath` and `mediaUpdatedAt` are `@deprecated tag:v6.8.0` (value in `mediaEntity` instead). Otherwise no `@deprecated` in `core/Framework/Extensions`.
+- XML service definitions are deprecated for plugins in 6.7; use `services.php` ([T-05](./05-registering-services.md)).
+- 6.5/6.6: extension usually via events and decoration (`AbstractXyzRoute::getDecorated()`); in 6.7 additionally extension points. Example: `CartOrderRoute` publishes events and uses `checkout.place-order`; `getDecorated()` throws `DecorationPatternException`.
+- `CheckoutPlaceOrderExtension` additionally implements `ShopwareSalesChannelEvent` and `CartEvent`.
+- ⚠ UNVERIFIED: Introduction version of extension points (assumption: 6.6/6.7 line, not present in 6.5).
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] Prüfen, ob für das Ziel ein Extension Point existiert (Tabelle/Grep), bevor dekoriert wird
-- [ ] Listener nutzt `XyzExtension::onPre()/onPost()/onError()` statt Strings
-- [ ] `pre`-Ersatz setzt `result` und ruft `stopPropagation()`
-- [ ] `post`-Logik berücksichtigt, dass `post` auch nach Stop läuft
-- [ ] `error`-Listener setzt `result` nur bewusst (Exception wird sonst verschluckt)
-- [ ] Eigener Extension Point: `final`, `NAME`, `@extends Extension<T>`, `public readonly`-Properties
-- [ ] Closure-Parameternamen = Property-Namen der Extension
-- [ ] `ExtensionDispatcher` per Service-ID (Klassenname) injiziert
-- [ ] Subscriber mit `kernel.event_subscriber` getaggt, `cache:clear` ausgeführt
+- [ ] Check whether an extension point exists for the goal (table/grep) before decorating
+- [ ] Listener uses `XyzExtension::onPre()/onPost()/onError()` instead of strings
+- [ ] `pre` replacement sets `result` and calls `stopPropagation()`
+- [ ] `post` logic accounts for `post` running even after a stop
+- [ ] `error` listener sets `result` only deliberately (otherwise the exception is swallowed)
+- [ ] Custom extension point: `final`, `NAME`, `@extends Extension<T>`, `public readonly` properties
+- [ ] Closure parameter names = property names of the extension
+- [ ] `ExtensionDispatcher` injected via service ID (class name)
+- [ ] Subscriber tagged with `kernel.event_subscriber`, `cache:clear` run
 
-## 7. Quellen
+## 7. Sources
 
-Doku:
+Docs:
 - https://developer.shopware.com/docs/guides/plugins/plugins/framework/extension/finding-extensions.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/framework/extension/creating-custom-extension.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/framework/extension/extension-vs-events.html
 
-Quellcode (`vendor/shopware/`):
+Source code (`vendor/shopware/`):
 - `core/Framework/Extensions/Extension.php` (`onPre/onPost/onError`, `result()`, `getParams()`, `stopPropagation()`, `resetPropagation()`), `core/Framework/Extensions/ExtensionDispatcher.php` (`publish`, `pre`, `post`, `error`)
-- `core/Framework/DependencyInjection/event.php:42` (Service-Registrierung), `core/Framework/Struct/ExtendableTrait.php`
-- `core/Framework/Routing/CanonicalRedirectService.php` (Publisher-Muster), `core/Checkout/Cart/SalesChannel/CartOrderRoute.php:93-97`, `core/Checkout/Cart/CartRuleLoader.php`
+- `core/Framework/DependencyInjection/event.php:42` (service registration), `core/Framework/Struct/ExtendableTrait.php`
+- `core/Framework/Routing/CanonicalRedirectService.php` (publisher pattern), `core/Checkout/Cart/SalesChannel/CartOrderRoute.php:93-97`, `core/Checkout/Cart/CartRuleLoader.php`
 - `core/Checkout/Promotion/Cart/PromotionRedemptionLocker.php`
 - `core/Content/Product/SalesChannel/Listing/ProductListingLoader.php`, `core/Content/Product/SalesChannel/Price/ProductPriceCalculator.php:56`, `core/Framework/Adapter/Cache/Http/CacheHeadersService.php:51`
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ UNGEPRÜFT: Einführungsversion der Extension Points (6.5/6.6 vs. 6.7).
-- Fehler bei parameterloser Closure (Fallstrick 1): `ExtensionDispatcher::publish` spreizt `getParams()` mit String-Keys (benannte Argumente); nach PHP-Semantik `\Error` bei unbekanntem Namen. Aus dem Code abgeleitet, nicht ausgeführt; Doku-Beispiele sind Skizzen.
-- ⚠ UNGEPRÜFT: `debug:event-dispatcher <name>` nicht ausgeführt; Beispiel nicht in laufender Installation getestet.
-- Belegt: Konstruktor von `SalesChannelFileRenderParametersExtension` hat genau `file`, `context`, `salesChannel`; alle Parameterlisten der Tabelle gegen die Konstruktoren der 20 Extension-Klassen geprüft (`canonical-redirect`: nur `request`; `html-renderer`/`pdf-renderer`: nur `document`).
-- Reihenfolge/Priorität mehrerer Listener folgt Symfony-Standard (nicht Shopware-spezifisch geprüft).
-- Doku-Aussage "Events fire after actions" ist verallgemeinert; viele Events (z. B. `*CriteriaEvent`) feuern vor der Aktion.
+- ⚠ UNVERIFIED: Introduction version of extension points (6.5/6.6 vs. 6.7).
+- Error with a parameterless closure (pitfall 1): `ExtensionDispatcher::publish` spreads `getParams()` with string keys (named arguments); per PHP semantics `\Error` for an unknown name. Derived from the code, not executed; docs examples are sketches.
+- ⚠ UNVERIFIED: `debug:event-dispatcher <name>` not executed; example not tested in a running installation.
+- Confirmed: the constructor of `SalesChannelFileRenderParametersExtension` has exactly `file`, `context`, `salesChannel`; all parameter lists in the table checked against the constructors of the 20 extension classes (`canonical-redirect`: only `request`; `html-renderer`/`pdf-renderer`: only `document`).
+- Order/priority of multiple listeners follows the Symfony standard (not checked specifically for Shopware).
+- The docs statement "Events fire after actions" is a generalization; many events (e.g. `*CriteriaEvent`) fire before the action.

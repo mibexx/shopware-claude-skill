@@ -1,11 +1,11 @@
 <?php declare(strict_types=1);
 
-// Pfad im Plugin: custom/plugins/SwagExample/.php-cs-fixer.dist.php
+// Path in the plugin: custom/plugins/SwagExample/.php-cs-fixer.dist.php
 //
-// Regeln 1:1 aus der mitgelieferten Konfiguration von shopware-cli
-// (github.com/shopware/shopware-cli, internal/verifier/php/configs/php-cs-fixer.dist.php, Stand main-Branch;
-// "Shopware Coding Standard" laut Doku). shopware-cli bevorzugt eine .php-cs-fixer.dist.php im Plugin-Root
-// vor seiner eigenen Konfiguration. Die Finder-Ausschluesse sind eine Ergaenzung dieser Vorlage.
+// Rules taken 1:1 from shopware-cli's bundled configuration
+// (github.com/shopware/shopware-cli, internal/verifier/php/configs/php-cs-fixer.dist.php, state of the main branch;
+// "Shopware Coding Standard" according to the docs). shopware-cli prefers a .php-cs-fixer.dist.php in the plugin root
+// over its own configuration. The finder exclusions are an addition of this template.
 
 return (new PhpCsFixer\Config())
     ->setUsingCache(false)

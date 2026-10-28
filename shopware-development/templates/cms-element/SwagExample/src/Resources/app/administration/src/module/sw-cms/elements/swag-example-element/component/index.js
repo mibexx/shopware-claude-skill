@@ -13,7 +13,7 @@ export default {
 
     methods: {
         createdComponent() {
-            // Merged defaultConfig in element.config. Name = "name" aus registerCmsElement
+            // Merges defaultConfig into element.config. Name = "name" from registerCmsElement
             this.initElementConfig('swag-example-element');
         },
     },

@@ -1,93 +1,93 @@
-# CLI-Commands, Logging und System-Checks (Referenz, Shopware 6.7.15.1)
+# CLI commands, logging and system checks (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn ein Plugin eigene `bin/console`-Commands, einen eigenen Monolog-Channel/Logfile, System-Checks (Health-Checks) oder Feature-Flag-Abfragen braucht.
+This reference applies when a plugin needs its own `bin/console` commands, its own Monolog channel/log file, system checks (health checks) or feature flag queries.
 
-Abgrenzung: Service-Registrierung allgemein in [T-05](./05-services-registrieren.md); Plugin-Aufbau/`build()` in [T-02](./02-plugin-aufbau.md); Scheduled Tasks in [T-33](./33-scheduled-tasks.md); Plugin-Einstellungen statt eigener Flags in [T-19](./19-plugin-konfiguration.md); Coding-Regeln in [T-45](./45-coding-guidelines.md); Build-Skripte/Deployment in [T-49](./49-build-deployment.md).
+Scope: service registration in general in [T-05](./05-registering-services.md); plugin structure/`build()` in [T-02](./02-plugin-structure.md); scheduled tasks in [T-33](./33-scheduled-tasks.md); plugin settings instead of custom flags in [T-19](./19-plugin-configuration.md); coding rules in [T-45](./45-coding-guidelines.md); build scripts/deployment in [T-49](./49-build-deployment.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-- **Command**: Klasse von `Symfony\Component\Console\Command\Command` mit `#[AsCommand(name: ..., description: ...)]`, als Service mit Tag `console.command` registriert. Core-Vorbilder: `core/Framework/Plugin/Command/PluginListCommand.php`, `core/Framework/SystemCheck/Command/SystemCheckCommand.php`; Registrierung z. B. in `core/Framework/DependencyInjection/health.php`.
-- **Logging**: Monolog über das Symfony-Monolog-Bundle. Eigener Channel über `monolog.channels` + Handler in `Resources/config/packages/monolog.yaml`; Logger-Service `monolog.logger.<channel>` (`Psr\Log\LoggerInterface`). **Plugins laden `Resources/config/packages/*.yaml` nicht automatisch**: `Bundle::build()` ruft `buildDefaultConfig()` nicht auf (im Core nur `Framework`, `Profiling`, `Administration`, `Storefront`, `Elasticsearch`). `buildDefaultConfig()` ist `protected` und kann im eigenen `build()` der Plugin-Klasse nach `parent::build()` aufgerufen werden; alternativ den Loader selbst aufsetzen (Beispiel 4.1). Konsistent mit [T-05](./05-services-registrieren.md) und [T-34](./34-message-queue.md). Core-Channel `business_events` (Flow-Events, Tabelle `log_entry` über `DoctrineSQLHandler`).
-- **System-Check** (neu in 6.7): Klasse von `Shopware\Core\Framework\SystemCheck\BaseCheck` (`run(): Result`, `category(): Category`, `name(): string`, `allowedSystemCheckExecutionContexts(): array`), Tag **`shopware.system_check`**. Ausführung per `bin/console system:check` oder HTTP.
-- **Feature-Flags**: `Shopware\Core\Framework\Feature::isActive('FLAG')` (PHP), `{% if feature('FLAG') %}` (Twig); Flags stehen in `core/Framework/Resources/config/packages/feature.yaml`; CLI `feature:list|enable|disable|dump`.
+- **Command**: class extending `Symfony\Component\Console\Command\Command` with `#[AsCommand(name: ..., description: ...)]`, registered as a service with tag `console.command`. Core models: `core/Framework/Plugin/Command/PluginListCommand.php`, `core/Framework/SystemCheck/Command/SystemCheckCommand.php`; registration e.g. in `core/Framework/DependencyInjection/health.php`.
+- **Logging**: Monolog via the Symfony Monolog bundle. Custom channel via `monolog.channels` + handler in `Resources/config/packages/monolog.yaml`; logger service `monolog.logger.<channel>` (`Psr\Log\LoggerInterface`). **Plugins do not load `Resources/config/packages/*.yaml` automatically**: `Bundle::build()` does not call `buildDefaultConfig()` (in the core only `Framework`, `Profiling`, `Administration`, `Storefront`, `Elasticsearch` do). `buildDefaultConfig()` is `protected` and can be called in the plugin class's own `build()` after `parent::build()`; alternatively set up the loader yourself (example 4.1). Consistent with [T-05](./05-registering-services.md) and [T-34](./34-message-queue.md). Core channel `business_events` (flow events, table `log_entry` via `DoctrineSQLHandler`).
+- **System check** (new in 6.7): class extending `Shopware\Core\Framework\SystemCheck\BaseCheck` (`run(): Result`, `category(): Category`, `name(): string`, `allowedSystemCheckExecutionContexts(): array`), tag **`shopware.system_check`**. Executed via `bin/console system:check` or HTTP.
+- **Feature flags**: `Shopware\Core\Framework\Feature::isActive('FLAG')` (PHP), `{% if feature('FLAG') %}` (Twig); flags are defined in `core/Framework/Resources/config/packages/feature.yaml`; CLI `feature:list|enable|disable|dump`.
 
-Plugin-Baum:
+Plugin tree:
 ```
 custom/plugins/SwagExample/
 └── src/
-    ├── SwagExample.php                    # build() lädt packages/*.yaml (z. B. via buildDefaultConfig())
+    ├── SwagExample.php                    # build() loads packages/*.yaml (e.g. via buildDefaultConfig())
     ├── Command/ExampleCommand.php
     ├── SystemCheck/QueueSizeCheck.php
     ├── Service/ImportService.php
     └── Resources/config/
-        ├── services.php                   # XML ist in 6.7 deprecated
+        ├── services.php                   # XML is deprecated in 6.7
         └── packages/monolog.yaml
 ```
 
-## 3. Anleitung
+## 3. Instructions
 
 **Command**
-1. Klasse mit `#[AsCommand(name: 'vendor:action', description: '…')]`; im Konstruktor `parent::__construct()` aufrufen; `execute()` gibt `Command::SUCCESS|FAILURE|INVALID` zurück.
-2. In `services.php` mit `->tag('console.command')` registrieren (explizit; ob Autoconfigure es setzt, ist nicht gezielt getestet).
-3. `bin/console cache:clear`, dann `bin/console list swag` und `bin/console swag:example --dry-run`.
-4. Namenskonvention: Core nutzt `namespace:action` (`plugin:list`, `system:check`, `feature:enable`); Plugins mit eigenem Präfix.
-5. `ShopwareStyle` nicht mehr verwenden (`@deprecated tag:v6.8.0`), stattdessen `SymfonyStyle`.
+1. Class with `#[AsCommand(name: 'vendor:action', description: '…')]`; call `parent::__construct()` in the constructor; `execute()` returns `Command::SUCCESS|FAILURE|INVALID`.
+2. Register in `services.php` with `->tag('console.command')` (explicitly; whether autoconfigure sets it has not been specifically tested).
+3. `bin/console cache:clear`, then `bin/console list swag` and `bin/console swag:example --dry-run`.
+4. Naming convention: the core uses `namespace:action` (`plugin:list`, `system:check`, `feature:enable`); plugins use their own prefix.
+5. Do not use `ShopwareStyle` anymore (`@deprecated tag:v6.8.0`); use `SymfonyStyle` instead.
 
 **Logging**
-1. `build()` in der Plugin-Klasse überschreiben (Beispiel 4.1) und `packages/monolog.yaml` anlegen.
-2. Logger per `service('monolog.logger.<channel>')` injizieren; Name muss exakt dem Eintrag in `monolog.channels` entsprechen.
-3. `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample && bin/console cache:clear`; Logdatei `var/log/swag_example_<env>.log`.
-4. Betreiber-Konfiguration `shopware.logger.*` (`core/Framework/Resources/config/packages/shopware.yaml` ab Z. 548): `enforce_throw_exception`, `file_rotation_count: 14`, `exclude_exception`, `exclude_events`, `error_code_log_levels`. Sie wirken über die Decorators `ExcludeExceptionHandler`, `ErrorCodeLogLevelHandler`, `ExcludeFlowEventHandler` **nur auf den Handler `main`** (`core/Framework/DependencyInjection/services.php` ca. Z. 861-880). Prod: `fingers_crossed` mit `action_level: error`, rotating_file; dev: stream, debug.
-5. `log_entry`: Der Channel `business_events` schreibt über `DoctrineSQLHandler`; `LoggingService` loggt `FlowLogEvent`s; Events können `LogAware` implementieren (`getLogData()`, `getLogLevel(): Monolog\Level`); Aufräumen via `LogCleanupTask`.
-6. `#[Package('…')]` (`core/Framework/Log/Package.php`) ist `@internal`, nicht in Plugin-Code verwenden.
+1. Override `build()` in the plugin class (example 4.1) and create `packages/monolog.yaml`.
+2. Inject the logger via `service('monolog.logger.<channel>')`; the name must exactly match the entry in `monolog.channels`.
+3. `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample && bin/console cache:clear`; log file `var/log/swag_example_<env>.log`.
+4. Operator configuration `shopware.logger.*` (`core/Framework/Resources/config/packages/shopware.yaml` from line 548): `enforce_throw_exception`, `file_rotation_count: 14`, `exclude_exception`, `exclude_events`, `error_code_log_levels`. They take effect via the decorators `ExcludeExceptionHandler`, `ErrorCodeLogLevelHandler`, `ExcludeFlowEventHandler` **only on the handler `main`** (`core/Framework/DependencyInjection/services.php` approx. lines 861-880). Prod: `fingers_crossed` with `action_level: error`, rotating_file; dev: stream, debug.
+5. `log_entry`: the channel `business_events` writes via `DoctrineSQLHandler`; `LoggingService` logs `FlowLogEvent`s; events can implement `LogAware` (`getLogData()`, `getLogLevel(): Monolog\Level`); cleanup via `LogCleanupTask`.
+6. `#[Package('…')]` (`core/Framework/Log/Package.php`) is `@internal`; do not use it in plugin code.
 
-**System-Check**
-1. `BaseCheck` ableiten, vier Methoden implementieren, Tag `shopware.system_check` setzen (Tag-Contract: `core/DevOps/StaticAnalyze/PHPStan/tagged-service-contracts.php` Z. 137).
-2. `Category` bestimmt die Reihenfolge: `SYSTEM = 0`, `FEATURE = 8`, `EXTERNAL = 32`, `AUXILIARY = 128`. `SystemChecker` führt aufsteigend aus; liefert ein `SYSTEM`-Check `healthy` ungleich true, werden alle weiteren Kategorien als `SKIPPED` übersprungen.
-3. Kontexte (`SystemCheckExecutionContext`): `WEB`, `CLI`, `PRE_ROLLOUT`, `RECURRENT`; Helfer `readiness()` = [PRE_ROLLOUT], `longRunning()` = [CLI, RECURRENT, PRE_ROLLOUT]. Nicht erlaubte Checks erscheinen als `SKIPPED` (`healthy` = null) und lassen `system:check` mit Exit-Code 1 (`FAILURE`) enden, ebenso Checks, die nach einem ungesunden `SYSTEM`-Check übersprungen werden.
-4. `Result(string $name, Status $status, string $message, ?bool $healthy = null, array $extra = [])`; `Status`: OK, UNKNOWN, SKIPPED, WARNING, ERROR, FAILURE. `healthy` ist ein eigenes Flag; `null` zählt als ungesund (`system:check` liefert dann `FAILURE`). Exceptions in `run()` fängt der `SystemChecker` und macht `Status::FAILURE` daraus.
-5. Aufruf: `bin/console system:check [--context=cli|recurrent|pre_rollout] [--format=table|json] [-v]` (Default `cli`; `-v` zeigt `extra`). Die genannten Werte sind nur Vorschläge (Autovervollständigung, `longRunning()`): akzeptiert wird jeder Wert von `SystemCheckExecutionContext`, also auch `--context=web`; nur unbekannte Werte ergeben `Command::INVALID`. HTTP: `GET /api/_info/system-health-check?context=web` (Default `web`; Bearer oder `Authorization: Static <token>` mit `shopware.api.static_token.health_check`, `HealthCheckController`). Einfacher Liveness-Endpoint ohne Auth: `GET /api/_info/health-check`.
-6. Core-Referenzen: `core/System/Locale/SystemCheck/LocalesReadinessCheck.php`, `administration/Framework/SystemCheck/AdministrationReadinessCheck.php`.
+**System check**
+1. Extend `BaseCheck`, implement the four methods, set tag `shopware.system_check` (tag contract: `core/DevOps/StaticAnalyze/PHPStan/tagged-service-contracts.php` line 137).
+2. `Category` determines the order: `SYSTEM = 0`, `FEATURE = 8`, `EXTERNAL = 32`, `AUXILIARY = 128`. `SystemChecker` executes in ascending order; if a `SYSTEM` check returns `healthy` other than true, all further categories are skipped as `SKIPPED`.
+3. Contexts (`SystemCheckExecutionContext`): `WEB`, `CLI`, `PRE_ROLLOUT`, `RECURRENT`; helpers `readiness()` = [PRE_ROLLOUT], `longRunning()` = [CLI, RECURRENT, PRE_ROLLOUT]. Checks that are not allowed appear as `SKIPPED` (`healthy` = null) and make `system:check` end with exit code 1 (`FAILURE`), as do checks that are skipped after an unhealthy `SYSTEM` check.
+4. `Result(string $name, Status $status, string $message, ?bool $healthy = null, array $extra = [])`; `Status`: OK, UNKNOWN, SKIPPED, WARNING, ERROR, FAILURE. `healthy` is a separate flag; `null` counts as unhealthy (`system:check` then returns `FAILURE`). Exceptions in `run()` are caught by `SystemChecker` and turned into `Status::FAILURE`.
+5. Invocation: `bin/console system:check [--context=cli|recurrent|pre_rollout] [--format=table|json] [-v]` (default `cli`; `-v` shows `extra`). The listed values are only suggestions (autocompletion, `longRunning()`): any value of `SystemCheckExecutionContext` is accepted, i.e. also `--context=web`; only unknown values result in `Command::INVALID`. HTTP: `GET /api/_info/system-health-check?context=web` (default `web`; Bearer or `Authorization: Static <token>` with `shopware.api.static_token.health_check`, `HealthCheckController`). Simple liveness endpoint without auth: `GET /api/_info/health-check`.
+6. Core references: `core/System/Locale/SystemCheck/LocalesReadinessCheck.php`, `administration/Framework/SystemCheck/AdministrationReadinessCheck.php`.
 
-**Feature-Flags**
-1. Namen normalisiert `Feature::normalizeName()` (Punkte/Doppelpunkte/Bindestriche zu `_`, Großbuchstaben).
-2. Auflösung in `Feature::isActive()` (`core/Framework/Feature.php` ab Z. 139): unbekannte Flags warnen außerhalb `prod`; Env-Variable des Flags hat höchste Priorität; dann `FEATURE_ALL` (`1`/`minor`, `major`, `v6.8.0.0`); dann `Feature::setActive`-Registry; zuletzt der Default aus der Konfiguration.
-3. Weitere API: `Feature::ifActive/ifNotActive(closure)`, `has()`, `getAll()`, `throwException()`, `triggerDeprecationOrThrow()`; Test-Helfer `fake()`, `withFeatureEnabled/Disabled()`. `registerFeature(s)`/`getRegisteredFeatures()` sind `@internal`. `Feature::ifActiveCall(...)` aus der Doku existiert in 6.7.15.1 **nicht** (vorhanden: `ifActive`, `ifNotActive`, `callSilentIfInactive`, `silent`).
-4. Twig: `feature('FLAG')`, `getAllFeatures()` (`FeatureFlagExtension`); unbekannte Flags liefern `false`.
-5. Services hinter Flag: Tag `shopware.feature` mit Attribut `flag`; der Service wird vor der Optimierung entfernt, wenn das Flag inaktiv ist (`FeatureFlagCompilerPass`, Priorität 1000).
-6. CLI: `bin/console feature:list`, `feature:enable <flag>`, `feature:disable <flag>`, `feature:dump` (Alias `administration:dump:features`). Toggle nur bei `toggleable: true` und aktivem `shopware.feature_toggle.enable` (Default `true`); Speicherung im Key-Value-Storage `feature.flags`; Major-Flags werden nicht aus dem Storage geladen. Env-Aktivierung in `.env`: z. B. `TELEMETRY_METRICS=1`, `FEATURE_ALL=1`.
+**Feature flags**
+1. Names are normalized by `Feature::normalizeName()` (dots/colons/hyphens to `_`, uppercase).
+2. Resolution in `Feature::isActive()` (`core/Framework/Feature.php` from line 139): unknown flags warn outside `prod`; the flag's env variable has the highest priority; then `FEATURE_ALL` (`1`/`minor`, `major`, `v6.8.0.0`); then the `Feature::setActive` registry; finally the default from the configuration.
+3. Further API: `Feature::ifActive/ifNotActive(closure)`, `has()`, `getAll()`, `throwException()`, `triggerDeprecationOrThrow()`; test helpers `fake()`, `withFeatureEnabled/Disabled()`. `registerFeature(s)`/`getRegisteredFeatures()` are `@internal`. `Feature::ifActiveCall(...)` from the docs does **not** exist in 6.7.15.1 (available: `ifActive`, `ifNotActive`, `callSilentIfInactive`, `silent`).
+4. Twig: `feature('FLAG')`, `getAllFeatures()` (`FeatureFlagExtension`); unknown flags return `false`.
+5. Services behind a flag: tag `shopware.feature` with attribute `flag`; the service is removed before optimization if the flag is inactive (`FeatureFlagCompilerPass`, priority 1000).
+6. CLI: `bin/console feature:list`, `feature:enable <flag>`, `feature:disable <flag>`, `feature:dump` (alias `administration:dump:features`). Toggling only with `toggleable: true` and active `shopware.feature_toggle.enable` (default `true`); stored in the key-value storage `feature.flags`; major flags are not loaded from the storage. Env activation in `.env`: e.g. `TELEMETRY_METRICS=1`, `FEATURE_ALL=1`.
 
-Flags in dieser Installation (`feature.yaml`; zur Laufzeit gilt `bin/console feature:list`):
+Flags in this installation (`feature.yaml`; at runtime `bin/console feature:list` is authoritative):
 
-| Flag | default | major | toggleable | Hinweis |
+| Flag | default | major | toggleable | Note |
 |---|---|---|---|---|
-| v6.5.0.0 / v6.6.0.0 / v6.7.0.0 | true | ja | nein | bereits aktive Majors |
-| v6.8.0.0 | false | ja | nein | nächster Major |
-| DISABLE_VUE_COMPAT | true | ja | nein | |
-| ACCESSIBILITY_TWEAKS | true | ja | ja | ab 6.7 Standard |
-| TELEMETRY_METRICS | false | nein | ja | experimentell |
-| FLOW_EXECUTION_AFTER_BUSINESS_PROCESS | false | ja | ja | Standard ab 6.8 |
-| DOCUMENT_GENERATION_REWORK | false | ja | ja | experimentell, siehe [T-38](./38-order-statemachine-dokumente.md) |
-| PERFORMANCE_TWEAKS | false | ja | ja | experimentell |
-| TWIG_COMPILE_TIME_OPTIMIZATION | false | nein | ja | experimentell |
-| ENABLE_OPENSEARCH_FOR_ADMIN_API | false | nein | ja | experimentell |
-| CACHE_CONTEXT_HASH_RULES_OPTIMIZATION | false | nein | ja | deprecated, ersetzt durch CACHE_REWORK |
-| CACHE_REWORK | false | nein | ja | experimentell, siehe [T-41](./41-caching.md) |
-| DEFERRED_CART_ERRORS | false | nein | ja | Standard ab 6.8 |
-| SHIPPING_PRICE_RANGE_CURRENCY_CONVERSION | false | ja | ja | Standard ab 6.8 |
-| REPEATED_PAYMENT_FINALIZE | false | ja | ja | |
-| PERMANENT_AUTOMATIC_PROMOTIONS | false | ja | ja | |
-| METEOR_TEXT_EDITOR | false | nein | ja | |
-| JSON_LD_DATA | false | ja | ja | JSON-LD statt Microdata |
-| BREADCRUMB_REWORK | false | ja | ja | experimentell |
-| WEBHOOKS_REWORK | false | ja | ja | experimentell |
-| ADMIN_EXTENSION_TOOLING | false | nein | ja | experimentell |
+| v6.5.0.0 / v6.6.0.0 / v6.7.0.0 | true | yes | no | already active majors |
+| v6.8.0.0 | false | yes | no | next major |
+| DISABLE_VUE_COMPAT | true | yes | no | |
+| ACCESSIBILITY_TWEAKS | true | yes | yes | default from 6.7 |
+| TELEMETRY_METRICS | false | no | yes | experimental |
+| FLOW_EXECUTION_AFTER_BUSINESS_PROCESS | false | yes | yes | default from 6.8 |
+| DOCUMENT_GENERATION_REWORK | false | yes | yes | experimental, see [T-38](./38-order-statemachine-documents.md) |
+| PERFORMANCE_TWEAKS | false | yes | yes | experimental |
+| TWIG_COMPILE_TIME_OPTIMIZATION | false | no | yes | experimental |
+| ENABLE_OPENSEARCH_FOR_ADMIN_API | false | no | yes | experimental |
+| CACHE_CONTEXT_HASH_RULES_OPTIMIZATION | false | no | yes | deprecated, replaced by CACHE_REWORK |
+| CACHE_REWORK | false | no | yes | experimental, see [T-41](./41-caching.md) |
+| DEFERRED_CART_ERRORS | false | no | yes | default from 6.8 |
+| SHIPPING_PRICE_RANGE_CURRENCY_CONVERSION | false | yes | yes | default from 6.8 |
+| REPEATED_PAYMENT_FINALIZE | false | yes | yes | |
+| PERMANENT_AUTOMATIC_PROMOTIONS | false | yes | yes | |
+| METEOR_TEXT_EDITOR | false | no | yes | |
+| JSON_LD_DATA | false | yes | yes | JSON-LD instead of microdata |
+| BREADCRUMB_REWORK | false | yes | yes | experimental |
+| WEBHOOKS_REWORK | false | yes | yes | experimental |
+| ADMIN_EXTENSION_TOOLING | false | no | yes | experimental |
 
-## 4. Beispiele
+## 4. Examples
 
-### 4.1 Plugin-Klasse mit `build()` (lädt `packages/*.yaml`)
+### 4.1 Plugin class with `build()` (loads `packages/*.yaml`)
 
 `src/SwagExample.php`
 ```php
@@ -125,7 +125,7 @@ class SwagExample extends Plugin
 }
 ```
 
-Kürzere Variante: In `build()` nach `parent::build($container)` einfach `$this->buildDefaultConfig($container);` aufrufen (`protected` in `Shopware\Core\Framework\Bundle`, lädt `Resources/config/packages/*` und `packages/<env>/*`).
+Shorter variant: in `build()`, after `parent::build($container)`, simply call `$this->buildDefaultConfig($container);` (`protected` in `Shopware\Core\Framework\Bundle`, loads `Resources/config/packages/*` and `packages/<env>/*`).
 
 `src/Resources/config/packages/monolog.yaml`
 ```yaml
@@ -169,7 +169,7 @@ return static function (ContainerConfigurator $container): void {
 };
 ```
 
-### 4.3 Service mit Logger und Command
+### 4.3 Service with logger and command
 
 `src/Service/ImportService.php`
 ```php
@@ -235,11 +235,11 @@ class ExampleCommand extends Command
     }
 }
 ```
-Core-Konstruktoren tragen `@internal`; für Plugin-Code optional. Weitere Gerüste: [Plugin](../templates/plugin/README.md), [Konfiguration](../templates/config/README.md).
+Core constructors carry `@internal`; optional for plugin code. Further scaffolds: [Plugin](../templates/plugin/README.md), [Configuration](../templates/config/README.md).
 
-### 4.4 System-Check
+### 4.4 System check
 
-`src/SystemCheck/QueueSizeCheck.php` (Signaturen laut `BaseCheck.php` und `Result.php` am Quellcode verifiziert)
+`src/SystemCheck/QueueSizeCheck.php` (signatures according to `BaseCheck.php` and `Result.php`, verified against the source code)
 ```php
 <?php declare(strict_types=1);
 
@@ -287,54 +287,54 @@ class QueueSizeCheck extends BaseCheck
     }
 }
 ```
-⚠ UNGEPRÜFT: Die Tabelle `messenger_messages` (Doctrine-Transport-Standardname) ist nur Beispielziel und nicht gegen die Installation geprüft.
+⚠ UNVERIFIED: The table `messenger_messages` (Doctrine transport default name) is only an example target and has not been checked against the installation.
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- **Command nicht in `bin/console list`**: Tag `console.command` fehlt, Service nicht in `Resources/config/services.php`, Cache nicht geleert oder `parent::__construct()` im Konstruktor vergessen.
-- **Plugin-`monolog.yaml` ignoriert**: `build()` nicht überschrieben bzw. ruft `buildDefaultConfig()` nicht auf (Plugins erhalten `packages/*` nicht automatisch).
-- **Channel-Name und Service-ID passen nicht**: `monolog.logger.<channel>` muss exakt `monolog.channels` entsprechen.
-- **Info/Debug fehlt im Prod-Log**: Der Standard-Handler `main` ist `fingers_crossed` mit `action_level: error`; Info erscheint nur bei einem Error im selben Request. Eigener Handler mit `channels` und `level` löst das.
-- **Exceptions fehlen im Log**: `shopware.logger.error_code_log_levels` stuft herab, `exclude_exception` unterdrückt; wirkt nur auf Handler `main`.
-- **`healthy` nicht gesetzt**: Default `null` gilt als ungesund (Exit-Code 1 bei `system:check`); explizit setzen.
-- **`Category::SYSTEM` mit `healthy=false`** stoppt alle weiteren Checks; nur für echte Grundvoraussetzungen.
-- **Check nur in `WEB` erlaubt**: im Default-Kontext `cli` erscheint er als `SKIPPED` (nicht "ohne Ergebnis") und färbt den Exit-Code wegen `healthy = null` auf 1. `--context=web` ist am CLI trotz fehlender Vorschlagsliste zulässig. Übersprungene Checks (falscher Kontext oder nach ungesundem `SYSTEM`-Check) führen immer zu `FAILURE`; in CI den passenden `--context` wählen.
-- **Teure Checks in `WEB`** (Request-Pfad): `longRunning()` wählen.
-- **Unregistriertes Flag**: außerhalb `prod` löst `isActive()` eine `E_USER_WARNING` aus.
-- **`Feature` erweitern**: Klasse ist `#[BecomesFinal('v6.8.0')]`.
-- **`@internal`**: `SystemChecker` und Core-Checks nicht verwenden; nur `BaseCheck` ableiten bzw. über HTTP/CLI konsumieren.
+- **Command not in `bin/console list`**: tag `console.command` missing, service not in `Resources/config/services.php`, cache not cleared, or `parent::__construct()` forgotten in the constructor.
+- **Plugin `monolog.yaml` ignored**: `build()` not overridden or does not call `buildDefaultConfig()` (plugins do not get `packages/*` automatically).
+- **Channel name and service ID do not match**: `monolog.logger.<channel>` must exactly match `monolog.channels`.
+- **Info/debug missing in the prod log**: the default handler `main` is `fingers_crossed` with `action_level: error`; info only appears when an error occurs in the same request. A custom handler with `channels` and `level` solves this.
+- **Exceptions missing from the log**: `shopware.logger.error_code_log_levels` downgrades, `exclude_exception` suppresses; only affects handler `main`.
+- **`healthy` not set**: default `null` counts as unhealthy (exit code 1 for `system:check`); set it explicitly.
+- **`Category::SYSTEM` with `healthy=false`** stops all further checks; only for real basic prerequisites.
+- **Check only allowed in `WEB`**: in the default context `cli` it appears as `SKIPPED` (not "without result") and turns the exit code to 1 because of `healthy = null`. `--context=web` is permitted on the CLI despite the missing suggestion list. Skipped checks (wrong context or after an unhealthy `SYSTEM` check) always lead to `FAILURE`; choose the appropriate `--context` in CI.
+- **Expensive checks in `WEB`** (request path): choose `longRunning()`.
+- **Unregistered flag**: outside `prod`, `isActive()` triggers an `E_USER_WARNING`.
+- **Extending `Feature`**: the class is `#[BecomesFinal('v6.8.0')]`.
+- **`@internal`**: do not use `SystemChecker` and core checks; only extend `BaseCheck` or consume via HTTP/CLI.
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-- **System-Check-Framework** (`BaseCheck`, `SystemChecker`, `system:check`, `/api/_info/system-health-check`) im 6.7.15.1-Code vorhanden; Einführungsversion nicht belegt (Annahme: nicht in 6.5).
-- **Service-Konfiguration**: XML (`services.xml`, `packages/*.xml`) wird geladen, löst aber `@deprecated tag:v6.8.0` aus (`Bundle::registerContainerFile`, `triggerXmlConfigDeprecation`); ab 6.8 nicht mehr geladen. Empfohlen: `services.php`. In 6.5/6.6 war XML Standard.
-- **Commands**: `#[AsCommand]` ist Standard (statt `$defaultName`/`setName()`).
-- **Feature-Flags**: `v6.5.0.0`, `v6.6.0.0`, `v6.7.0.0` per Default aktiv, `v6.8.0.0` Vorschau-Major. Alte `FEATURE_NEXT_xxxx`-Flags weitgehend entfernt, `normalizeName()` unterstützt die Schreibweise weiter. `FEATURE_ALL=v6.8.0.0` als Einzel-Major-Testmodus.
-- **Logger**: Monolog 3, `LogAware::getLogLevel()` liefert `Monolog\Level`.
+- **System check framework** (`BaseCheck`, `SystemChecker`, `system:check`, `/api/_info/system-health-check`) present in the 6.7.15.1 code; introduction version not confirmed (assumption: not in 6.5).
+- **Service configuration**: XML (`services.xml`, `packages/*.xml`) is loaded but triggers `@deprecated tag:v6.8.0` (`Bundle::registerContainerFile`, `triggerXmlConfigDeprecation`); no longer loaded from 6.8. Recommended: `services.php`. In 6.5/6.6 XML was the default.
+- **Commands**: `#[AsCommand]` is the standard (instead of `$defaultName`/`setName()`).
+- **Feature flags**: `v6.5.0.0`, `v6.6.0.0`, `v6.7.0.0` active by default, `v6.8.0.0` preview major. Old `FEATURE_NEXT_xxxx` flags largely removed; `normalizeName()` still supports that notation. `FEATURE_ALL=v6.8.0.0` as single-major test mode.
+- **Logger**: Monolog 3, `LogAware::getLogLevel()` returns `Monolog\Level`.
 - **Deprecated**: `ShopwareStyle` (6.8), `CACHE_CONTEXT_HASH_RULES_OPTIMIZATION`.
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] Command mit `#[AsCommand]`, `parent::__construct()` und Tag `console.command`
-- [ ] Namenspräfix `vendor:action` gewählt, Exit-Code über `Command::SUCCESS/FAILURE`
-- [ ] Plugin-Klasse überschreibt `build()` und lädt `packages/*.yaml`, wenn ein eigener Monolog-Channel gebraucht wird
-- [ ] Logger über `monolog.logger.<channel>` injiziert; Logdatei unter `var/log` geprüft
-- [ ] Log-Level/Handler so gewählt, dass Plugin-Logs nicht im `fingers_crossed`-Standard verschwinden
-- [ ] System-Check: Tag `shopware.system_check`, `healthy` explizit gesetzt, sinnvolle `Category` und Kontexte (`longRunning()` für teure Checks)
-- [ ] `bin/console system:check -v` bzw. `GET /api/_info/system-health-check` ausprobiert
-- [ ] Feature-Flags nur aus der Core-Liste abfragen; für Plugin-Schalter die Plugin-Konfiguration nutzen
-- [ ] `services.php` statt XML verwendet
-- [ ] Siehe [Review-Checkliste](../checklists/review-checklist.md)
+- [ ] Command with `#[AsCommand]`, `parent::__construct()` and tag `console.command`
+- [ ] Name prefix `vendor:action` chosen, exit code via `Command::SUCCESS/FAILURE`
+- [ ] Plugin class overrides `build()` and loads `packages/*.yaml` if a custom Monolog channel is needed
+- [ ] Logger injected via `monolog.logger.<channel>`; log file under `var/log` checked
+- [ ] Log level/handler chosen so that plugin logs do not disappear in the `fingers_crossed` default
+- [ ] System check: tag `shopware.system_check`, `healthy` set explicitly, sensible `Category` and contexts (`longRunning()` for expensive checks)
+- [ ] `bin/console system:check -v` or `GET /api/_info/system-health-check` tried out
+- [ ] Only query feature flags from the core list; use the plugin configuration for plugin switches
+- [ ] `services.php` used instead of XML
+- [ ] See [review checklist](../checklists/review-checklist.md)
 
-## 7. Quellen
+## 7. Sources
 
-Doku:
+Docs:
 - https://developer.shopware.com/docs/guides/plugins/plugins/plugin-fundamentals/add-custom-commands.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/plugin-fundamentals/logging.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/framework/system-check/add-custom-check.html
 - https://developer.shopware.com/docs/resources/guidelines/code/core/feature-flags.html
 
-Quellcode (relativ zu `vendor/shopware/`):
+Source code (relative to `vendor/shopware/`):
 - `core/Framework/SystemCheck/{BaseCheck,SystemChecker}.php`, `Check/{Category,Status,Result,SystemCheckExecutionContext}.php`, `Command/SystemCheckCommand.php`
 - `core/Framework/DependencyInjection/health.php`, `core/Framework/Api/Controller/HealthCheckController.php`
 - `core/System/Locale/SystemCheck/LocalesReadinessCheck.php`, `administration/Framework/SystemCheck/AdministrationReadinessCheck.php`, `core/DevOps/StaticAnalyze/PHPStan/tagged-service-contracts.php`
@@ -344,10 +344,10 @@ Quellcode (relativ zu `vendor/shopware/`):
 - `core/Framework/Bundle.php` (`registerContainerFile`, `buildDefaultConfig`), `core/Framework/Framework.php`
 - `core/Framework/Plugin/Command/PluginListCommand.php`, `core/Framework/Adapter/Console/ShopwareStyle.php` (deprecated)
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ LÜCKE: Einführungsversion des System-Check-Frameworks nicht belegt (Annahme ab 6.6.x).
-- ⚠ UNGEPRÜFT: Beispiele nicht ausgeführt (nur statische Quellcodeprüfung); `service(Connection::class)` im Plugin und die Tabelle `messenger_messages` nicht gegen die Installation geprüft.
-- Belegt (live bestätigt für Subscriber/Decorator): Autoconfigure greift in Plugin-`services.php` nur mit `->defaults()->autowire()->autoconfigure()`, ohne `defaults()` nicht. ⚠ UNGEPRÜFT: `console.command` live nicht gezielt getestet; das Beispiel taggt explizit.
-- ⚠ LÜCKE: Wie ein Plugin eigene Feature-Flags registrieren kann (`shopware.feature.flags` aus Plugin-`packages/*.yaml`) ist nicht belegt; Plugin-Flags nicht empfohlen, stattdessen [T-19 Plugin-Konfiguration](./19-plugin-konfiguration.md).
-- ⚠ UNGEPRÜFT: Dass das Monolog-Bundle `monolog.logger.<channel>` automatisch registriert, stammt aus der Doku (nicht im Shopware-Code geprüft). Details zu `shopware.api.static_token.health_check` nur in `shopware.yaml` Z. 254 gesehen.
+- ⚠ GAP: Introduction version of the system check framework not confirmed (assumption: from 6.6.x).
+- ⚠ UNVERIFIED: Examples not executed (static source code review only); `service(Connection::class)` in the plugin and the table `messenger_messages` not checked against the installation.
+- Confirmed (verified live for subscriber/decorator): autoconfigure takes effect in plugin `services.php` only with `->defaults()->autowire()->autoconfigure()`, not without `defaults()`. ⚠ UNVERIFIED: `console.command` not specifically tested live; the example tags explicitly.
+- ⚠ GAP: How a plugin can register its own feature flags (`shopware.feature.flags` from plugin `packages/*.yaml`) is not confirmed; plugin flags are not recommended, use [T-19 plugin configuration](./19-plugin-configuration.md) instead.
+- ⚠ UNVERIFIED: That the Monolog bundle registers `monolog.logger.<channel>` automatically comes from the docs (not checked in the Shopware code). Details on `shopware.api.static_token.health_check` only seen in `shopware.yaml` line 254.

@@ -7,5 +7,5 @@ global.PluginManager = {
     initializePluginsInParentElement: jest.fn(() => Promise.resolve()),
 };
 
-// Das Plugin liest PluginBaseClass aus window (im Browser setzt plugin.manager.js das).
+// The plugin reads PluginBaseClass from window (in the browser plugin.manager.js sets it).
 window.PluginBaseClass = require('src/plugin-system/plugin.class').default;

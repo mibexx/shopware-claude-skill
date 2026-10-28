@@ -1,24 +1,24 @@
-# Storefront-Controller, Pages und Pagelets (Referenz, Shopware 6.7.15.1)
+# Storefront controllers, pages and pagelets (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn eine eigene Storefront-Route/-Seite entsteht, Page-Daten per PageLoader/Pagelet bereitgestellt, bestehende Seiten angereichert, AJAX-Endpunkte gebaut oder Captchas eingebunden werden.
-Abgrenzung: Twig-Templates siehe [T-14](./14-storefront-twig-templates.md), JS/AJAX-Client siehe [T-15](./15-storefront-js-plugins.md), Store-API-Routen (Datenquelle für Loader) siehe [T-30](./30-store-api-routen.md), Events/Subscriber allgemein siehe [T-07](./07-events-subscriber.md), Services siehe [T-05](./05-services-registrieren.md), HTTP-Cache siehe [T-41](./41-caching.md), Login-/Kontext-Unterscheidung siehe [T-20](./20-sales-channel-unterscheidung.md).
+This reference applies when you create a custom storefront route/page, provide page data via a PageLoader/pagelet, enrich existing pages, build AJAX endpoints or integrate captchas.
+Scope: Twig templates see [T-14](./14-storefront-twig-templates.md), JS/AJAX client see [T-15](./15-storefront-js-plugins.md), Store API routes (data source for loaders) see [T-30](./30-store-api-routes.md), events/subscribers in general see [T-07](./07-events-subscriber.md), services see [T-05](./05-registering-services.md), HTTP cache see [T-41](./41-caching.md), login/context distinction see [T-20](./20-sales-channel-distinction.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-- **Controller:** erbt von `Shopware\Storefront\Controller\StorefrontController` (abstract, erbt Symfony `AbstractController`). Am Klassenkopf: `#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [StorefrontRouteScope::ID]])]` (`_routeScope` = `storefront`, am Klassen- oder Methoden-`#[Route]` möglich). Ohne Scope bricht `RouteScopeListener::checkScope` mit `RoutingException::invalidRouteScope` ab.
-- **Registrierung:** Der Controller muss ein **public Service** mit `->call('setContainer', [service('service_container')])` sein (Core: `storefront/DependencyInjection/controller.php` setzt `defaults()->public()` und `setContainer`). Routen werden per Attribut-Import in `Resources/config/routes.php` gefunden (Core: `$routes->import('../../Controller/**/*Controller.php', 'attribute')`).
-- **Rendern:** `$this->renderStorefront('@Namespace/storefront/page/....html.twig', [...])` dispatcht `StorefrontRenderEvent`, ersetzt SEO-/Media-Platzhalter und setzt `Content-Type: text/html`. Weitere Helfer: `renderView`, `forwardToRoute`, `createActionResponse`, `redirectToRoute`, `hook`, `isHeadRequest`, `trans`.
-- **Page** = Struct, das `Shopware\Storefront\Page\Page` erweitert (`metaInformation`). **PageLoader** baut sie: `GenericPageLoaderInterface::load()` liefert die Basis-`Page`, `XyzPage::createFrom($page)` (aus `CreateFromTrait` in `Struct`) erweitert sie, danach wird ein `XyzPageLoadedEvent` (erweitert `PageLoadedEvent`, abstract `getPage()`) dispatcht. **Pagelet** = `Pagelet extends Struct` mit eigenem `PageletLoader` und `PageletLoadedEvent` (Core: Header, Footer, Menu, Newsletter, Wishlist, Country, Captcha).
-- **Page anreichern:** Subscriber auf `XyzPageLoadedEvent` (z. B. `ProductPageLoadedEvent`) oder `GenericPageLoadedEvent`, dann `$event->getPage()->addExtension('name', $struct)`. In Twig: `page.extensions.name`.
-- **AJAX:** Route mit `defaults: ['XmlHttpRequest' => true]`. Ohne Flag wirft `StorefrontSubscriber::preventPageLoadingFromXmlHttpRequest` bei XHR auf Storefront-Scope-Routen `RoutingException::accessDeniedForXmlHttpRequest`. Antwort: `JsonResponse` oder gerendertes Partial.
-- **Routen-Namen:** Der Storefront-`Router` behandelt Routen mit Präfix `frontend.`, `widgets.`, `payment.` als Storefront-Routen (`isStorefrontRoute`). Andere Namen nur, wenn sie im Parameter `storefront.router.allowed_routes` stehen (`Configuration.php`).
-- **PlatformRequest-Konstanten** (`core/PlatformRequest.php`): `ATTRIBUTE_ROUTE_SCOPE` (`_routeScope`), `ATTRIBUTE_CAPTCHA` (`_captcha`), `ATTRIBUTE_HTTP_CACHE` (`_httpCache`), `ATTRIBUTE_NO_STORE` (`_noStore`), `ATTRIBUTE_LOGIN_REQUIRED` (`_loginRequired`), `ATTRIBUTE_LOGIN_REQUIRED_ALLOW_GUEST`.
-- **Captcha:** Route-Default `_captcha => true` aktiviert `CaptchaRouteListener::validateCaptcha`. Es geht alle mit `shopware.storefront.captcha` getaggten Captchas durch (`supports()` dann `validate()`). Bei Fehler: Non-XHR und `shouldBreak()` = true → `CaptchaException::invalid`, sonst ersetzt `ErrorController::onCaptchaFailure` den Controller (JSON mit Fehlern). Core-Prioritäten: Honeypot 400, BasicCaptcha 300, reCaptcha v2 200, v3 100.
-- **Leitplanke (Kommentar in `CaptchaController`, `FooterPageletLoader`, `WishlistPageLoader`):** „Do not use direct or indirect repository calls in a controller / PageLoader / PageletLoader. Always use a store-api route.“
+- **Controller:** extends `Shopware\Storefront\Controller\StorefrontController` (abstract, extends Symfony `AbstractController`). On the class: `#[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => [StorefrontRouteScope::ID]])]` (`_routeScope` = `storefront`, possible on the class or method `#[Route]`). Without a scope, `RouteScopeListener::checkScope` aborts with `RoutingException::invalidRouteScope`.
+- **Registration:** The controller must be a **public service** with `->call('setContainer', [service('service_container')])` (core: `storefront/DependencyInjection/controller.php` sets `defaults()->public()` and `setContainer`). Routes are discovered via attribute import in `Resources/config/routes.php` (core: `$routes->import('../../Controller/**/*Controller.php', 'attribute')`).
+- **Rendering:** `$this->renderStorefront('@Namespace/storefront/page/....html.twig', [...])` dispatches `StorefrontRenderEvent`, replaces SEO/media placeholders and sets `Content-Type: text/html`. Other helpers: `renderView`, `forwardToRoute`, `createActionResponse`, `redirectToRoute`, `hook`, `isHeadRequest`, `trans`.
+- **Page** = struct that extends `Shopware\Storefront\Page\Page` (`metaInformation`). A **PageLoader** builds it: `GenericPageLoaderInterface::load()` returns the base `Page`, `XyzPage::createFrom($page)` (from `CreateFromTrait` in `Struct`) extends it, then an `XyzPageLoadedEvent` (extends `PageLoadedEvent`, abstract `getPage()`) is dispatched. **Pagelet** = `Pagelet extends Struct` with its own `PageletLoader` and `PageletLoadedEvent` (core: header, footer, menu, newsletter, wishlist, country, captcha).
+- **Enriching a page:** subscriber on `XyzPageLoadedEvent` (e.g. `ProductPageLoadedEvent`) or `GenericPageLoadedEvent`, then `$event->getPage()->addExtension('name', $struct)`. In Twig: `page.extensions.name`.
+- **AJAX:** route with `defaults: ['XmlHttpRequest' => true]`. Without the flag, `StorefrontSubscriber::preventPageLoadingFromXmlHttpRequest` throws `RoutingException::accessDeniedForXmlHttpRequest` for XHR on storefront-scope routes. Response: `JsonResponse` or a rendered partial.
+- **Route names:** The storefront `Router` treats routes with the prefix `frontend.`, `widgets.`, `payment.` as storefront routes (`isStorefrontRoute`). Other names only if they are listed in the parameter `storefront.router.allowed_routes` (`Configuration.php`).
+- **PlatformRequest constants** (`core/PlatformRequest.php`): `ATTRIBUTE_ROUTE_SCOPE` (`_routeScope`), `ATTRIBUTE_CAPTCHA` (`_captcha`), `ATTRIBUTE_HTTP_CACHE` (`_httpCache`), `ATTRIBUTE_NO_STORE` (`_noStore`), `ATTRIBUTE_LOGIN_REQUIRED` (`_loginRequired`), `ATTRIBUTE_LOGIN_REQUIRED_ALLOW_GUEST`.
+- **Captcha:** route default `_captcha => true` activates `CaptchaRouteListener::validateCaptcha`. It iterates over all captchas tagged with `shopware.storefront.captcha` (`supports()`, then `validate()`). On failure: non-XHR and `shouldBreak()` = true → `CaptchaException::invalid`, otherwise `ErrorController::onCaptchaFailure` replaces the controller (JSON with errors). Core priorities: Honeypot 400, BasicCaptcha 300, reCaptcha v2 200, v3 100.
+- **Guardrail (comment in `CaptchaController`, `FooterPageletLoader`, `WishlistPageLoader`):** "Do not use direct or indirect repository calls in a controller / PageLoader / PageletLoader. Always use a store-api route."
 
-Verzeichnisbaum:
+Directory tree:
 
 ```
 custom/plugins/SwagExample/src/
@@ -32,18 +32,18 @@ custom/plugins/SwagExample/src/
     └── views/storefront/{page/demo/index.html.twig,component/hello/hello.html.twig}
 ```
 
-Namenskonvention (Core): Klassen enden auf `Controller`, `Page`, `PageLoader`, `PageLoadedEvent`, `Pagelet`, `PageletLoader`, `PageletLoadedEvent`.
+Naming convention (core): classes end in `Controller`, `Page`, `PageLoader`, `PageLoadedEvent`, `Pagelet`, `PageletLoader`, `PageletLoadedEvent`.
 
-## 3. Anleitung
+## 3. Instructions
 
-1. Controller unter `src/Controller` anlegen, `extends StorefrontController`, Klassen-`#[Route(defaults: [_routeScope => [storefront]])]`, Konstruktor-Injection (kein `$this->container->get()`).
-2. In `services.php` mit `->public()` und `->call('setContainer', [service('service_container')])` registrieren. In `routes.php` den Attribut-Import setzen.
-3. Routen-Namen mit `frontend.`/`widgets.`/`payment.` beginnen lassen (sonst `storefront.router.allowed_routes`).
-4. Page, PageLoadedEvent, PageLoader nach Muster anlegen. Meta-Daten kommen nur, wenn die Page über `GenericPageLoader` aufgebaut wird.
-5. Pagelet analog, aber ohne `GenericPageLoader` (typisch für nachladbare Teile).
-6. Captcha: im Formular `{% sw_include '@Storefront/storefront/component/captcha/base.html.twig' %}` einbinden (Vorbild `page/account/convert.html.twig`, `contact-form.html.twig`). `base.html.twig` iteriert `config('core.basicInformation.activeCaptchasV2')` und inkludiert `captcha/<key>.html.twig`. Die Route bekommt `PlatformRequest::ATTRIBUTE_CAPTCHA => true`.
-7. AJAX: JS-Plugin ruft die Route auf (siehe [T-15](./15-storefront-js-plugins.md)), Route trägt `XmlHttpRequest => true` (nicht für normale Seiten-Routen). Core-Muster für POST-Formulare: `FormController::sendContactForm` liefert `JsonResponse` mit Einträgen `['type' => 'success|danger|info', 'alert' => '<html>']`.
-8. Installieren und prüfen:
+1. Create the controller under `src/Controller`, `extends StorefrontController`, class-level `#[Route(defaults: [_routeScope => [storefront]])]`, constructor injection (no `$this->container->get()`).
+2. Register it in `services.php` with `->public()` and `->call('setContainer', [service('service_container')])`. Set up the attribute import in `routes.php`.
+3. Start route names with `frontend.`/`widgets.`/`payment.` (otherwise `storefront.router.allowed_routes`).
+4. Create Page, PageLoadedEvent, PageLoader following the pattern. Meta data is only present if the page is built via `GenericPageLoader`.
+5. Pagelet analogously, but without `GenericPageLoader` (typical for parts loaded later).
+6. Captcha: include `{% sw_include '@Storefront/storefront/component/captcha/base.html.twig' %}` in the form (model: `page/account/convert.html.twig`, `contact-form.html.twig`). `base.html.twig` iterates `config('core.basicInformation.activeCaptchasV2')` and includes `captcha/<key>.html.twig`. The route gets `PlatformRequest::ATTRIBUTE_CAPTCHA => true`.
+7. AJAX: a JS plugin calls the route (see [T-15](./15-storefront-js-plugins.md)), the route carries `XmlHttpRequest => true` (not for normal page routes). Core pattern for POST forms: `FormController::sendContactForm` returns a `JsonResponse` with entries `['type' => 'success|danger|info', 'alert' => '<html>']`.
+8. Install and verify:
 ```bash
 bin/console plugin:refresh
 bin/console plugin:install --activate SwagExample
@@ -52,7 +52,7 @@ bin/console debug:router | grep swag
 bin/console debug:container SwagExample\\Controller\\DemoController
 ```
 
-## 4. Beispiele
+## 4. Examples
 
 `src/Resources/config/routes.php`
 ```php
@@ -98,7 +98,7 @@ return static function (ContainerConfigurator $configurator): void {
     $services->set(MyCaptcha::class)->tag('shopware.storefront.captcha', ['priority' => 50]);
 };
 ```
-`GenericPageLoaderInterface` hat im Core keinen Container-Alias (nur `GenericPageLoader::class` wird referenziert), daher die Klasse direkt injizieren.
+`GenericPageLoaderInterface` has no container alias in the core (only `GenericPageLoader::class` is referenced), so inject the class directly.
 
 `src/Page/Demo/DemoPage.php`
 ```php
@@ -172,7 +172,7 @@ class DemoPageLoader
 
     public function load(Request $request, SalesChannelContext $context): DemoPage
     {
-        // Daten nur über Store-API-Routen laden, nicht über Repositories.
+        // Load data only via Store API routes, not via repositories.
         $page = DemoPage::createFrom($this->genericLoader->load($request, $context));
         $page->setHeadline('Hello Storefront');
 
@@ -183,7 +183,7 @@ class DemoPageLoader
 }
 ```
 
-Pagelet (Muster `storefront/Pagelet/Footer/*`): `src/Pagelet/Hello/HelloPagelet.php`
+Pagelet (pattern `storefront/Pagelet/Footer/*`): `src/Pagelet/Hello/HelloPagelet.php`
 ```php
 <?php declare(strict_types=1);
 
@@ -249,7 +249,7 @@ class HelloPageletLoader
 
     public function load(Request $request, SalesChannelContext $context): HelloPagelet
     {
-        $pagelet = new HelloPagelet('Hallo vom Pagelet');
+        $pagelet = new HelloPagelet('Hello from the pagelet');
 
         $this->eventDispatcher->dispatch(new HelloPageletLoadedEvent($pagelet, $context, $request));
 
@@ -323,7 +323,7 @@ class DemoController extends StorefrontController
 <p>{{ pagelet.message }}</p>
 ```
 
-Seite anreichern: `src/Subscriber/ProductPageSubscriber.php`
+Enriching a page: `src/Subscriber/ProductPageSubscriber.php`
 ```php
 <?php declare(strict_types=1);
 
@@ -342,13 +342,13 @@ class ProductPageSubscriber implements EventSubscriberInterface
 
     public function onProductPageLoaded(ProductPageLoadedEvent $event): void
     {
-        $event->getPage()->addExtension('swagDemo', new ArrayStruct(['text' => 'Extra-Daten']));
+        $event->getPage()->addExtension('swagDemo', new ArrayStruct(['text' => 'Extra data']));
     }
 }
 ```
-Twig: `{{ page.extensions.swagDemo.get('text') }}` im Produktdetail-Template (Block-Auswahl siehe [T-14](./14-storefront-twig-templates.md)).
+Twig: `{{ page.extensions.swagDemo.get('text') }}` in the product detail template (block selection see [T-14](./14-storefront-twig-templates.md)).
 
-Captcha (nur Validierungsteil): `src/Framework/Captcha/MyCaptcha.php`
+Captcha (validation part only): `src/Framework/Captcha/MyCaptcha.php`
 ```php
 <?php declare(strict_types=1);
 
@@ -381,61 +381,61 @@ class MyCaptcha extends AbstractCaptcha
     }
 }
 ```
-`AbstractCaptcha::supports()` liefert nur `true` bei POST, nicht leerer `$captchaConfig` und gesetztem `isActive` (Config `core.basicInformation.activeCaptchasV2[<name>]`). Ohne Config-Eintrag wird das Captcha nie geprüft.
+`AbstractCaptcha::supports()` only returns `true` for POST, a non-empty `$captchaConfig` and `isActive` set (config `core.basicInformation.activeCaptchasV2[<name>]`). Without a config entry the captcha is never checked.
 
-Weitere Gerüste: [../templates/plugin/README.md](../templates/plugin/README.md), [../templates/event-subscriber/README.md](../templates/event-subscriber/README.md).
+Further scaffolds: [../templates/plugin/README.md](../templates/plugin/README.md), [../templates/event-subscriber/README.md](../templates/event-subscriber/README.md).
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- Fehlender `_routeScope`: `RoutingException::invalidRouteScope`.
-- XHR ohne `XmlHttpRequest => true`: `accessDeniedForXmlHttpRequest` (`StorefrontSubscriber::preventPageLoadingFromXmlHttpRequest`). Das Flag nur auf Partial-/JSON-Routen setzen, nicht auf Seiten-Routen.
-- Controller nicht public oder `setContainer` vergessen: Service nicht auflösbar bzw. `renderStorefront` scheitert (`$this->container` null).
-- Repository im Controller/PageLoader statt Store-API-Route: verstößt gegen die Core-Vorgabe, umgeht Caching- und Kontext-Regeln.
-- Routenname ohne `frontend.`/`widgets.`/`payment.`: URL-Generierung behandelt die Route nicht als Storefront-Route, sofern nicht in `allowed_routes`.
-- Eigene Page ohne `GenericPageLoader`: Meta-Daten (Robots, Titel) fehlen im Template.
-- Mail-Bestätigungslinks per GET: HEAD-Requests werden als GET geroutet, `isHeadRequest()` nutzen.
-- Eigene Captchas ohne Config-Eintrag: `supports()` verlangt `isActive` in `activeCaptchasV2`. Namen der Captchas liefert `/api/_action/captcha_list` (`Api/CaptchaController`).
-- XML-Konfig (`services.xml`/`routes.xml`) löst in 6.7 eine Deprecation aus (`Bundle::triggerXmlConfigDeprecation`).
-- Doku-Seite Captcha zeigt noch `isValid()`. Der Code (6.7) gilt: `validate()` implementieren.
+- Missing `_routeScope`: `RoutingException::invalidRouteScope`.
+- XHR without `XmlHttpRequest => true`: `accessDeniedForXmlHttpRequest` (`StorefrontSubscriber::preventPageLoadingFromXmlHttpRequest`). Set the flag only on partial/JSON routes, not on page routes.
+- Controller not public or `setContainer` forgotten: service cannot be resolved, or `renderStorefront` fails (`$this->container` null).
+- Repository in the controller/PageLoader instead of a Store API route: violates the core rule, bypasses caching and context rules.
+- Route name without `frontend.`/`widgets.`/`payment.`: URL generation does not treat the route as a storefront route unless it is in `allowed_routes`.
+- Custom page without `GenericPageLoader`: meta data (robots, title) is missing in the template.
+- Mail confirmation links via GET: HEAD requests are routed as GET, use `isHeadRequest()`.
+- Custom captchas without a config entry: `supports()` requires `isActive` in `activeCaptchasV2`. The captcha names are returned by `/api/_action/captcha_list` (`Api/CaptchaController`).
+- XML config (`services.xml`/`routes.xml`) triggers a deprecation in 6.7 (`Bundle::triggerXmlConfigDeprecation`).
+- The captcha docs page still shows `isValid()`. The code (6.7) is authoritative: implement `validate()`.
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-- `@Route`/`@RouteScope`-Annotationen sind weg. 6.7 nutzt `Symfony\Component\Routing\Attribute\Route` mit `defaults: ['_routeScope' => [...]]`.
-- `services.php`/`routes.php` bevorzugt. XML ist in 6.7 deprecated, Entfernung 6.8 (`core/Framework/Bundle.php`). Routen: `Bundle::configureRoutes` lädt u. a. `Resources/config/routes.php` und `routes/*.php`.
-- Captcha: `AbstractCaptcha::validate()` ist der neue Weg. `isValid()` und `getViolations()` sind `@deprecated tag:v6.8.0`. Das Config-Feld heißt `activeCaptchasV2`.
-- `storefront.router.allowed_routes`: laut Doku ab 6.7.2.0.
-- Controller dispatchen `*PageLoadedHook` für App-Scripts (`$this->hook(...)`).
-- Der Core-Ordner `core/Framework/Routing/Annotation/` existiert noch, wurde inhaltlich nicht geprüft.
+- `@Route`/`@RouteScope` annotations are gone. 6.7 uses `Symfony\Component\Routing\Attribute\Route` with `defaults: ['_routeScope' => [...]]`.
+- `services.php`/`routes.php` preferred. XML is deprecated in 6.7, removal in 6.8 (`core/Framework/Bundle.php`). Routes: `Bundle::configureRoutes` loads, among others, `Resources/config/routes.php` and `routes/*.php`.
+- Captcha: `AbstractCaptcha::validate()` is the new way. `isValid()` and `getViolations()` are `@deprecated tag:v6.8.0`. The config field is called `activeCaptchasV2`.
+- `storefront.router.allowed_routes`: according to the docs since 6.7.2.0.
+- Controllers dispatch `*PageLoadedHook` for app scripts (`$this->hook(...)`).
+- The core folder `core/Framework/Routing/Annotation/` still exists; its content was not checked.
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] Controller erbt `StorefrontController` und trägt `_routeScope = storefront` am Klassenkopf.
-- [ ] Controller ist `public()` mit `setContainer` registriert, `routes.php` importiert die Controller.
-- [ ] Routen-Namen haben Präfix `frontend.`/`widgets.`/`payment.`.
-- [ ] AJAX-/Partial-Routen tragen `XmlHttpRequest => true`, Seiten-Routen nicht.
-- [ ] PageLoader baut auf `GenericPageLoader` auf und dispatcht ein `...PageLoadedEvent`.
-- [ ] Keine Repository-Zugriffe in Controller/Loadern, Daten über Store-API-Routen.
-- [ ] Captcha-Routen haben `_captcha => true`, Captcha implementiert `validate()` und ist getaggt.
-- [ ] Anreicherung bestehender Seiten über `addExtension` im `...PageLoadedEvent`.
-- [ ] `bin/console debug:router` zeigt die Routen, Cache geleert.
+- [ ] Controller extends `StorefrontController` and carries `_routeScope = storefront` on the class.
+- [ ] Controller is registered `public()` with `setContainer`, `routes.php` imports the controllers.
+- [ ] Route names have the prefix `frontend.`/`widgets.`/`payment.`.
+- [ ] AJAX/partial routes carry `XmlHttpRequest => true`, page routes do not.
+- [ ] PageLoader builds on `GenericPageLoader` and dispatches a `...PageLoadedEvent`.
+- [ ] No repository access in controllers/loaders, data via Store API routes.
+- [ ] Captcha routes have `_captcha => true`, the captcha implements `validate()` and is tagged.
+- [ ] Existing pages are enriched via `addExtension` in the `...PageLoadedEvent`.
+- [ ] `bin/console debug:router` shows the routes, cache cleared.
 
-## 7. Quellen
+## 7. Sources
 
-Doku:
-- https://developer.shopware.com/docs/guides/plugins/plugins/storefront/controllers/add-custom-controller.html (abgerufen)
-- https://developer.shopware.com/docs/guides/plugins/plugins/storefront/howto/add-custom-captcha.html (abgerufen, zeigt noch `isValid`)
+Docs:
+- https://developer.shopware.com/docs/guides/plugins/plugins/storefront/controllers/add-custom-controller.html (retrieved)
+- https://developer.shopware.com/docs/guides/plugins/plugins/storefront/howto/add-custom-captcha.html (retrieved, still shows `isValid`)
 
-Quellcode (relativ zu `vendor/shopware/`, Stichproben für diese Referenz am Code bestätigt): `storefront/Controller/StorefrontController.php` (`renderStorefront`, `trans`, `hook`, `isHeadRequest`), `CaptchaController.php`, `FormController.php`, `ProductController.php`, `Api/CaptchaController.php`, `storefront/DependencyInjection/{controller,captcha}.php`, `Configuration.php`, `storefront/Resources/config/routes.php`, `storefront/Page/{Page,PageLoadedEvent,GenericPageLoader,GenericPageLoaderInterface}.php`, `storefront/Page/Product/ProductPageLoadedEvent.php`, `storefront/Pagelet/{Pagelet,PageletLoadedEvent}.php`, `Pagelet/Footer/FooterPageletLoader.php`, `storefront/Framework/Routing/{StorefrontRouteScope,StorefrontSubscriber,Router}.php`, `storefront/Framework/Captcha/{AbstractCaptcha,CaptchaRouteListener}.php`, `storefront/Resources/views/storefront/component/captcha/base.html.twig`, `core/Framework/Struct/CreateFromTrait.php`, `core/Framework/Routing/RouteScopeListener.php`, `core/PlatformRequest.php`, `core/Framework/Bundle.php`.
+Source code (relative to `vendor/shopware/`, samples for this reference confirmed against the code): `storefront/Controller/StorefrontController.php` (`renderStorefront`, `trans`, `hook`, `isHeadRequest`), `CaptchaController.php`, `FormController.php`, `ProductController.php`, `Api/CaptchaController.php`, `storefront/DependencyInjection/{controller,captcha}.php`, `Configuration.php`, `storefront/Resources/config/routes.php`, `storefront/Page/{Page,PageLoadedEvent,GenericPageLoader,GenericPageLoaderInterface}.php`, `storefront/Page/Product/ProductPageLoadedEvent.php`, `storefront/Pagelet/{Pagelet,PageletLoadedEvent}.php`, `Pagelet/Footer/FooterPageletLoader.php`, `storefront/Framework/Routing/{StorefrontRouteScope,StorefrontSubscriber,Router}.php`, `storefront/Framework/Captcha/{AbstractCaptcha,CaptchaRouteListener}.php`, `storefront/Resources/views/storefront/component/captcha/base.html.twig`, `core/Framework/Struct/CreateFromTrait.php`, `core/Framework/Routing/RouteScopeListener.php`, `core/PlatformRequest.php`, `core/Framework/Bundle.php`.
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-Am Code bestätigt (Stichprobe): `_routeScope`-Attribut und `StorefrontRouteScope::ID`, `PlatformRequest`-Konstanten, `#[Route]` aus `Symfony\Component\Routing\Attribute`, `CaptchaController` als Controller-Muster mit Klassen-Route, `setContainer`/public in `controller.php`, `Page`/`PageLoadedEvent`/`Pagelet`/`PageletLoadedEvent`-Signaturen, `createFrom` (`CreateFromTrait`), `XmlHttpRequest`-Prüfung, `isStorefrontRoute`-Präfixe, `allowed_routes`-Config, `AbstractCaptcha::supports/validate/isValid`, Captcha-Prioritäten und Tag-Name, `renderStorefront`-Ablauf, Kein-Repository-Kommentar in Controller/Pagelet-Loader.
+Confirmed against the code (sample): `_routeScope` attribute and `StorefrontRouteScope::ID`, `PlatformRequest` constants, `#[Route]` from `Symfony\Component\Routing\Attribute`, `CaptchaController` as a controller pattern with class route, `setContainer`/public in `controller.php`, `Page`/`PageLoadedEvent`/`Pagelet`/`PageletLoadedEvent` signatures, `createFrom` (`CreateFromTrait`), `XmlHttpRequest` check, `isStorefrontRoute` prefixes, `allowed_routes` config, `AbstractCaptcha::supports/validate/isValid`, captcha priorities and tag name, `renderStorefront` flow, no-repository comment in controller/pagelet loader.
 
-Verbleibende Lücken:
-- ⚠ UNGEPRÜFT: Doku-Seiten add-custom-page, add-custom-pagelet, add-data-to-storefront-page, add-dynamic-content-via-ajax-calls, `architecture/pageloader.html` und die Guideline `/docs/resources/guidelines/code/storefront-controller.html` wurden nicht abgerufen, Inhalt aus dem Code abgeleitet.
-- ⚠ UNGEPRÜFT: Das Beispiel wurde nicht in einer laufenden Installation ausgeführt. Plugin-spezifisch ungeprüft: Dass Plugin-Controller ohne weitere Tags (z. B. `controller.service_arguments`) allein mit `public()` + `setContainer` funktionieren, stützt sich auf Doku und Core-Muster (nur Core-Registrierung geprüft).
-- ⚠ UNGEPRÜFT: Twig-Namespace `@SwagExample` folgt der Plugin-Namenskonvention (siehe T-02).
-- ⚠ LÜCKE: Wie ein Plugin einen zusätzlichen Captcha-Eintrag samt Template-Key in `core.basicInformation.activeCaptchasV2` und `captcha/<key>.html.twig` sauber ergänzt, wurde nicht verifiziert. `MyCaptcha` ist nur der Validierungsteil.
-- ⚠ UNGEPRÜFT: Dateiname/Format der `allowed_routes`-Config (vermutlich `Resources/config/packages/storefront.yaml`) nur aus Doku/Config-Schema abgeleitet. Belegt: Plugin-`Resources/config/packages/*.yaml` werden nicht geladen (`Bundle::build()` ruft `buildDefaultConfig()` nicht auf); `allowed_routes` daher in der Projekt-Config `config/packages/` setzen.
-- ⚠ UNGEPRÜFT: Einordnung der 6.5-Stände (Annotation-Namespaces) aus Erinnerung, nicht am 6.5-Code geprüft.
-- ⚠ LÜCKE: Die `PlatformRequest::ATTRIBUTE_HTTP_CACHE`-Wirkung hängt am aktiven HTTP-Cache (siehe T-41).
+Remaining gaps:
+- ⚠ UNVERIFIED: The docs pages add-custom-page, add-custom-pagelet, add-data-to-storefront-page, add-dynamic-content-via-ajax-calls, `architecture/pageloader.html` and the guideline `/docs/resources/guidelines/code/storefront-controller.html` were not retrieved; content derived from the code.
+- ⚠ UNVERIFIED: The example was not run in a live installation. Plugin-specific, unverified: that plugin controllers work with only `public()` + `setContainer` and no further tags (e.g. `controller.service_arguments`) is based on the docs and the core pattern (only the core registration was checked).
+- ⚠ UNVERIFIED: The Twig namespace `@SwagExample` follows the plugin naming convention (see T-02).
+- ⚠ GAP: How a plugin cleanly adds an additional captcha entry including template key in `core.basicInformation.activeCaptchasV2` and `captcha/<key>.html.twig` was not verified. `MyCaptcha` is only the validation part.
+- ⚠ UNVERIFIED: File name/format of the `allowed_routes` config (presumably `Resources/config/packages/storefront.yaml`) only derived from the docs/config schema. Confirmed: plugin `Resources/config/packages/*.yaml` files are not loaded (`Bundle::build()` does not call `buildDefaultConfig()`); therefore set `allowed_routes` in the project config `config/packages/`.
+- ⚠ UNVERIFIED: Classification of the 6.5 state (annotation namespaces) from memory, not checked against the 6.5 code.
+- ⚠ GAP: The effect of `PlatformRequest::ATTRIBUTE_HTTP_CACHE` depends on the active HTTP cache (see T-41).

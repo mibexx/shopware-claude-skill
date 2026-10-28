@@ -6,13 +6,13 @@ use Shopware\Core\Framework\Struct\ArrayStruct;
 use Shopware\Storefront\Page\Product\ProductPageLoadedEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
-// Benoetigt shopware/storefront (in composer.json require ergaenzen, siehe README).
+// Requires shopware/storefront (add it to require in composer.json, see README).
 class ProductPageSubscriber implements EventSubscriberInterface
 {
     public static function getSubscribedEvents(): array
     {
         return [
-            // Page-Events heissen wie ihre Klasse
+            // Page events are named like their class
             ProductPageLoadedEvent::class => 'onProductPageLoaded',
         ];
     }
@@ -20,6 +20,6 @@ class ProductPageSubscriber implements EventSubscriberInterface
     public function onProductPageLoaded(ProductPageLoadedEvent $event): void
     {
         // Twig: {{ page.extensions.swagHello.text }}
-        $event->getPage()->addExtension('swagHello', new ArrayStruct(['text' => 'Hallo']));
+        $event->getPage()->addExtension('swagHello', new ArrayStruct(['text' => 'Hello']));
     }
 }

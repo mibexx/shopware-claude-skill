@@ -1,8 +1,8 @@
 {% sw_extends '@Storefront/storefront/base.html.twig' %}
 
-{# Block "base_main_inner" liegt innerhalb von <main> (storefront/base.html.twig).
-   ⚠ Die Core-Templates page/content/index.html.twig und page/content/product-detail.html.twig ueberschreiben ihn ebenfalls;
-   dort greift das Markup nur, wenn deren Block {{ parent() }} aufruft. #}
+{# Block "base_main_inner" lives inside <main> (storefront/base.html.twig).
+   ⚠ The core templates page/content/index.html.twig and page/content/product-detail.html.twig also override it;
+   there the markup only takes effect if their block calls {{ parent() }}. #}
 {% block base_main_inner %}
     {{ parent() }}
 

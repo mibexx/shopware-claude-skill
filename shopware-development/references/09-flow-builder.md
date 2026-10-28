@@ -1,26 +1,26 @@
-# Flow Builder: eigene Actions und Trigger (Referenz, Shopware 6.7.15.1)
+# Flow Builder: custom actions and triggers (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn ein Plugin eine eigene **Flow-Action** (Backend-Logik plus Admin-Modal) oder einen eigenen **Flow-Trigger** (Business-Event) für den Flow Builder bereitstellen soll, inklusive Storer/Aware-Interfaces und Transaktionsverhalten.
+This reference applies when a plugin should provide its own **flow action** (backend logic plus Admin modal) or its own **flow trigger** (business event) for the Flow Builder, including storer/aware interfaces and transaction behavior.
 
-Abgrenzung: normale Subscriber auf Events in [T-07](./07-events-subscriber.md); Ersetzen der Flow-Ausführung über den Extension Point `flow.executor` in [T-08](./08-extension-points.md); Admin-Modul-/Komponenten-Grundlagen in [T-24](./24-admin-module.md) und [T-25](./25-admin-komponenten.md); Mail-Templates in [T-35](./35-mail-templates.md); App-Flow-Actions (Webhook) in [T-10](./10-app-system-abgrenzung.md).
+Scope: regular subscribers on events in [T-07](./07-events-subscriber.md); replacing the flow execution via the extension point `flow.executor` in [T-08](./08-extension-points.md); Admin module/component basics in [T-24](./24-admin-modules.md) and [T-25](./25-admin-components.md); mail templates in [T-35](./35-mail-templates.md); app flow actions (webhook) in [T-10](./10-app-system-scope.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-- **Action (Backend)**: Klasse `extends Shopware\Core\Content\Flow\Dispatching\Action\FlowAction` mit `static getName()`, `requirements()` (Liste von Aware-Interfaces) und `handleFlow(StorableFlow $flow)`. Service-Tag `flow.action` **mit Attribut `key` = `getName()`**. Es gibt keine Autokonfiguration für `FlowAction` (nur `FlowStorer` -> `flow.storer`); das Tag ist manuell zu setzen. Der `FlowExecutor` indiziert die Actions nach `key` (`core/Content/DependencyInjection/flow.php:164`); ein falscher/fehlender `key` führt dazu, dass die Action **stillschweigend nicht ausgeführt** wird (`FlowExecutor::callHandle`, Z. 218-222).
-- **Action (Admin)**: Ohne Admin-Komponente erscheint die Action als "unknown". Nötig: Modal `sw-flow-<name>-modal` (abgeleitet in `FlowBuilderService::getActionModalName()`), Icon/Label/Beschreibung/Gruppe über `flowBuilderService`.
-- **Trigger**: Event `extends Symfony\Contracts\EventDispatcher\Event implements FlowEventAware` (+ Aware-Interfaces wie `CustomerAware`, `OrderAware`, `MailAware`, `SalesChannelAware`). `getName()` = Eventname, `static getAvailableData(): EventDataCollection`. Sichtbar im Admin über Registrierung im `BusinessEventRegistry`: `Bundle::getActionEventClasses()` (Plugin überschreibt) oder Subscriber auf `BusinessEventCollectorEvent`. Ausgelöst per `$eventDispatcher->dispatch($event, $event->getName())`; der `FlowDispatcher` (Decorator von `event_dispatcher`, Priorität 1000) erkennt `FlowEventAware`.
-- **Aware/Storer**: Aware-Interface trägt `#[IsFlowEventAware]` (`BusinessEventCollector::define()` liest es per Reflection in die `aware`-Liste). `FlowStorer::store()` serialisiert beim Dispatch (nur IDs/Skalare), `restore()` stellt beim Ausführen wieder her (Entities per `lazy()`). Storer werden per Autokonfiguration mit `flow.storer` getaggt.
-- **Transaktionen**: `implements TransactionalAction` (Marker) -> `handleFlow` läuft in `RetryableTransaction::transactional`; jede Throwable wird zu `FlowException::transactionFailed()` (Codes `FLOW_ACTION_TRANSACTION_ABORTED` bei `TransactionFailedException`, `..._COMMIT_FAILED` bei DBAL-Exception, `..._UNCAUGHT_EXCEPTION` sonst).
-- **Buffered Flows**: Feature-Flag `FLOW_EXECUTION_AFTER_BUSINESS_PROCESS` (Default `false`, in 6.8 Standard): Flows werden in `BufferedFlowQueue` eingereiht und nach `KernelEvents::TERMINATE`, `WorkerMessageHandledEvent`, `ConsoleEvents::TERMINATE` ausgeführt (max. Tiefe 10). `DelayableAction` ist nur ein Marker (`delayable=true` in der Action-Definition); keine Verzögerungslogik im Core.
-- Actions laufen immer mit **System-Rechten**: `FlowFactory::restore()` baut einen Context mit `SystemSource`.
+- **Action (backend)**: class `extends Shopware\Core\Content\Flow\Dispatching\Action\FlowAction` with `static getName()`, `requirements()` (list of aware interfaces) and `handleFlow(StorableFlow $flow)`. Service tag `flow.action` **with attribute `key` = `getName()`**. There is no autoconfiguration for `FlowAction` (only `FlowStorer` -> `flow.storer`); the tag must be set manually. The `FlowExecutor` indexes the actions by `key` (`core/Content/DependencyInjection/flow.php:164`); a wrong/missing `key` causes the action to be **silently not executed** (`FlowExecutor::callHandle`, lines 218-222).
+- **Action (Admin)**: without an Admin component, the action appears as "unknown". Required: modal `sw-flow-<name>-modal` (derived in `FlowBuilderService::getActionModalName()`), icon/label/description/group via `flowBuilderService`.
+- **Trigger**: event `extends Symfony\Contracts\EventDispatcher\Event implements FlowEventAware` (+ aware interfaces such as `CustomerAware`, `OrderAware`, `MailAware`, `SalesChannelAware`). `getName()` = event name, `static getAvailableData(): EventDataCollection`. Visible in the Admin via registration in the `BusinessEventRegistry`: `Bundle::getActionEventClasses()` (overridden by the plugin) or a subscriber on `BusinessEventCollectorEvent`. Triggered via `$eventDispatcher->dispatch($event, $event->getName())`; the `FlowDispatcher` (decorator of `event_dispatcher`, priority 1000) recognizes `FlowEventAware`.
+- **Aware/storer**: the aware interface carries `#[IsFlowEventAware]` (`BusinessEventCollector::define()` reads it via reflection into the `aware` list). `FlowStorer::store()` serializes at dispatch (only IDs/scalars), `restore()` restores at execution (entities via `lazy()`). Storers are tagged with `flow.storer` via autoconfiguration.
+- **Transactions**: `implements TransactionalAction` (marker) -> `handleFlow` runs in `RetryableTransaction::transactional`; every Throwable becomes `FlowException::transactionFailed()` (codes `FLOW_ACTION_TRANSACTION_ABORTED` for `TransactionFailedException`, `..._COMMIT_FAILED` for a DBAL exception, `..._UNCAUGHT_EXCEPTION` otherwise).
+- **Buffered flows**: feature flag `FLOW_EXECUTION_AFTER_BUSINESS_PROCESS` (default `false`, standard in 6.8): flows are queued in `BufferedFlowQueue` and executed after `KernelEvents::TERMINATE`, `WorkerMessageHandledEvent`, `ConsoleEvents::TERMINATE` (max. depth 10). `DelayableAction` is only a marker (`delayable=true` in the action definition); no delay logic in the core.
+- Actions always run with **system permissions**: `FlowFactory::restore()` builds a context with `SystemSource`.
 
 ```
 custom/plugins/SwagExample/
 ├── composer.json
 └── src/
-    ├── SwagExample.php                           # überschreibt getActionEventClasses()
+    ├── SwagExample.php                           # overrides getActionEventClasses()
     ├── Core/Content/Flow/
     │   ├── Dispatching/Action/CreateTagAction.php
     │   ├── Dispatching/Aware/TagAware.php
@@ -35,27 +35,27 @@ custom/plugins/SwagExample/
                 ├── component/swag-flow-create-tag-modal/{index.js,swag-flow-create-tag-modal.html.twig}
                 └── snippet/{de-DE,en-GB}.json
 ```
-Namespaces sind frei; die Struktur spiegelt den Core.
+Namespaces are free to choose; the structure mirrors the core.
 
-## 3. Anleitung
+## 3. Instructions
 
-1. Plugin aktivieren: `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample`.
-2. Event-Klasse, Aware-Interface und Storer erstellen; Daten, die Actions brauchen, im Storer ablegen.
-3. Event registrieren: `getActionEventClasses()` im Plugin (im Bundle-Docblock dokumentiert; `Bundle::registerEvents()` hängt `BusinessEventRegisterCompilerPass` ein) **oder** Subscriber auf `BusinessEventCollectorEvent` (Doku-Weg, `$collection->set($def->getName(), $def)`).
-4. Action-Klasse + Service mit Tag `flow.action` und `key`.
-5. `bin/console cache:clear`. Prüfen: `bin/console debug:business-events` (Events inkl. `aware`); `GET /api/_info/events.json` und `/api/_info/flow-actions.json` liefern, was der Admin sieht.
-6. Admin bauen: `bin/console bundle:dump && bin/build-administration.sh`, dann `bin/console assets:install` ([T-49](./49-build-deployment.md)).
-7. Flow anlegen: Administration -> Einstellungen -> Shop -> Flow Builder. Eine Action ist nur wählbar, wenn mindestens eines ihrer `requirements()` in `triggerEvent.aware` vorkommt (`store/flow.store.ts`, Getter `availableActions`); Actions ohne requirements sind immer verfügbar.
-8. Event auslösen, `var/log/*.log` prüfen: Fehler in `FlowExecutor::executeFlows()` werden als `logger->error` protokolliert, nicht geworfen.
-9. Gezielter Abbruch mit Rollback: `TransactionalAction` + `TransactionFailedException::because($e)`.
-10. Flow-Auslösung unterdrücken: `$context->addState(Context::SKIP_TRIGGER_FLOW)` (`FlowDispatcher::dispatch()` überspringt dann die Ausführung; `FlowLogEvent` wird trotzdem dispatcht).
-11. Buffered-Modus testen: `.env` `FLOW_EXECUTION_AFTER_BUSINESS_PROCESS=1` oder `bin/console feature:enable FLOW_EXECUTION_AFTER_BUSINESS_PROCESS` (⚠ UNGEPRÜFT: Aktivierungsmechanismus).
+1. Activate the plugin: `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample`.
+2. Create the event class, aware interface and storer; put data that actions need into the storer.
+3. Register the event: `getActionEventClasses()` in the plugin (documented in the Bundle docblock; `Bundle::registerEvents()` hooks in `BusinessEventRegisterCompilerPass`) **or** a subscriber on `BusinessEventCollectorEvent` (docs approach, `$collection->set($def->getName(), $def)`).
+4. Action class + service with tag `flow.action` and `key`.
+5. `bin/console cache:clear`. Verify: `bin/console debug:business-events` (events incl. `aware`); `GET /api/_info/events.json` and `/api/_info/flow-actions.json` return what the Admin sees.
+6. Build the Admin: `bin/console bundle:dump && bin/build-administration.sh`, then `bin/console assets:install` ([T-49](./49-build-deployment.md)).
+7. Create a flow: Administration -> Settings -> Shop -> Flow Builder. An action is only selectable if at least one of its `requirements()` appears in `triggerEvent.aware` (`store/flow.store.ts`, getter `availableActions`); actions without requirements are always available.
+8. Trigger the event, check `var/log/*.log`: errors in `FlowExecutor::executeFlows()` are logged as `logger->error`, not thrown.
+9. Deliberate abort with rollback: `TransactionalAction` + `TransactionFailedException::because($e)`.
+10. Suppress flow triggering: `$context->addState(Context::SKIP_TRIGGER_FLOW)` (`FlowDispatcher::dispatch()` then skips execution; `FlowLogEvent` is still dispatched).
+11. Test buffered mode: `.env` `FLOW_EXECUTION_AFTER_BUSINESS_PROCESS=1` or `bin/console feature:enable FLOW_EXECUTION_AFTER_BUSINESS_PROCESS` (⚠ UNVERIFIED: activation mechanism).
 
-Ablauf im Core: `FlowDispatcher::dispatch()` -> `FlowFactory::create()/createBuffered()` (ruft alle `FlowStorer::store()`) -> `FlowLoader` (`CachedFlowLoader`) -> `FlowExecutor::executeFlows()` -> `executeIf` (Regelprüfung) / `executeAction` -> `callHandle` (App-Actions über `AppFlowActionEvent`/Webhook, eigene über die `flow.action`-Map).
+Flow in the core: `FlowDispatcher::dispatch()` -> `FlowFactory::create()/createBuffered()` (calls all `FlowStorer::store()`) -> `FlowLoader` (`CachedFlowLoader`) -> `FlowExecutor::executeFlows()` -> `executeIf` (rule check) / `executeAction` -> `callHandle` (app actions via `AppFlowActionEvent`/webhook, custom ones via the `flow.action` map).
 
-## 4. Beispiele
+## 4. Examples
 
-Szenario: Event `swag.example.tag_requested` trägt eine Tag-ID; Action `action.swag.create.tag` legt ein Tag an.
+Scenario: event `swag.example.tag_requested` carries a tag ID; action `action.swag.create.tag` creates a tag.
 
 `src/SwagExample.php`
 ```php
@@ -93,7 +93,7 @@ interface TagAware
     public function getTagId(): string;
 }
 ```
-Core-Aware-Interfaces (z. B. `ProductAware`) erweitern `FlowEventAware` nicht; sie tragen nur das Attribut. Die Doku-Variante `TagAware extends FlowEventAware` funktioniert auch, Core-Stil bevorzugen.
+Core aware interfaces (e.g. `ProductAware`) do not extend `FlowEventAware`; they only carry the attribute. The docs variant `TagAware extends FlowEventAware` also works; prefer the core style.
 
 `src/Core/Content/Flow/Event/ExampleEvent.php`
 ```php
@@ -175,7 +175,7 @@ class TagStorer extends FlowStorer
     }
 }
 ```
-Muster nach `ProductStorer`/`CustomerStorer`. Für Entities statt `setData` `$storable->lazy(KEY, $this->lazyLoad(...))` (wird in `StorableFlow::getData()` beim ersten Zugriff aufgelöst).
+Pattern based on `ProductStorer`/`CustomerStorer`. For entities, use `$storable->lazy(KEY, $this->lazyLoad(...))` instead of `setData` (resolved in `StorableFlow::getData()` on first access).
 
 `src/Core/Content/Flow/Dispatching/Action/CreateTagAction.php`
 ```php
@@ -226,7 +226,7 @@ class CreateTagAction extends FlowAction implements TransactionalAction
 }
 ```
 
-`src/Resources/config/services.php` (XML ist in 6.7 deprecated, `Bundle::triggerXmlConfigDeprecation`)
+`src/Resources/config/services.php` (XML is deprecated in 6.7, `Bundle::triggerXmlConfigDeprecation`)
 ```php
 <?php declare(strict_types=1);
 
@@ -243,18 +243,18 @@ return static function (ContainerConfigurator $container): void {
         ->args([service('tag.repository')])
         ->tag('flow.action', ['priority' => 600, 'key' => CreateTagAction::getName()]);
 
-    // `AutoconfigureCompilerPass` registriert `registerForAutoconfiguration(FlowStorer::class)` mit Tag `flow.storer`;
-    // das greift nur bei Services mit `autoconfigure`. Hier ohne `defaults()->autoconfigure()` daher explizit taggen.
+    // `AutoconfigureCompilerPass` registers `registerForAutoconfiguration(FlowStorer::class)` with tag `flow.storer`;
+    // this only applies to services with `autoconfigure`. Without `defaults()->autoconfigure()` here, tag explicitly.
     $services->set(TagStorer::class)->tag('flow.storer');
 };
 ```
 
-Event auslösen (`EventDispatcherInterface` injizieren; der Container liefert den vom `FlowDispatcher` dekorierten Dispatcher):
+Trigger the event (inject `EventDispatcherInterface`; the container provides the dispatcher decorated by the `FlowDispatcher`):
 ```php
 $this->eventDispatcher->dispatch(new ExampleEvent($context, $tagId), ExampleEvent::EVENT_NAME);
 ```
 
-### Admin-Teil (6.7, Vue 3)
+### Admin part (6.7, Vue 3)
 
 `src/Resources/app/administration/src/main.js`
 ```js
@@ -276,7 +276,7 @@ flowBuilderService.addIcons({ swagCreateTag: 'regular-tag' });
 flowBuilderService.addLabels({ swagCreateTag: 'swag-flow-example.createTag.title' });
 flowBuilderService.addActionGroupMapping({ 'action.swag.create.tag': 'general' });
 ```
-Schlüsselableitung: `action.swag.create.tag` -> Icon-/Label-Key `swagCreateTag` (`FlowBuilderService::getActionTitle`); Modal-Name `sw-flow-swag-create-tag-modal` (`getActionModalName`: `.` -> `-`, `action` -> `sw-flow`, Suffix `-modal`). Die Komponente muss exakt so registriert sein.
+Key derivation: `action.swag.create.tag` -> icon/label key `swagCreateTag` (`FlowBuilderService::getActionTitle`); modal name `sw-flow-swag-create-tag-modal` (`getActionModalName`: `.` -> `-`, `action` -> `sw-flow`, suffix `-modal`). The component must be registered exactly like this.
 
 `.../component/swag-flow-create-tag-modal/index.js`
 ```js
@@ -312,55 +312,55 @@ Shopware.Component.register('sw-flow-swag-create-tag-modal', {
 ```
 `snippet/en.json`: `{"swag-flow-example":{"createTag":{"title":"Create tag","labelName":"Tag name"}}}`
 
-Hinweis: Mail-Templates und Snippet-Mechanik: [T-35](./35-mail-templates.md), [T-18](./18-snippets-uebersetzungen.md).
+Note: mail templates and snippet mechanics: [T-35](./35-mail-templates.md), [T-18](./18-snippets-translations.md).
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- `flow.action`-Tag ohne `key` oder `key` != `getName()`: Action wird nie ausgeführt, kein Fehler.
-- Aware-Interface ohne `#[IsFlowEventAware]` erscheint nicht in `aware`, Action nie verfügbar; ebenso wenn `requirements()` ein Interface nennt, das das Event nicht implementiert.
-- Event nicht registriert (weder `getActionEventClasses()` noch Subscriber): Trigger fehlt im Admin. Leeres `getName()`: `define()` liefert `null`.
-- Nicht-skalare Objekte im Storer: nur IDs/Skalare speichern (Buffered-Betrieb cached `BufferedFlow::$stored`), Entities lazy laden.
-- Doppelte Storer-Keys: `ScalarValuesStorer` wirft `\RuntimeException('Can not store generic values twice.')`.
-- Event-Daten ohne `getAvailableData()`-Eintrag erscheinen nicht in Mail-Template-Variablen.
-- `handleFlow` wirft: Executor loggt, der Flow bricht ab (`ExecuteSequenceException`), andere Flows laufen weiter; mit `TransactionalAction` zusätzlich Rollback.
-- Modal-Name falsch: leeres Modal.
-- Doku-Muster `Component.override('sw-flow-sequence-action', { computed: { modalName }, methods: { getActionTitle ... } })`: In 6.7 liegen `getActionTitle`/`getActionDescriptions` im `flowBuilderService` (TS); Override greift vermutlich nicht (⚠ UNGEPRÜFT, nur aus Code geschlossen).
-- Endlosschleifen im Buffered-Modus: Abbruch bei Tiefe 10 mit `logger->error('Maximum execution depth reached...')`.
-- IF-Sequenzen: Regeln werten nur mit `OrderAware::ORDER`/`CustomerAware::CUSTOMER`-Daten; sonst nur Context-Rule-IDs.
-- `FlowExecutor`, `BufferedFlowExecutor`, `FlowDispatcher`, `BufferedFlowQueue` sind `@internal`/`@final`: nicht dekorieren; stattdessen Extension Point `FlowExecutorExtension` ([T-08](./08-extension-points.md)).
-- Actions laufen mit System-Context, nicht im Kunden-/Admin-Kontext.
+- `flow.action` tag without `key` or `key` != `getName()`: the action is never executed, no error.
+- An aware interface without `#[IsFlowEventAware]` does not appear in `aware`, the action is never available; likewise if `requirements()` names an interface the event does not implement.
+- Event not registered (neither `getActionEventClasses()` nor a subscriber): the trigger is missing in the Admin. Empty `getName()`: `define()` returns `null`.
+- Non-scalar objects in the storer: store only IDs/scalars (buffered mode caches `BufferedFlow::$stored`), load entities lazily.
+- Duplicate storer keys: `ScalarValuesStorer` throws `\RuntimeException('Can not store generic values twice.')`.
+- Event data without a `getAvailableData()` entry does not appear in mail template variables.
+- `handleFlow` throws: the executor logs, the flow aborts (`ExecuteSequenceException`), other flows continue; with `TransactionalAction` additionally a rollback.
+- Wrong modal name: empty modal.
+- Docs pattern `Component.override('sw-flow-sequence-action', { computed: { modalName }, methods: { getActionTitle ... } })`: in 6.7, `getActionTitle`/`getActionDescriptions` live in the `flowBuilderService` (TS); the override probably has no effect (⚠ UNVERIFIED, only inferred from the code).
+- Infinite loops in buffered mode: abort at depth 10 with `logger->error('Maximum execution depth reached...')`.
+- IF sequences: rules only evaluate with `OrderAware::ORDER`/`CustomerAware::CUSTOMER` data; otherwise only context rule IDs.
+- `FlowExecutor`, `BufferedFlowExecutor`, `FlowDispatcher`, `BufferedFlowQueue` are `@internal`/`@final`: do not decorate them; use the extension point `FlowExecutorExtension` instead ([T-08](./08-extension-points.md)).
+- Actions run with the system context, not in the customer/Admin context.
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-- `FlowAction`/`StorableFlow` (seit 6.4.18/6.5) lösen alte `FlowActionInterface`/`FlowEvent` ab; Namespace `Shopware\Core\Content\Flow\Dispatching\...` unverändert.
-- XML-Services in 6.7 deprecated (entfällt 6.8): `services.php`.
-- Buffered Flows neu hinter `FLOW_EXECUTION_AFTER_BUSINESS_PROCESS` (Default `false`, in 6.8 Standard).
-- `ProductStorer` nutzt ab 6.8 (`Feature::isActive('v6.8.0.0')`) `ProductProvider::getData()`; bis dahin zusätzlich `BeforeLoadStorableFlowDataEvent`.
-- Admin 6.7: Vue 3, `$t` statt `$tc`, `mt-*`-Komponenten (Meteor), `v-model:value`; Doku-Beispiele nutzen noch `$tc`, `sw-button`, `v-model`.
-- `flowBuilderService` (`addActionNames/addIcons/addLabels/addGroups/addActionGroupMapping/addDescriptionCallbacks`) ist `@private`.
-- Im Core ist `hasData` nach `restore()` die übliche Prüfung (Doku prüft `hasStore`).
+- `FlowAction`/`StorableFlow` (since 6.4.18/6.5) replace the old `FlowActionInterface`/`FlowEvent`; namespace `Shopware\Core\Content\Flow\Dispatching\...` unchanged.
+- XML services deprecated in 6.7 (removed in 6.8): `services.php`.
+- Buffered flows are new behind `FLOW_EXECUTION_AFTER_BUSINESS_PROCESS` (default `false`, standard in 6.8).
+- From 6.8 on (`Feature::isActive('v6.8.0.0')`), `ProductStorer` uses `ProductProvider::getData()`; until then additionally `BeforeLoadStorableFlowDataEvent`.
+- Admin 6.7: Vue 3, `$t` instead of `$tc`, `mt-*` components (Meteor), `v-model:value`; docs examples still use `$tc`, `sw-button`, `v-model`.
+- `flowBuilderService` (`addActionNames/addIcons/addLabels/addGroups/addActionGroupMapping/addDescriptionCallbacks`) is `@private`.
+- In the core, `hasData` after `restore()` is the usual check (the docs check `hasStore`).
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] Event implementiert `FlowEventAware`, `getName()` nicht leer, `getAvailableData()` gepflegt
-- [ ] Event über `getActionEventClasses()` oder `BusinessEventCollectorEvent` registriert
-- [ ] Aware-Interface trägt `#[IsFlowEventAware]`; `requirements()` der Action passt dazu
-- [ ] Storer speichert nur IDs/Skalare; Entities lazy
-- [ ] Service-Tag `flow.action` mit `key` = `getName()`; Service im PHP-Format
-- [ ] `TransactionalAction` und `TransactionFailedException` bei DB-Schreibzugriffen
-- [ ] Admin: Modal-Name exakt abgeleitet, Icon/Label/Gruppe registriert, Snippets vorhanden
-- [ ] `cache:clear`, Admin-Build und `assets:install` durchgeführt
-- [ ] Mit `debug:business-events` und `/api/_info/flow-actions.json` verifiziert
-- [ ] Flow im Admin angelegt, Ausführung in `var/log` geprüft
+- [ ] Event implements `FlowEventAware`, `getName()` not empty, `getAvailableData()` maintained
+- [ ] Event registered via `getActionEventClasses()` or `BusinessEventCollectorEvent`
+- [ ] Aware interface carries `#[IsFlowEventAware]`; the action's `requirements()` match it
+- [ ] Storer stores only IDs/scalars; entities lazy
+- [ ] Service tag `flow.action` with `key` = `getName()`; service in PHP format
+- [ ] `TransactionalAction` and `TransactionFailedException` for DB writes
+- [ ] Admin: modal name derived exactly, icon/label/group registered, snippets present
+- [ ] `cache:clear`, Admin build and `assets:install` done
+- [ ] Verified with `debug:business-events` and `/api/_info/flow-actions.json`
+- [ ] Flow created in the Admin, execution checked in `var/log`
 
-## 7. Quellen
+## 7. Sources
 
-Doku:
+Docs:
 - https://developer.shopware.com/docs/guides/plugins/plugins/framework/flow/add-flow-builder-action.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/framework/flow/add-flow-builder-trigger.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/framework/flow/action-transactions.html
 
-Quellcode (`vendor/shopware/`):
+Source code (`vendor/shopware/`):
 - `core/Content/Flow/Dispatching/{Action/FlowAction,Action/AddOrderTagAction,Action/SetOrderStateAction,FlowExecutor,FlowDispatcher,BufferedFlowExecutor,BufferedFlowQueue,DelayableAction,TransactionalAction,TransactionFailedException,StorableFlow,FlowFactory}.php`
 - `core/Content/Flow/Dispatching/Storer/{FlowStorer,ProductStorer,CustomerStorer,ScalarValuesStorer}.php`
 - `core/Framework/Event/{FlowEventAware,IsFlowEventAware,BusinessEventCollector,BusinessEventRegistry,BusinessEventCollectorEvent}.php`, `core/Framework/Event/Command/DebugDumpBusinessEventsCommand.php`
@@ -368,13 +368,13 @@ Quellcode (`vendor/shopware/`):
 - `core/Content/Flow/{Api/FlowActionCollector,FlowException}.php`, `core/Content/DependencyInjection/flow.php`, `core/Framework/Api/Controller/InfoController.php`, `core/Framework/Resources/config/packages/feature.yaml`
 - Admin: `administration/Resources/app/administration/src/module/sw-flow/{service/flow-builder.service.ts,constant/flow.constant.js,store/flow.store.ts,component/sw-flow-sequence-action/,component/modals/sw-flow-grant-download-access-modal/}`
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ LÜCKE: Delay: im Core kein Mechanismus; `FlowState::$delayed` wird nirgends gesetzt. Vermutlich Commercial-Erweiterung (nicht belegt).
-- ⚠ UNGEPRÜFT: Admin-Beispiele (Modal, `Shopware.Service('flowBuilderService')` zum Zeitpunkt des Modul-Imports, ausreichende Wirkung von `addActionGroupMapping`/`addGroups`, Konstante `ACTION_GROUP` in `flow.constant.js`) aus Core-Code abgeleitet, nicht in einer Installation ausgeführt.
-- ⚠ UNGEPRÜFT: `flowBuilderService` ist `@private`; Plugin-Nutzung formal nicht stabile API.
-- ⚠ UNGEPRÜFT: Doku-Variante `Component.override` für `getActionTitle`/`getActionDescriptions` in 6.7 vermutlich wirkungslos.
-- ⚠ UNGEPRÜFT: Aktivierung des Feature-Flags per `.env`/`feature:enable` nicht separat am Code geprüft.
-- `FlowAction` wird nicht per Autokonfiguration getaggt (im `AutoconfigureCompilerPass` nicht gefunden): Tag manuell.
-- Dass der injizierte `event_dispatcher` der vom `FlowDispatcher` dekorierte ist, folgt aus `core/Content/DependencyInjection/flow.php:112` (`->decorate('event_dispatcher', null, 1000)`).
-- `getActionEventClasses()` steht nicht in den drei Doku-Seiten, nur im Bundle-Docblock.
+- ⚠ GAP: Delay: no mechanism in the core; `FlowState::$delayed` is never set. Probably a Commercial extension (not confirmed).
+- ⚠ UNVERIFIED: Admin examples (modal, `Shopware.Service('flowBuilderService')` at module import time, sufficient effect of `addActionGroupMapping`/`addGroups`, constant `ACTION_GROUP` in `flow.constant.js`) derived from core code, not executed in an installation.
+- ⚠ UNVERIFIED: `flowBuilderService` is `@private`; plugin usage is formally not a stable API.
+- ⚠ UNVERIFIED: The docs variant `Component.override` for `getActionTitle`/`getActionDescriptions` probably has no effect in 6.7.
+- ⚠ UNVERIFIED: Activation of the feature flag via `.env`/`feature:enable` not separately checked against the code.
+- `FlowAction` is not tagged via autoconfiguration (not found in `AutoconfigureCompilerPass`): tag manually.
+- That the injected `event_dispatcher` is the one decorated by the `FlowDispatcher` follows from `core/Content/DependencyInjection/flow.php:112` (`->decorate('event_dispatcher', null, 1000)`).
+- `getActionEventClasses()` is not mentioned in the three docs pages, only in the Bundle docblock.

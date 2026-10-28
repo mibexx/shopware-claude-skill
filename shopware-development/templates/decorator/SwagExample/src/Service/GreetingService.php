@@ -8,7 +8,7 @@ class GreetingService extends AbstractGreetingService
 {
     public function getDecorated(): AbstractGreetingService
     {
-        // Basisklasse der Kette: es gibt nichts Inneres
+        // Base class of the chain: there is nothing inner
         throw new DecorationPatternException(self::class);
     }
 

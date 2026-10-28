@@ -1,12 +1,12 @@
-# Template: Admin-Modul (swag-example)
+# Template: Admin module (swag-example)
 
-Zweck: Administrations-Modul für ein Plugin mit Modul-Registrierung (Routen, Menüeintrag, `settingsItem`), Listing- und Detailseite auf Basis der Entity `swag_example` (per `repositoryFactory`), Snippets de-DE/en-GB und ACL-Privilegien. Shopware 6.7.15.1 (Vue 3, Vite, Meteor-Komponenten `mt-*`).
+Purpose: Administration module for a plugin with module registration (routes, menu entry, `settingsItem`), listing and detail page based on the entity `swag_example` (via `repositoryFactory`), snippets de-DE/en-GB and ACL privileges. Shopware 6.7.15.1 (Vue 3, Vite, Meteor components `mt-*`).
 
-## Voraussetzung: Backend-Entity
+## Prerequisite: backend entity
 
-Das Modul erwartet eine DAL-Entity `swag_example` (Tabelle `swag_example`) mit den Feldern `id`, `technicalName` (String, `Required`), `name` (übersetzbar, `TranslatedField`) und `active` (Bool), wie im Entity-Template (`ExampleDefinition`). Das Detail-Formular pflegt `technicalName` und `name`; fehlt `technicalName`, schlägt das Anlegen mit "/0/technicalName: This value should not be blank" fehl. Die Entity gehört nicht zu diesem Gerüst, siehe [entity](../entity/README.md) und [migration](../migration/README.md). Ohne Entity wirft `repositoryFactory.create('swag_example')` einen Fehler, weil das Schema nicht bekannt ist.
+The module expects a DAL entity `swag_example` (table `swag_example`) with the fields `id`, `technicalName` (string, `Required`), `name` (translatable, `TranslatedField`) and `active` (bool), as in the entity template (`ExampleDefinition`). The detail form maintains `technicalName` and `name`; if `technicalName` is missing, creation fails with "/0/technicalName: This value should not be blank". The entity is not part of this scaffold, see [entity](../entity/README.md) and [migration](../migration/README.md). Without the entity, `repositoryFactory.create('swag_example')` throws an error because the schema is unknown.
 
-## Dateibaum
+## File tree
 
 ```
 SwagExample/
@@ -14,81 +14,81 @@ SwagExample/
 └── src/
     ├── SwagExample.php
     └── Resources/app/administration/src/
-        ├── main.js                                     # Einstieg, importiert das Modul
+        ├── main.js                                     # entry point, imports the module
         └── module/swag-example/
             ├── index.js                                # Component.register + Module.register
             ├── acl/index.js                            # privileges.addPrivilegeMappingEntry
             ├── page/swag-example-list/{index.js,swag-example-list.html.twig}
             ├── page/swag-example-detail/{index.js,swag-example-detail.html.twig}
-            └── snippet/{de,en}.json              # Modul- und Privileg-Labels
+            └── snippet/{de,en}.json              # module and privilege labels
 ```
 
-## Platzhalter
+## Placeholders
 
-| Platzhalter | Ersetzen durch | Wo |
+| Placeholder | Replace with | Where |
 |---|---|---|
-| `swag-example` (Modul-ID) | `<vendor>-<name>`, mindestens ein Bindestrich | `Module.register`, Ordner, Snippet-Prefix |
-| `swag.example.index/detail/create` | Route-Namen: Modul-ID mit Punkten + Schlüssel aus `routes` | `navigation.path`, `settingsItem.to`, `detail-route`, `$router.push` |
-| `swag_example` | Entity-Name (Snake-Case) und ACL-Key | `repositoryFactory.create(...)`, `acl/index.js`, `meta.privilege`, `acl.can('swag_example.*')` |
-| `swag-example-list` / `-detail` | Komponentennamen | `Component.register`, Routen |
-| `sw-catalogue` | Menü-Eltern-ID (Core z. B. `sw-catalogue`, `sw-customer`, `sw-order`, `sw-marketing`) | `navigation.parent` |
-| `swag-example.*` | Snippet-Schlüssel | `index.js`, Templates, Snippet-Dateien |
-| `SwagExample` / `swag/example` | Plugin-Name | Klasse, Namespace, `composer.json` |
+| `swag-example` (module ID) | `<vendor>-<name>`, at least one hyphen | `Module.register`, folder, snippet prefix |
+| `swag.example.index/detail/create` | Route names: module ID with dots + key from `routes` | `navigation.path`, `settingsItem.to`, `detail-route`, `$router.push` |
+| `swag_example` | Entity name (snake case) and ACL key | `repositoryFactory.create(...)`, `acl/index.js`, `meta.privilege`, `acl.can('swag_example.*')` |
+| `swag-example-list` / `-detail` | Component names | `Component.register`, routes |
+| `sw-catalogue` | Menu parent ID (core e.g. `sw-catalogue`, `sw-customer`, `sw-order`, `sw-marketing`) | `navigation.parent` |
+| `swag-example.*` | Snippet keys | `index.js`, templates, snippet files |
+| `SwagExample` / `swag/example` | Plugin name | Class, namespace, `composer.json` |
 
-## Einbindung / CLI
+## Integration / CLI
 
 ```bash
 bin/console plugin:refresh
 bin/console plugin:install --activate SwagExample
-bin/build-administration.sh          # Admin neu bauen (Entwicklung: bin/watch-administration.sh)
+bin/build-administration.sh          # rebuild the admin (development: bin/watch-administration.sh)
 bin/console assets:install
 bin/console cache:clear
 ```
 
-Rolle testen: Einstellungen -> Benutzer & Rechte -> Rollen. Die Gruppe "Examples" erscheint unter Kataloge (`parent: 'catalogues'`). Nach Änderungen an Privilegien-Mappings bestehende Rollen neu speichern.
+Test a role: Settings -> Users & permissions -> Roles. The group "Examples" appears under Catalogues (`parent: 'catalogues'`). After changing privilege mappings, re-save existing roles.
 
-## Regeln (am Quellcode belegt)
+## Rules (verified against the source code)
 
-- Modul-ID ohne Bindestrich oder doppelte ID: Registrierung bricht mit Konsolenwarnung ab (`module.factory.ts`).
-- Route-Name = Modul-ID mit Punkten + Schlüssel aus `routes` (nicht das Feld `name` des Manifests). Pfad = `/swag/example/<path>`.
-- `navigation` bei `type: 'plugin'` braucht `parent` und `label`, sonst wird der Eintrag verworfen. `position` wird bei Plugins um 1000 erhöht.
-- `settingsItem`: `group` (`general|localization|customer|commerce|content|automation|system|account|plugins`), `to` und `icon` sind nötig. Nur einen der beiden Menüwege behalten, wenn kein doppelter Eintrag gewünscht ist.
-- `meta.parentPath` an Detail-/Create-Routen sorgt für den Zurück-Pfeil in `sw-page`.
-- Komponenten per `Shopware.Component.register(name, () => import(...))` registrieren (Core-Standard), die Page-`index.js` exportiert das Objekt per `export default`.
-- Listing: Mixin `listing` ruft `getList()` auf, liefert `page`, `limit`, `term`, `onPageChange`, `onSortColumn`. `sw-entity-listing` mit `:data-source` (Prop `items` ist deprecated) und `:disable-data-fetching="true"`.
-- `mt-card` verlangt `position-identifier`. Meteor-Komponenten `mt-button`, `mt-text-field`, `mt-switch`, `mt-empty-state` sind global registriert, `mt-card` als Shopware-Wrapper.
-- `repository.save()` aktualisiert die lokale Entity nicht, daher nach dem Speichern neu laden. Notifications brauchen immer eine `message`.
-- Privilegien: `addPrivilegeMappingEntry` verlangt `category`, `parent` (auch `null`) und `key`, sonst wird der Eintrag verworfen. Keine Punkte in `key`/Rollennamen. Rollen `viewer|editor|creator|deleter` mit `dependencies`. Fremde Rollen einbinden mit `Shopware.Service('privileges').getPrivileges('media.viewer')`. Label-Schlüssel: `sw-privileges.permissions.<key>.label`.
-- UI-ACL (`meta.privilege`, `acl.can`) ist keine Sicherheit. Backend absichern mit `PlatformRequest::ATTRIBUTE_ACL` (`_acl`) an Routen. Für Entities greift der DAL-ACL über `<entity>:<read|create|update|delete>` automatisch. Plugin-PHP kann mit `Plugin::enrichPrivileges()` Backend-Privilegien an bestehende Admin-Privilegien hängen; das wirkt nur beim DAL-Laden der Rolle (UI), die Backend-Prüfung liest per SQL: Rolle neu speichern oder Privilegien per Migration schreiben (T-23).
-- Snippets: Dateien `de.json`/`en.json` unter `Resources/app/administration/src/**` findet der `SnippetFinder` zur Laufzeit. Der Core importiert sie nicht im Manifest, das Gerüst auch nicht.
+- Module ID without a hyphen or duplicate ID: registration aborts with a console warning (`module.factory.ts`).
+- Route name = module ID with dots + key from `routes` (not the `name` field of the manifest). Path = `/swag/example/<path>`.
+- `navigation` with `type: 'plugin'` needs `parent` and `label`, otherwise the entry is discarded. `position` is increased by 1000 for plugins.
+- `settingsItem`: `group` (`general|localization|customer|commerce|content|automation|system|account|plugins`), `to` and `icon` are required. Keep only one of the two menu paths if no duplicate entry is wanted.
+- `meta.parentPath` on detail/create routes provides the back arrow in `sw-page`.
+- Register components via `Shopware.Component.register(name, () => import(...))` (core standard); the page `index.js` exports the object via `export default`.
+- Listing: the `listing` mixin calls `getList()` and provides `page`, `limit`, `term`, `onPageChange`, `onSortColumn`. `sw-entity-listing` with `:data-source` (prop `items` is deprecated) and `:disable-data-fetching="true"`.
+- `mt-card` requires `position-identifier`. Meteor components `mt-button`, `mt-text-field`, `mt-switch`, `mt-empty-state` are registered globally, `mt-card` as a Shopware wrapper.
+- `repository.save()` does not update the local entity, so reload after saving. Notifications always need a `message`.
+- Privileges: `addPrivilegeMappingEntry` requires `category`, `parent` (also `null`) and `key`, otherwise the entry is discarded. No dots in `key`/role names. Roles `viewer|editor|creator|deleter` with `dependencies`. Include other roles with `Shopware.Service('privileges').getPrivileges('media.viewer')`. Label key: `sw-privileges.permissions.<key>.label`.
+- UI ACL (`meta.privilege`, `acl.can`) is not security. Secure the backend with `PlatformRequest::ATTRIBUTE_ACL` (`_acl`) on routes. For entities, the DAL ACL applies automatically via `<entity>:<read|create|update|delete>`. Plugin PHP can attach backend privileges to existing admin privileges with `Plugin::enrichPrivileges()`; this only takes effect when the role is loaded via the DAL (UI), the backend check reads via SQL: re-save the role or write the privileges via a migration (T-23).
+- Snippets: the `SnippetFinder` finds `de.json`/`en.json` files under `Resources/app/administration/src/**` at runtime. The core does not import them in the manifest, and neither does the scaffold.
 
 ## Deprecations / 6.8
 
-- `sw-entity-listing` Prop `items` deprecated, hier `dataSource`.
-- Vuex (`Shopware.State`) ist deprecated, für State `Shopware.Store` (Pinia) nutzen (siehe Referenz 26).
-- Tab-Erweiterungen am Produkt-Detail über `sw_product_detail_content_tabs_*` brechen mit 6.8 (`mt-tabs`/`productDetailTabs`).
-- Composables (`useNotification` u. a.) sind in 6.7.15.1 `@experimental`, daher Mixins.
+- `sw-entity-listing` prop `items` deprecated, `dataSource` used here.
+- Vuex (`Shopware.State`) is deprecated; use `Shopware.Store` (Pinia) for state (see reference 26).
+- Tab extensions on the product detail page via `sw_product_detail_content_tabs_*` break with 6.8 (`mt-tabs`/`productDetailTabs`).
+- Composables (`useNotification` among others) are `@experimental` in 6.7.15.1, hence mixins.
 
-## Lücken und Hinweise
+## Gaps and notes
 
-- ⚠ UNGEPRÜFT: Gerüst nicht gebaut und nicht gegen eine laufende Installation getestet (kein PHP, kein Admin-Build). JS per `node --check`, JSON per `JSON.parse`. Muster, Komponenten, Props und Privilegien-Service am Core-Modul `sw-manufacturer`, `sw-settings-tax`, `privileges.service.ts`, `module.factory.ts` gegengelesen.
-- ⚠ UNGEPRÜFT: Icon-Namen (`regular-shopping-bag`, `regular-rocket`): Präfix-Schema `regular-*` stammt aus Core-Modulen, einzelne Namen nicht gegen die Icon-Liste geprüft.
-- ⚠ UNGEPRÜFT: Die Beispielseiten verzichten auf Suchleiste (`sw-search-bar`) und Sprachumschalter. Dafür wäre `entity`/`defaultSearchConfiguration` im Manifest nötig (Vorbild `sw-manufacturer`).
-- ⚠ LÜCKE: Ob der Plugin-Build `main.ts` zusätzlich zu `main.js` lädt, ist nicht belegt. Doku und Scaffold nennen `main.js`.
-- ⚠ LÜCKE: Die Doku-Seite "add-custom-module" nennt `bundle:dump-js`. In 6.7.15.1 existiert nur `bundle:dump` (`BundleDumpCommand`). Der Scaffold-Stub (`js-module.stub`) und die Doku zeigen außerdem ein Modul ohne `navigation.parent`, das als Plugin nicht im Menü erscheint. Das Gerüst setzt `parent`.
-- ⚠ LÜCKE: Eigene Admin-API-Routen/ApiService (`/api/_action/...`) sind nicht enthalten, siehe Referenz 26 und die Controller-/Routing-Themen.
-- Route überschreiben (`routeMiddleware`) und Tabs ergänzen sind in Referenz 24 beschrieben und nicht Teil des Gerüsts.
+- ⚠ UNVERIFIED: Scaffold not built and not tested against a running installation (no PHP, no admin build). JS via `node --check`, JSON via `JSON.parse`. Patterns, components, props and privileges service cross-checked against the core modules `sw-manufacturer`, `sw-settings-tax`, `privileges.service.ts`, `module.factory.ts`.
+- ⚠ UNVERIFIED: Icon names (`regular-shopping-bag`, `regular-rocket`): the prefix scheme `regular-*` comes from core modules; individual names not checked against the icon list.
+- ⚠ UNVERIFIED: The example pages omit the search bar (`sw-search-bar`) and language switcher. These would require `entity`/`defaultSearchConfiguration` in the manifest (model: `sw-manufacturer`).
+- ⚠ GAP: Whether the plugin build loads `main.ts` in addition to `main.js` is not established. The docs and scaffold name `main.js`.
+- ⚠ GAP: The docs page "add-custom-module" names `bundle:dump-js`. In 6.7.15.1 only `bundle:dump` (`BundleDumpCommand`) exists. The scaffold stub (`js-module.stub`) and the docs also show a module without `navigation.parent`, which as a plugin does not appear in the menu. The scaffold sets `parent`.
+- ⚠ GAP: Custom admin API routes/ApiService (`/api/_action/...`) are not included, see reference 26 and the controller/routing topics.
+- Overriding a route (`routeMiddleware`) and adding tabs are described in reference 24 and are not part of the scaffold.
 
-## Referenzen
+## References
 
-- [24 Admin-Module](../../references/24-admin-module.md)
-- [25 Admin-Komponenten](../../references/25-admin-komponenten.md)
-- [26 Admin-Datenhandling](../../references/26-admin-datenhandling.md)
-- [23 ACL, Rechte & Rollen](../../references/23-acl-rechte-rollen.md)
-- [18 Snippets & Übersetzungen](../../references/18-snippets-uebersetzungen.md)
-- [27 DAL-Entities](../../references/27-dal-entities.md)
-- [28 DAL lesen/schreiben](../../references/28-dal-lesen-schreiben.md)
-- [49 Build & Deployment](../../references/49-build-deployment.md)
-- Weitere Templates: [entity](../entity/README.md), [migration](../migration/README.md), [plugin](../plugin/README.md), [cms-element](../cms-element/README.md)
+- [24 Admin modules](../../references/24-admin-modules.md)
+- [25 Admin components](../../references/25-admin-components.md)
+- [26 Admin data handling](../../references/26-admin-data-handling.md)
+- [23 ACL, permissions & roles](../../references/23-acl-permissions-roles.md)
+- [18 Snippets & translations](../../references/18-snippets-translations.md)
+- [27 DAL entities](../../references/27-dal-entities.md)
+- [28 DAL reading/writing](../../references/28-dal-reading-writing.md)
+- [49 Build & deployment](../../references/49-build-deployment.md)
+- More templates: [entity](../entity/README.md), [migration](../migration/README.md), [plugin](../plugin/README.md), [cms-element](../cms-element/README.md)
 
-- Snippet-Dateien sind sprachneutral benannt (`de.json`/`en.json` bzw. `storefront.de.json`/`storefront.en.json`); regionale Namen (`de-DE.json`) beanstandet `bin/console translation:lint-filenames` ohne sprachneutrale Basisdatei, Reparatur mit `--fix` (siehe [T-18](../../references/18-snippets-uebersetzungen.md)).
+- Snippet files are named language-neutrally (`de.json`/`en.json` or `storefront.de.json`/`storefront.en.json`); `bin/console translation:lint-filenames` flags regional names (`de-DE.json`) without a language-neutral base file, fix with `--fix` (see [T-18](../../references/18-snippets-translations.md)).

@@ -1,11 +1,11 @@
 {
-    "_comment": "Ausschnitt, KEIN vollstaendiges Manifest (_comment entfernen). Die Tools muessen im PROJEKT installiert sein (require-dev eines Plugins wird vom Projekt-Composer nicht installiert) und PHPStan MUSS aus dem Projekt-Root laufen (aus dem Plugin-Ordner: Class ... not found). Scripts daher in der composer.json des Projekts. ⚠ UNGEPRUEFT: die Composer-Script-Huelle selbst; die darin aufgerufenen Befehle wurden einzeln ausgefuehrt.",
+    "_comment": "Excerpt, NOT a complete manifest (remove _comment). The tools must be installed in the PROJECT (a plugin's require-dev is not installed by the project Composer) and PHPStan MUST run from the project root (from the plugin folder: Class ... not found). Hence the scripts go into the project's composer.json. ⚠ UNVERIFIED: the Composer script wrapper itself; the commands it calls were executed individually.",
     "plugin composer.json": {
         "require": {
             "php": ">=8.2"
         }
     },
-    "projekt composer.json": {
+    "project composer.json": {
         "require-dev": {
             "friendsofphp/php-cs-fixer": "^3.95",
             "phpat/phpat": "^0.12",

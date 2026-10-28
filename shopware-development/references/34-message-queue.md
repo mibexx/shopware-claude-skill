@@ -1,28 +1,28 @@
-# Message Queue (Referenz, Shopware 6.7.15.1)
+# Message Queue (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn ein Plugin Arbeit asynchron über die Shopware-Message-Queue (Symfony Messenger) auslagern will: eigene Messages und Handler, Routing auf Transports, Middleware, Worker-Betrieb (CLI und Admin-Worker), Retry und Failure-Transport.
+This reference applies when a plugin wants to offload work asynchronously via the Shopware message queue (Symfony Messenger): custom messages and handlers, routing to transports, middleware, worker operation (CLI and Admin worker), retry and failure transport.
 
-Abgrenzung: Scheduled Tasks (wiederkehrende Tasks, `scheduled-task:*`) in [T-33](./33-scheduled-tasks.md); Events/Subscriber in [T-07](./07-events-subscriber.md); Service-Registrierung in [T-05](./05-services-registrieren.md); Worker-/Hosting-Betrieb in [T-49](./49-build-deployment.md); Logging/CLI in [T-43](./43-cli-logging-systemchecks.md).
+Scope: scheduled tasks (recurring tasks, `scheduled-task:*`) in [T-33](./33-scheduled-tasks.md); events/subscribers in [T-07](./07-events-subscriber.md); service registration in [T-05](./05-registering-services.md); worker/hosting operation in [T-49](./49-build-deployment.md); logging/CLI in [T-43](./43-cli-logging-systemchecks.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-- Shopware nutzt **Symfony Messenger** (v7.4.21 laut `installed.json`) ohne eigene Queue-Engine. Message = serialisierbares PHP-Objekt; Versand über `Symfony\Component\Messenger\MessageBusInterface` (Service `messenger.default_bus`, Bus `messenger.bus.default`).
-- **Routing per Marker-Interface** (`core/Framework/Resources/config/packages/framework.yaml`, Z. 94-98):
-  - `Shopware\Core\Framework\MessageQueue\AsyncMessageInterface` -> Transport `async`
-  - `Shopware\Core\Framework\MessageQueue\LowPriorityMessageInterface` -> Transport `low_priority`
+- Shopware uses **Symfony Messenger** (v7.4.21 according to `installed.json`) without its own queue engine. Message = serializable PHP object; sent via `Symfony\Component\Messenger\MessageBusInterface` (service `messenger.default_bus`, bus `messenger.bus.default`).
+- **Routing via marker interface** (`core/Framework/Resources/config/packages/framework.yaml`, lines 94-98):
+  - `Shopware\Core\Framework\MessageQueue\AsyncMessageInterface` -> transport `async`
+  - `Shopware\Core\Framework\MessageQueue\LowPriorityMessageInterface` -> transport `low_priority`
   - `Symfony\Component\Mailer\Messenger\SendEmailMessage` -> `async`
-  - `Shopware\Core\Framework\Webhook\Message\WebhookEventMessage` -> `webhook` (DSN `shopware-webhook://default`, 0 Retries)
-  - Ohne Marker-Interface und ohne eigenes Routing: **synchron** (Symfony-Default, nicht am Shopware-Code getestet).
-- **Handler**: Klasse mit `#[AsMessageHandler]` und `__invoke(MyMessage $m)`. Core-Handler sind `final readonly` (PHPStan-Regel `MessageHandlerFinalRule`, für Plugins nur empfohlen).
-- **Transports (Default)**: `async` und `low_priority` über Doctrine (`MESSENGER_TRANSPORT_DSN` / `MESSENGER_TRANSPORT_LOW_PRIORITY_DSN`, `auto_setup=false`), Failure-Transport `failed` (`MESSENGER_TRANSPORT_FAILURE_DSN`). Retry: `max_retries: 3`, `delay: 1000`, `multiplier: 2`, `max_delay: 0` (1 s, 2 s, 4 s). Parameter `messenger.default_transport_name` = `v65`. Bus-Middleware: `QueuedTimeMiddleware` (setzt `SentAtStamp`).
-- **Middleware**: `MiddlewareInterface` implementieren und unter `framework.messenger.buses.messenger.bus.default.middleware` eintragen (ersetzt die Core-Liste; `QueuedTimeMiddleware` mit aufführen). `MessengerMiddlewareCompilerPass` setzt `RoutingOverwriteMiddleware` automatisch an den **Anfang** der Kette.
-- **Routing überschreiben**: `shopware.messenger.routing_overwrite` (Klasse oder Interface -> Transportname(n)).
-- **Admin-Worker**: Browser-Worker ruft `POST /api/_action/message-queue/consume` pro Transport (`shopware.admin_worker.transports`).
-- **Dedup**: `DeduplicatableMessageInterface` ist nur ein Vertrag (`@experimental stableVersion:v6.8.0 feature:DEDUPLICATABLE_MESSAGES`).
+  - `Shopware\Core\Framework\Webhook\Message\WebhookEventMessage` -> `webhook` (DSN `shopware-webhook://default`, 0 retries)
+  - Without a marker interface and without custom routing: **synchronous** (Symfony default, not tested against the Shopware code).
+- **Handler**: class with `#[AsMessageHandler]` and `__invoke(MyMessage $m)`. Core handlers are `final readonly` (PHPStan rule `MessageHandlerFinalRule`, only recommended for plugins).
+- **Transports (default)**: `async` and `low_priority` via Doctrine (`MESSENGER_TRANSPORT_DSN` / `MESSENGER_TRANSPORT_LOW_PRIORITY_DSN`, `auto_setup=false`), failure transport `failed` (`MESSENGER_TRANSPORT_FAILURE_DSN`). Retry: `max_retries: 3`, `delay: 1000`, `multiplier: 2`, `max_delay: 0` (1 s, 2 s, 4 s). Parameter `messenger.default_transport_name` = `v65`. Bus middleware: `QueuedTimeMiddleware` (sets `SentAtStamp`).
+- **Middleware**: implement `MiddlewareInterface` and add it under `framework.messenger.buses.messenger.bus.default.middleware` (replaces the core list; include `QueuedTimeMiddleware`). `MessengerMiddlewareCompilerPass` automatically puts `RoutingOverwriteMiddleware` at the **start** of the chain.
+- **Overriding routing**: `shopware.messenger.routing_overwrite` (class or interface -> transport name(s)).
+- **Admin worker**: the browser worker calls `POST /api/_action/message-queue/consume` per transport (`shopware.admin_worker.transports`).
+- **Dedup**: `DeduplicatableMessageInterface` is only a contract (`@experimental stableVersion:v6.8.0 feature:DEDUPLICATABLE_MESSAGES`).
 
-Verzeichnisbaum Plugin-relativ:
+Directory tree plugin-relative:
 
 ```
 SwagExample/
@@ -35,30 +35,30 @@ SwagExample/
     └── Resources/config/services.php
 ```
 
-Core-Referenz: `core/Framework/MessageQueue/` (Marker-Interfaces, `MessageHandlerCompilerPass`, `Middleware/RoutingOverwriteMiddleware`, `Api/ConsumeMessagesController`, `Subscriber/`), `core/Framework/Adapter/Messenger/`, `core/Framework/DependencyInjection/message-queue.php`.
+Core reference: `core/Framework/MessageQueue/` (marker interfaces, `MessageHandlerCompilerPass`, `Middleware/RoutingOverwriteMiddleware`, `Api/ConsumeMessagesController`, `Subscriber/`), `core/Framework/Adapter/Messenger/`, `core/Framework/DependencyInjection/message-queue.php`.
 
-## 3. Anleitung
+## 3. Instructions
 
-### 3.1 Message dispatchen
+### 3.1 Dispatching a message
 
-1. Message-Klasse: einfaches serialisierbares Objekt (nur Skalare/Arrays/IDs; keine Entities, Services oder Context). Default-Serializer: JSON (`messenger.transport.symfony_serializer`). Keine PHPStan-Typen in Messages (`MessagesShouldNotUsePHPStanTypes`).
-2. Marker wählen: `AsyncMessageInterface` für reguläre Hintergrundarbeit, `LowPriorityMessageInterface` für Massenarbeit (Core: `DispatchEntityMessage`; Doku: ab 6.5.7.0).
-3. `MessageBusInterface` injizieren, `dispatch($message)` oder `dispatch(new Envelope($message, [new DelayStamp(ms)]))`.
-4. Größenlimit: `shopware.messenger.message_max_kib_size` (Default 1024), erzwungen nur mit `enforce_message_size: true` (`MessageQueueSizeRestrictListener`, `MessageQueueException::maxQueueMessageSizeExceeded`; `queueMessageSizeExceeded` ist `@deprecated tag:v6.8.0`).
+1. Message class: simple serializable object (only scalars/arrays/IDs; no entities, services or context). Default serializer: JSON (`messenger.transport.symfony_serializer`). No PHPStan types in messages (`MessagesShouldNotUsePHPStanTypes`).
+2. Choose the marker: `AsyncMessageInterface` for regular background work, `LowPriorityMessageInterface` for bulk work (core: `DispatchEntityMessage`; docs: from 6.5.7.0).
+3. Inject `MessageBusInterface`, `dispatch($message)` or `dispatch(new Envelope($message, [new DelayStamp(ms)]))`.
+4. Size limit: `shopware.messenger.message_max_kib_size` (default 1024), only enforced with `enforce_message_size: true` (`MessageQueueSizeRestrictListener`, `MessageQueueException::maxQueueMessageSizeExceeded`; `queueMessageSizeExceeded` is `@deprecated tag:v6.8.0`).
 
 ### 3.2 Handler
 
-- `#[AsMessageHandler]` an der Klasse, `__invoke(Message $m)`. Mehrere Handler pro Message möglich.
-- `MessageHandlerCompilerPass` mergt Attribut-Argumente (`handles`, `method`, `priority`, `fromTransport`, ...) in das Tag `messenger.message_handler` (Tag-Argumente haben Vorrang). Er verarbeitet nur **getaggte** Services: im Plugin Tag explizit setzen.
-- Idempotent bauen: Retries und Admin-Worker können dieselbe Message mehrfach ausführen.
-- Exception im Handler -> Retry; nach `max_retries` landet die Message im Transport `failed`.
+- `#[AsMessageHandler]` on the class, `__invoke(Message $m)`. Multiple handlers per message are possible.
+- `MessageHandlerCompilerPass` merges attribute arguments (`handles`, `method`, `priority`, `fromTransport`, ...) into the tag `messenger.message_handler` (tag arguments take precedence). It only processes **tagged** services: set the tag explicitly in the plugin.
+- Build it idempotent: retries and the Admin worker can execute the same message multiple times.
+- Exception in the handler -> retry; after `max_retries` the message ends up in the `failed` transport.
 
-### 3.3 Transports und Routing
+### 3.3 Transports and routing
 
-Eigenen Transport (z. B. RabbitMQ) im **Projekt** ergänzen:
+Add your own transport (e.g. RabbitMQ) in the **project**:
 
 ```yaml
-# config/packages/messenger.yaml (Projekt)
+# config/packages/messenger.yaml (project)
 framework:
     messenger:
         transports:
@@ -69,18 +69,18 @@ framework:
             'SwagExample\Message\HeavyJob': my_transport
 ```
 
-Auflösung: explizites Symfony-Routing (`framework.messenger.routing`) wirkt zuerst; `routing_overwrite` greift über `RoutingOverwriteMiddleware`: bei empfangenen Messages (`ReceivedStamp`) oder vorhandenem `TransportNamesStamp` passiert nichts; sonst Match per exakter Klasse, danach per `instanceof`. Wert: String oder Liste.
+Resolution: explicit Symfony routing (`framework.messenger.routing`) applies first; `routing_overwrite` takes effect via `RoutingOverwriteMiddleware`: for received messages (`ReceivedStamp`) or an existing `TransportNamesStamp` nothing happens; otherwise match by exact class, then by `instanceof`. Value: string or list.
 
 ### 3.4 Middleware
 
-1. `handle(Envelope, StackInterface): Envelope` implementieren und immer `$stack->next()->handle($envelope, $stack)` zurückgeben (außer bewusst abbrechen).
-2. Als Service registrieren, in `framework.messenger.buses.messenger.bus.default.middleware` eintragen (Doku: `add-middleware.html`). **Achtung**: Die Liste wird nicht mit der Core-Liste gemergt, sondern ersetzt sie (Symfony `performNoDeepMerging`). Der Core trägt dort `QueuedTimeMiddleware` ein (`core/Framework/Resources/config/packages/framework.yaml`); sie muss in der eigenen Liste mit aufgeführt werden, sonst fällt sie weg (kein `SentAtStamp`).
-3. Reihenfolge: `RoutingOverwriteMiddleware` (vom `MessengerMiddlewareCompilerPass` vorangestellt, unabhängig von der YAML), danach konfigurierte (`QueuedTimeMiddleware`, eigene), Symfony-Standard (Routing, Handler) am Ende.
-4. Dieselbe Middleware läuft beim Dispatch **und** beim Empfang im Worker; mit `ReceivedStamp` unterscheiden.
+1. Implement `handle(Envelope, StackInterface): Envelope` and always return `$stack->next()->handle($envelope, $stack)` (unless deliberately aborting).
+2. Register as a service, add to `framework.messenger.buses.messenger.bus.default.middleware` (docs: `add-middleware.html`). **Caution**: the list is not merged with the core list but replaces it (Symfony `performNoDeepMerging`). The core registers `QueuedTimeMiddleware` there (`core/Framework/Resources/config/packages/framework.yaml`); it must be included in your own list, otherwise it is dropped (no `SentAtStamp`).
+3. Order: `RoutingOverwriteMiddleware` (prepended by `MessengerMiddlewareCompilerPass`, independent of the YAML), then the configured ones (`QueuedTimeMiddleware`, your own), Symfony standard (routing, handler) at the end.
+4. The same middleware runs on dispatch **and** on receipt in the worker; distinguish with `ReceivedStamp`.
 
-### 3.5 Worker, Admin-Worker, CLI
+### 3.5 Worker, Admin worker, CLI
 
-Produktion (Doku): CLI-Worker per systemd/supervisor, Admin-Worker abschalten.
+Production (docs): CLI worker via systemd/supervisor, disable the Admin worker.
 
 ```bash
 bin/console messenger:consume async low_priority --time-limit=60 --memory-limit=512M
@@ -88,45 +88,45 @@ bin/console messenger:stats
 bin/console messenger:failed:show
 bin/console messenger:failed:retry
 bin/console messenger:failed:remove <id>
-bin/console messenger:stop-workers      # sendet Restart-Signal
+bin/console messenger:stop-workers      # sends restart signal
 bin/console debug:messenger
 ```
 
-`messenger:*` stammt aus dem Symfony FrameworkBundle; Shopware liefert unter `core/Framework/MessageQueue/Command/` nur Scheduled-Task-Kommandos.
+`messenger:*` comes from the Symfony FrameworkBundle; Shopware only ships scheduled task commands under `core/Framework/MessageQueue/Command/`.
 
-Admin-Worker (`shopware.yaml`, Core-Default):
+Admin worker (`shopware.yaml`, core default):
 
 ```yaml
 shopware:
     admin_worker:
         enable_admin_worker: true
-        enable_queue_stats_worker: true   # deprecated, entfällt in 6.8.0
+        enable_queue_stats_worker: true   # deprecated, removed in 6.8.0
         enable_notification_worker: true
-        poll_interval: 20                 # muss < PHP max_execution_time sein
+        poll_interval: 20                 # must be < PHP max_execution_time
         memory_limit: '128M'
         transports: ["webhook", "async", "low_priority"]
 ```
 
-| Aspekt | `messenger:consume` | Admin-Worker |
+| Aspect | `messenger:consume` | Admin worker |
 |---|---|---|
-| Start | CLI-Prozess, dauerhaft | Web Worker im Browser, pro Transport `POST /api/_action/message-queue/consume` (`receiver`, ACL `system:queue:process`) |
-| Laufzeit | bis Limit/Signal | max. `poll_interval` s, Memory-Limit aus `admin_worker.memory_limit` |
-| Early Return | nein | `EarlyReturnMessagesListener` stoppt, sobald ein Durchlauf nichts verarbeitet hat |
-| Parallelität | beliebig | Lock `message_queue_consume_<receiver>`; zweiter Request -> `MessageQueueException::workerIsLocked` |
-| Listener | alle Symfony-Standard-Listener | eigener frischer `EventDispatcher` (TimeLimit, `CountHandledMessagesListener`, `MessageQueueStatsSubscriber`, RestartSignal, EarlyReturn, optional MemoryLimit) |
-| Betrieb | Server | nur bei eingeloggtem Admin und `enable_admin_worker` |
+| Start | CLI process, permanent | Web Worker in the browser, per transport `POST /api/_action/message-queue/consume` (`receiver`, ACL `system:queue:process`) |
+| Runtime | until limit/signal | max. `poll_interval` s, memory limit from `admin_worker.memory_limit` |
+| Early return | no | `EarlyReturnMessagesListener` stops as soon as a run has processed nothing |
+| Parallelism | any | lock `message_queue_consume_<receiver>`; second request -> `MessageQueueException::workerIsLocked` |
+| Listeners | all Symfony standard listeners | its own fresh `EventDispatcher` (TimeLimit, `CountHandledMessagesListener`, `MessageQueueStatsSubscriber`, RestartSignal, EarlyReturn, optionally MemoryLimit) |
+| Operation | server | only with a logged-in admin and `enable_admin_worker` |
 
-Folge: Die Retry-/Failure-Transport-Listener von Symfony fehlen im Admin-Worker-Dispatcher; für verlässliches Retry den CLI-Worker nutzen.
+Consequence: Symfony's retry/failure transport listeners are missing in the Admin worker dispatcher; use the CLI worker for reliable retry.
 
-### 3.6 Dedup (experimentell)
+### 3.6 Dedup (experimental)
 
-Vertrag (Docblock): ID identisch für semantisch gleiche Messages, höchstens 64 ASCII-Zeichen, ohne Typ-/Klassennamen, `null` = nicht deduplizierbar; muss "in der Middleware/im Transport" umgesetzt werden. Core-Implementierer des Interfaces u. a.: `EntityIndexingMessage`, `FullEntityIndexerMessage`, `IterateEntityIndexerMessage`, `RotateAppSecretMessage`, `CleanupOldCacheFolders`, `InvalidateCacheTask`, `AdminSearchIndexingMessage`, `ElasticsearchIndexingMessage`.
+Contract (docblock): ID identical for semantically equal messages, at most 64 ASCII characters, without type/class names, `null` = not deduplicatable; must be implemented "in the middleware/in the transport". Core implementers of the interface include, among others: `EntityIndexingMessage`, `FullEntityIndexerMessage`, `IterateEntityIndexerMessage`, `RotateAppSecretMessage`, `CleanupOldCacheFolders`, `InvalidateCacheTask`, `AdminSearchIndexingMessage`, `ElasticsearchIndexingMessage`.
 
 ### 3.7 Retry
 
-Pro Transport `retry_strategy`: Default 3 Versuche, Verzögerung `delay * multiplier^n` ms, `max_delay: 0` = unbegrenzt, danach `failure_transport: failed`. `webhook`: 0 Retries.
+Per transport `retry_strategy`: default 3 attempts, delay `delay * multiplier^n` ms, `max_delay: 0` = unlimited, then `failure_transport: failed`. `webhook`: 0 retries.
 
-## 4. Beispiele
+## 4. Examples
 
 `src/Message/SmsNotification.php`
 
@@ -167,7 +167,7 @@ final readonly class SmsNotificationHandler
 
     public function __invoke(SmsNotification $message): void
     {
-        // Fehler als Exception werfen -> Retry/Failure-Transport greifen
+        // throw errors as exceptions -> retry/failure transport take effect
         $this->logger->info('SMS to ' . $message->phoneNumber . ': ' . $message->content);
     }
 }
@@ -246,7 +246,7 @@ return static function (ContainerConfigurator $container): void {
 
     $services->set(SmsNotificationHandler::class)
         ->args([service('logger')])
-        ->tag('messenger.message_handler');   // explizit: #[AsMessageHandler] wird nur bei getaggten Services gelesen
+        ->tag('messenger.message_handler');   // explicit: #[AsMessageHandler] is only read for tagged services
 
     $services->set(NotificationDispatcher::class)
         ->args([service('messenger.default_bus')]);
@@ -256,7 +256,7 @@ return static function (ContainerConfigurator $container): void {
 };
 ```
 
-Middleware und Routing-Overwrite in der **Projekt**-Konfiguration `config/packages/swag_example.yaml`:
+Middleware and routing overwrite in the **project** configuration `config/packages/swag_example.yaml`:
 
 ```yaml
 framework:
@@ -264,7 +264,7 @@ framework:
         buses:
             messenger.bus.default:
                 middleware:
-                    # ersetzt die Core-Liste: QueuedTimeMiddleware aus dem Core mit eintragen
+                    # replaces the core list: also add QueuedTimeMiddleware from the core
                     - 'Shopware\Core\Framework\Adapter\Messenger\Middleware\QueuedTimeMiddleware'
                     - 'SwagExample\Middleware\LoggingMiddleware'
 
@@ -274,7 +274,7 @@ shopware:
             'SwagExample\Message\SmsNotification': low_priority
 ```
 
-Hinweis: `Bundle::buildDefaultConfig()` (lädt `Resources/config/packages/*.yaml`) wird im Core nur von `Framework`, `Profiling`, `Administration`, `Storefront` und `Elasticsearch` aufgerufen, nicht für Plugins. Plugin-eigene `Resources/config/packages/*.yaml` wirken daher nicht automatisch; Projektkonfiguration verwenden.
+Note: `Bundle::buildDefaultConfig()` (loads `Resources/config/packages/*.yaml`) is only called in the core by `Framework`, `Profiling`, `Administration`, `Storefront` and `Elasticsearch`, not for plugins. Plugin-owned `Resources/config/packages/*.yaml` therefore do not take effect automatically; use the project configuration.
 
 Test:
 
@@ -283,7 +283,7 @@ bin/console plugin:refresh && bin/console plugin:install --activate SwagExample
 bin/console messenger:consume low_priority async --time-limit=60 -vv
 ```
 
-Dedup-Message (experimentell):
+Dedup message (experimental):
 
 ```php
 <?php declare(strict_types=1);
@@ -301,60 +301,60 @@ final readonly class ReindexProduct implements AsyncMessageInterface, Deduplicat
 
     public function deduplicationId(): ?string
     {
-        return $this->productId; // max. 64 ASCII-Zeichen, kein Klassenname
+        return $this->productId; // max. 64 ASCII characters, no class name
     }
 }
 ```
 
-Plugin-Gerüst: [../templates/plugin/README.md](../templates/plugin/README.md).
+Plugin scaffold: [../templates/plugin/README.md](../templates/plugin/README.md).
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- **Kein Marker-Interface und kein Routing**: Message läuft synchron im Request.
-- **Kein Worker läuft**: Messages bleiben in `messenger_messages` (Doctrine). Produktion: CLI-Worker, nicht auf den Admin-Worker verlassen (nur bei eingeloggtem Admin).
-- **`low_priority` nicht konsumiert**: Worker muss den Transport nennen; beim Admin-Worker muss er in `admin_worker.transports` stehen.
-- **Entities/Context/Services in der Message**: nicht serialisierbar bzw. zu groß; nur IDs und Skalare, im Handler laden.
-- **Message ändern, während alte in der Queue liegen**: Konstruktor nur rückwärtskompatibel erweitern (Core-Beispiel `WebhookEventMessage::$partitionKey`).
-- **Handler nicht idempotent**: Retries erzeugen doppelte Effekte.
-- **Handler-Tag vergessen**: `#[AsMessageHandler]` allein reicht nicht, wenn der Service nicht `messenger.message_handler` trägt.
-- **Middleware ohne `$stack->next()->handle(...)`**: Message wird verschluckt.
-- **Worker mit altem Code nach Deployment**: `messenger:stop-workers`; `PluginLifecycleSubscriber` sendet bei Plugin-Lifecycle ein Restart-Signal.
-- **`poll_interval` >= `max_execution_time`**: Admin-Worker-Request läuft in Timeout.
-- **Lange Handler im Admin-Worker** blockieren den Receiver-Lock.
-- **Dedup-Interface verlassen**: experimentell, keine belegte Implementierung.
+- **No marker interface and no routing**: the message runs synchronously in the request.
+- **No worker running**: messages stay in `messenger_messages` (Doctrine). Production: CLI worker, do not rely on the Admin worker (only with a logged-in admin).
+- **`low_priority` not consumed**: the worker must name the transport; for the Admin worker it must be in `admin_worker.transports`.
+- **Entities/context/services in the message**: not serializable or too large; only IDs and scalars, load in the handler.
+- **Changing a message while old ones are in the queue**: only extend the constructor backward-compatibly (core example `WebhookEventMessage::$partitionKey`).
+- **Handler not idempotent**: retries produce duplicate effects.
+- **Handler tag forgotten**: `#[AsMessageHandler]` alone is not enough if the service does not carry `messenger.message_handler`.
+- **Middleware without `$stack->next()->handle(...)`**: the message is swallowed.
+- **Workers with old code after deployment**: `messenger:stop-workers`; `PluginLifecycleSubscriber` sends a restart signal on plugin lifecycle events.
+- **`poll_interval` >= `max_execution_time`**: the Admin worker request runs into a timeout.
+- **Long handlers in the Admin worker** block the receiver lock.
+- **Relying on the dedup interface**: experimental, no confirmed implementation.
 
-### Deprecations und Versionshinweise (6.5/6.6 -> 6.7)
+### Deprecations and version notes (6.5/6.6 -> 6.7)
 
-- `LowPriorityMessageInterface`/`low_priority`: ab 6.5.7.0 (Doku).
-- `shopware.admin_worker.enable_queue_stats_worker`: deprecated ab 6.8.0; Ersatz `shopware.messenger.stats.enabled` (+ `time_span`, Default 300).
+- `LowPriorityMessageInterface`/`low_priority`: from 6.5.7.0 (docs).
+- `shopware.admin_worker.enable_queue_stats_worker`: deprecated from 6.8.0; replacement `shopware.messenger.stats.enabled` (+ `time_span`, default 300).
 - `shopware.message_queue.type` (`shopware.yaml`): `@deprecated tag:v6.8.0`.
-- `DeduplicatableMessageInterface`: neu, `@experimental`.
-- `WebhookEventMessage::$partitionKey`: `@deprecated tag:v6.8.0` (wird non-nullable).
-- Neue Optionen in 6.7.15: `shopware.messenger.enforce_message_size`, `message_max_kib_size`, `scheduled_task.requeue_timeout`, `stats.*`, `routing_overwrite`. Ob sie in 6.5/6.6 existierten, nicht geprüft.
-- **Doku weicht vom Code ab**: `admin_worker.transports` enthält im 6.7.15-Default zusätzlich `webhook` (Doku nennt nur `["async","low_priority"]`). Code gilt.
-- Handler per `#[AsMessageHandler]` ist empfohlener Weg; Tag-Variante weiterhin möglich.
+- `DeduplicatableMessageInterface`: new, `@experimental`.
+- `WebhookEventMessage::$partitionKey`: `@deprecated tag:v6.8.0` (becomes non-nullable).
+- New options in 6.7.15: `shopware.messenger.enforce_message_size`, `message_max_kib_size`, `scheduled_task.requeue_timeout`, `stats.*`, `routing_overwrite`. Whether they existed in 6.5/6.6 was not checked.
+- **Docs deviate from the code**: in the 6.7.15 default, `admin_worker.transports` additionally contains `webhook` (the docs only name `["async","low_priority"]`). The code applies.
+- A handler via `#[AsMessageHandler]` is the recommended way; the tag variant is still possible.
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] Message: `final readonly`, nur Skalare/IDs, passendes Marker-Interface
-- [ ] Handler mit `#[AsMessageHandler]` und Tag `messenger.message_handler` registriert
-- [ ] Handler idempotent, Fehler als Exception
-- [ ] Routing geprüft (Marker, `routing_overwrite` oder `framework.messenger.routing`)
-- [ ] Middleware ruft `$stack->next()->handle()` und ist in der Projektkonfiguration eingetragen
-- [ ] Im Betrieb läuft ein CLI-Worker für alle genutzten Transports
-- [ ] Nach Deployments `messenger:stop-workers` bzw. Worker-Neustart
-- [ ] Retry-/Failure-Verhalten getestet (`messenger:failed:show`)
-- [ ] Keine Abhängigkeit auf experimentelle Dedup-Funktion
+- [ ] Message: `final readonly`, only scalars/IDs, appropriate marker interface
+- [ ] Handler registered with `#[AsMessageHandler]` and tag `messenger.message_handler`
+- [ ] Handler idempotent, errors as exceptions
+- [ ] Routing checked (marker, `routing_overwrite` or `framework.messenger.routing`)
+- [ ] Middleware calls `$stack->next()->handle()` and is registered in the project configuration
+- [ ] In operation, a CLI worker runs for all used transports
+- [ ] After deployments `messenger:stop-workers` or worker restart
+- [ ] Retry/failure behavior tested (`messenger:failed:show`)
+- [ ] No dependency on the experimental dedup feature
 
-## 7. Quellen
+## 7. Sources
 
-Doku:
+Docs:
 - https://developer.shopware.com/docs/guides/plugins/plugins/framework/message-queue/add-message-to-queue.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/framework/message-queue/add-message-handler.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/framework/message-queue/add-middleware.html
 - https://developer.shopware.com/docs/guides/hosting/infrastructure/message-queue.html
 
-Quellcode (`core/`):
+Source code (`core/`):
 - `Framework/MessageQueue/{AsyncMessageInterface,LowPriorityMessageInterface,DeduplicatableMessageInterface,MessageHandlerCompilerPass,MessageQueueException}.php`
 - `Framework/MessageQueue/Middleware/RoutingOverwriteMiddleware.php`, `Api/ConsumeMessagesController.php`, `Subscriber/{EarlyReturnMessagesListener,CountHandledMessagesListener,MessageQueueStatsSubscriber,MessageQueueSizeRestrictListener}.php`
 - `Framework/DependencyInjection/CompilerPass/MessengerMiddlewareCompilerPass.php`, `Framework/DependencyInjection/message-queue.php`, `Framework/DependencyInjection/Configuration.php`
@@ -364,11 +364,11 @@ Quellcode (`core/`):
 - `Framework/Bundle.php` (`build`, `buildDefaultConfig`), `DevOps/StaticAnalyze/PHPStan/Rules/MessageHandlerFinalRule.php`
 - Admin: `core/worker/admin-worker.js`, `app/init-post/worker.init.ts`; `vendor/symfony/messenger/Worker.php`
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ LÜCKE: Keine Middleware/Transport-Implementierung gefunden, die `DeduplicatableMessageInterface::deduplicationId()` auswertet (weder Core noch Elasticsearch); Verhalten unbelegt, Redis/RabbitMQ nicht verifiziert.
-- ⚠ LÜCKE: Retry im Admin-Worker: `ConsumeMessagesController` nutzt einen eigenen `EventDispatcher` ohne Symfony-Retry-/Failure-Listener; laut `Worker.php` wird eine fehlgeschlagene Message ohne diese Listener `reject`ed. Ob Retry anderweitig greift, nicht geprüft.
-- Autoconfigure greift in Plugins nur mit `->defaults()->autowire()->autoconfigure()` (live bestätigt für Subscriber/Decorator); ohne `defaults()` nicht aktiv. ⚠ UNGEPRÜFT: `#[AsMessageHandler]` wurde live nicht gezielt getestet (Beispiel setzt das Tag explizit).
-- Belegt (Code, nicht zur Laufzeit ausgeführt): `Bundle::build()` und `Plugin` rufen `buildDefaultConfig()` (protected) nicht auf; im Core rufen es `Framework`, `Profiling`, `Administration`, `Storefront` und `Elasticsearch` auf. Plugin-`Resources/config/packages/*.yaml` wirken nur, wenn das Plugin es selbst in `build()` aufruft; sonst Projektkonfiguration `config/packages/*.yaml` verwenden.
-- ⚠ UNGEPRÜFT: CLI-Kommandos nicht ausgeführt (Namen aus Symfony/Doku); "synchron ohne Routing" ist Symfony-Wissen; 6.5/6.6-Details nur aus Doku-Hinweisen und Deprecation-Texten.
-- ⚠ UNGEPRÜFT: `message_queue.type` und `enable_queue_stats_worker` betreffen den Increment-Stats-Pfad, nicht den Transport (Zuordnung aus Deprecation-Text abgeleitet). Inhalt der Restart-Signal-Datei im `PluginLifecycleSubscriber` nicht im Detail geprüft.
+- ⚠ GAP: No middleware/transport implementation found that evaluates `DeduplicatableMessageInterface::deduplicationId()` (neither core nor Elasticsearch); behavior unconfirmed, Redis/RabbitMQ not verified.
+- ⚠ GAP: Retry in the Admin worker: `ConsumeMessagesController` uses its own `EventDispatcher` without Symfony retry/failure listeners; according to `Worker.php`, a failed message is `reject`ed without these listeners. Whether retry takes effect otherwise was not checked.
+- Autoconfigure applies in plugins only with `->defaults()->autowire()->autoconfigure()` (verified live for subscribers/decorators); not active without `defaults()`. ⚠ UNVERIFIED: `#[AsMessageHandler]` was not specifically tested live (the example sets the tag explicitly).
+- Confirmed (code, not executed at runtime): `Bundle::build()` and `Plugin` do not call `buildDefaultConfig()` (protected); in the core it is called by `Framework`, `Profiling`, `Administration`, `Storefront` and `Elasticsearch`. Plugin `Resources/config/packages/*.yaml` only take effect if the plugin calls it itself in `build()`; otherwise use the project configuration `config/packages/*.yaml`.
+- ⚠ UNVERIFIED: CLI commands not executed (names from Symfony/docs); "synchronous without routing" is Symfony knowledge; 6.5/6.6 details only from docs notes and deprecation texts.
+- ⚠ UNVERIFIED: `message_queue.type` and `enable_queue_stats_worker` concern the increment stats path, not the transport (mapping derived from the deprecation text). Content of the restart signal file in `PluginLifecycleSubscriber` not checked in detail.

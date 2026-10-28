@@ -9,7 +9,7 @@
         {% endblock %}
 
         {% block element_swag_example_element_content %}
-            {# Inhalt wurde im Resolver per HtmlSanitizer bereinigt #}
+            {# Content was sanitized in the resolver via HtmlSanitizer #}
             {{ element.data.content|raw }}
         {% endblock %}
     </div>

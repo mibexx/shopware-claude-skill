@@ -8,8 +8,8 @@ use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 use Shopware\Core\Framework\Test\TestCaseBase\SalesChannelApiTestBehaviour;
 use Shopware\Core\Test\Stub\Framework\IdsCollection;
 
-// Pfad im Plugin: custom/plugins/SwagExample/tests/Integration/Route/ProductStoreApiTest.php
-// Store-API-Test: braucht symfony/browser-kit (siehe README.md). ProductBuilder/IdsCollection sind @internal bzw. @final.
+// Path in the plugin: custom/plugins/SwagExample/tests/Integration/Route/ProductStoreApiTest.php
+// Store API test: needs symfony/browser-kit (see README.md). ProductBuilder/IdsCollection are @internal and @final respectively.
 class ProductStoreApiTest extends TestCase
 {
     use IntegrationTestBehaviour;
@@ -17,12 +17,12 @@ class ProductStoreApiTest extends TestCase
 
     public function testProductIsReadableViaStoreApi(): void
     {
-        $browser = $this->getSalesChannelBrowser(); // legt einen Test-Sales-Channel an und setzt sw-access-key
+        $browser = $this->getSalesChannelBrowser(); // creates a test sales channel and sets sw-access-key
         $ids = new IdsCollection();
 
         (new ProductBuilder($ids, 'SW-QA'))
             ->price(100)
-            ->visibility($this->getSalesChannelApiSalesChannelId()) // nicht TestDefaults::SALES_CHANNEL
+            ->visibility($this->getSalesChannelApiSalesChannelId()) // not TestDefaults::SALES_CHANNEL
             ->write(static::getContainer());
 
         $browser->request('POST', '/store-api/product', ['ids' => [$ids->get('SW-QA')]]);

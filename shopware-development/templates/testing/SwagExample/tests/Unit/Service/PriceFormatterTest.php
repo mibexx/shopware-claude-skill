@@ -7,8 +7,8 @@ use PHPUnit\Framework\TestCase;
 use Shopware\Core\Test\Stub\SystemConfigService\StaticSystemConfigService;
 use SwagExample\Service\PriceFormatter;
 
-// Pfad im Plugin: custom/plugins/SwagExample/tests/Unit/Service/PriceFormatterTest.php
-// Unit-Test: kein Kernel, keine Datenbank, keine Test-Traits.
+// Path in the plugin: custom/plugins/SwagExample/tests/Unit/Service/PriceFormatterTest.php
+// Unit test: no kernel, no database, no test traits.
 #[CoversClass(PriceFormatter::class)]
 class PriceFormatterTest extends TestCase
 {

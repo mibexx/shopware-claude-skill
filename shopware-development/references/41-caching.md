@@ -1,23 +1,23 @@
-# Caching: HTTP-Cache, Invalidierung, Reverse Proxy (Referenz, Shopware 6.7.15.1)
+# Caching: HTTP cache, invalidation, reverse proxy (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn eine eigene Storefront-/Store-API-Route cachebar werden soll, Cache-Tags gesetzt oder invalidiert werden, der Cache-Hash/Cookies die Auslieferung beeinflussen oder ein Reverse Proxy (Varnish, Fastly) angebunden wird.
+This reference applies when a custom Storefront/Store API route should become cacheable, cache tags are set or invalidated, the cache hash/cookies affect delivery, or a reverse proxy (Varnish, Fastly) is connected.
 
-Abgrenzung: Controller/Routen in [T-16](./16-storefront-controller-pages.md); Store-API-Routen und deren Überschreiben in [T-30](./30-store-api-routen.md); DAL-Events zum Auslösen der Invalidierung in [T-07](./07-events-subscriber.md); Scheduled Tasks/Worker in [T-33](./33-scheduled-tasks.md) und [T-34](./34-message-queue.md); Cookies/Consent in [T-42](./42-cookies-consent.md); Betrieb/Deployment in [T-49](./49-build-deployment.md).
+Scope: controllers/routes in [T-16](./16-storefront-controller-pages.md); Store API routes and overriding them in [T-30](./30-store-api-routes.md); DAL events for triggering invalidation in [T-07](./07-events-subscriber.md); scheduled tasks/workers in [T-33](./33-scheduled-tasks.md) and [T-34](./34-message-queue.md); cookies/consent in [T-42](./42-cookies-consent.md); operations/deployment in [T-49](./49-build-deployment.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-- **HTTP-Cache**: `Framework/Adapter/Kernel/HttpCacheKernel` dekoriert `http_kernel` und speichert Antworten im Pool `cache.http` über `Http/CacheStore`. Mit externem Reverse Proxy (`shopware.http_cache.reverse_proxy.enabled: true`) ersetzt `ReverseProxyCompilerPass` den `CacheStore` durch `ReverseProxy/ReverseProxyCache`; der interne Cache entfällt, Shopware setzt nur noch Tags (Header `xkey` bei Varnish, `surrogate-key` bei Fastly).
-- **Cachebar machen**: Route mit `defaults: [PlatformRequest::ATTRIBUTE_HTTP_CACHE => true]` (`'_httpCache'`), nur GET. Tags setzt man mit `CacheTagCollector::addTag(string ...$tags)`. Gilt für Storefront- und Store-API-Routen.
-- **Invalidieren**: `CacheInvalidator::invalidate(array $tags, bool $force = false)`. Standardmäßig **verzögert**: Tags landen in `AbstractInvalidatorStorage` (MySQL oder Redis) und werden vom Scheduled Task `shopware.invalidate_cache` (alle 5 Min.) oder `bin/console cache:clear:delayed` gepurged. `force: true` oder Request-Header `sw-force-cache-invalidate: 1` purgt sofort.
-- **Cache-Hash** (Cookie und Header `sw-cache-hash`): Fingerabdruck des Kontexts (Regel-IDs, Währung, Steuerstatus, Login-Status, Version, konfigurierte Cookies). Wird nur gesetzt, wenn nötig (Login, gefüllter Warenkorb, abweichende Währung/Land/Zahlungs-/Versandart, Cache-relevante Cookies). Erweiterbar über `HttpCacheCookieEvent` und `CacheHashRequiredExtension`.
-- **6.7 ist Übergangsversion**: Das neue Cache-Verhalten ("Cache Rework") liegt hinter dem Feature-Flag **`CACHE_REWORK` (`default: false`, experimentell)** und wird mit 6.8 Standard. Im Code (`CacheStateSubscriber`, `CacheStore`, `CacheResponseSubscriber`, `ReverseProxyCache`) schaltet es auch das Major-Flag **`v6.8.0.0`** (`default: false`, `major: true`) und das experimentelle Flag **`PERFORMANCE_TWEAKS`** (`default: false`, `major: true`, "Experimental! Contains Performance Tweaks for future changes") ein: Für Cache-States (Wegfall), Cache-Hash und Währungs-Cookie genügt eines der drei Flags. Store-API-Caching (`CacheResponseSubscriber`), und Cache-Control-Policies (`CacheControlListener`) greifen nur mit `CACHE_REWORK` oder `v6.8.0.0`, nicht mit `PERFORMANCE_TWEAKS` allein. `CACHE_CONTEXT_HASH_RULES_OPTIMIZATION` ist deprecated. Ohne diese Flags gilt das alte Verhalten (Cache-States `logged-in`/`cart-filled`, Store-API **nicht** HTTP-gecacht, `s-maxage` via Default-TTL).
-- **Entfernt/deprecated**: Die `Cached*Route`-Dekoratoren gibt es in 6.7.15 nicht mehr. `StoreApiRouteCacheTagsEvent` und `StoreApiRouteCacheKeyEvent` sind `@deprecated` ("not used anymore", Entfernung 6.8) und wirkungslos. Stattdessen `CacheTagCollector::addTag()`.
+- **HTTP cache**: `Framework/Adapter/Kernel/HttpCacheKernel` decorates `http_kernel` and stores responses in the pool `cache.http` via `Http/CacheStore`. With an external reverse proxy (`shopware.http_cache.reverse_proxy.enabled: true`), `ReverseProxyCompilerPass` replaces the `CacheStore` with `ReverseProxy/ReverseProxyCache`; the internal cache is dropped, and Shopware only sets tags (header `xkey` for Varnish, `surrogate-key` for Fastly).
+- **Making it cacheable**: route with `defaults: [PlatformRequest::ATTRIBUTE_HTTP_CACHE => true]` (`'_httpCache'`), GET only. Tags are set with `CacheTagCollector::addTag(string ...$tags)`. Applies to Storefront and Store API routes.
+- **Invalidating**: `CacheInvalidator::invalidate(array $tags, bool $force = false)`. **Delayed** by default: tags land in `AbstractInvalidatorStorage` (MySQL or Redis) and are purged by the scheduled task `shopware.invalidate_cache` (every 5 min.) or `bin/console cache:clear:delayed`. `force: true` or the request header `sw-force-cache-invalidate: 1` purges immediately.
+- **Cache hash** (cookie and header `sw-cache-hash`): fingerprint of the context (rule IDs, currency, tax state, login state, version, configured cookies). Only set when needed (login, filled cart, deviating currency/country/payment/shipping method, cache-relevant cookies). Extensible via `HttpCacheCookieEvent` and `CacheHashRequiredExtension`.
+- **6.7 is a transitional version**: The new cache behavior ("Cache Rework") sits behind the feature flag **`CACHE_REWORK` (`default: false`, experimental)** and becomes the default with 6.8. In the code (`CacheStateSubscriber`, `CacheStore`, `CacheResponseSubscriber`, `ReverseProxyCache`) it is also switched on by the major flag **`v6.8.0.0`** (`default: false`, `major: true`) and the experimental flag **`PERFORMANCE_TWEAKS`** (`default: false`, `major: true`, "Experimental! Contains Performance Tweaks for future changes"): for cache states (removal), cache hash and currency cookie, any one of the three flags is sufficient. Store API caching (`CacheResponseSubscriber`) and cache-control policies (`CacheControlListener`) only take effect with `CACHE_REWORK` or `v6.8.0.0`, not with `PERFORMANCE_TWEAKS` alone. `CACHE_CONTEXT_HASH_RULES_OPTIMIZATION` is deprecated. Without these flags the old behavior applies (cache states `logged-in`/`cart-filled`, Store API **not** HTTP-cached, `s-maxage` via default TTL).
+- **Removed/deprecated**: The `Cached*Route` decorators no longer exist in 6.7.15. `StoreApiRouteCacheTagsEvent` and `StoreApiRouteCacheKeyEvent` are `@deprecated` ("not used anymore", removal in 6.8) and have no effect. Use `CacheTagCollector::addTag()` instead.
 
-Wichtige Core-Klassen (`core/Framework/Adapter/Cache/`): `CacheInvalidator`, `CacheTagCollector`, `CacheInvalidationSubscriber`, `Http/{CacheStore,CacheResponseSubscriber,CacheHeadersService,HttpCacheKeyGenerator,CachePolicyProvider,CacheAttribute}`, `InvalidatorStorage/{MySQL,Redis}InvalidatorStorage`, `ReverseProxy/{Varnish,Fastly}ReverseProxyGateway`, `Script/Facade/CacheInvalidatorFacade` (App-Scripts: `cache.invalidate([...])`).
+Important core classes (`core/Framework/Adapter/Cache/`): `CacheInvalidator`, `CacheTagCollector`, `CacheInvalidationSubscriber`, `Http/{CacheStore,CacheResponseSubscriber,CacheHeadersService,HttpCacheKeyGenerator,CachePolicyProvider,CacheAttribute}`, `InvalidatorStorage/{MySQL,Redis}InvalidatorStorage`, `ReverseProxy/{Varnish,Fastly}ReverseProxyGateway`, `Script/Facade/CacheInvalidatorFacade` (app scripts: `cache.invalidate([...])`).
 
-Plugin-Baum:
+Plugin tree:
 ```
 custom/plugins/SwagExample/
 └── src/
@@ -29,21 +29,21 @@ custom/plugins/SwagExample/
         └── views/storefront/page/example/index.html.twig
 ```
 
-## 3. Anleitung
+## 3. Instructions
 
-1. **Cache aktivieren**: `SHOPWARE_HTTP_CACHE_ENABLED=1` (Default `1`, `core/Framework/DependencyInjection/services.php` Z. 188-189; zusätzlich `framework.http_cache.enabled: true`).
-2. **Route cachebar**: `_httpCache => true`. Erlaubt sind `true`, ein Array (`clientMaxAge`, `sharedMaxAge`/`maxAge`, `states`) oder ein `CacheAttribute`. Nur **GET** wird gecacht (alles andere bekommt eine Uncacheable-Policy, `CacheResponseSubscriber::setResponseCache`); 404-Antworten nie.
-3. **Tags setzen**: `CacheTagCollector::addTag('mein-tag', ...)` während des Requests. Tags werden nach Request-URI gesammelt und von `CacheStore::write()` bzw. `ReverseProxyCache::write()` an die Antwort gehängt. Core-Routen tragen ihre Tags selbst ein (`EntityCacheKeyGenerator::buildProductTag($id)` = `product-<id>`, `CategoryRoute::buildName($id)` usw.). Lädt der Controller alles über Store-API-Routen, ist keine eigene Invalidierung nötig.
-4. **Invalidieren**: `CacheInvalidator::invalidate($tags, $force)`. Der Core macht das in `CacheInvalidationSubscriber` bei `EntityWrittenContainerEvent`, Indexer-Events und `InvalidateProductCache`. Eigene Entitäten: auf `<entity>.written` lauschen (z. B. `ProductEvents::PRODUCT_MANUFACTURER_WRITTEN_EVENT`); der Handler-Parameter ist dort `EntityWrittenEvent`, nicht `EntityWrittenContainerEvent` (der Container-Event ist nur Rückgabe von `create/update` und Event unter `EntityWrittenContainerEvent::class`), sonst TypeError. Eigene Tags invalidieren.
-5. **Delayed Invalidation**: `shopware.cache.invalidation.delay_enabled` (Default `true`), `delay_options.storage` (`mysql` oder `redis`, `connection`), `tag_invalidation_log_enabled: true` loggt jeden Purge mit Aufrufer. Verarbeitung: Scheduled Task `shopware.invalidate_cache` (alle 300 s, braucht laufenden Worker) oder `bin/console cache:clear:delayed`, dauerhaft `bin/console cache:watch:delayed`. Im Test/CI-Modus Fallback auf sofort.
-6. **Cache-Hash beeinflussen**:
-   - Zusätzliche Cookies: `shopware.http_cache.cookies: [...]`.
-   - Eigene Bestandteile/Abbruch: Listener auf `HttpCacheCookieEvent` (`add()`, `remove()`, `isCacheable = false` setzt Cookie `not-cacheable` und umgeht den Cache für Folgerequests, `doNotStore = true` nur für die aktuelle Antwort).
-   - Wann ein Hash nötig ist: Extension `cache-hash.required` (`CacheHashRequiredExtension::NAME`), Listener auf `…required.post` (Vorbild `storefront/Framework/Cache/CacheCookieEventSubscriber`).
-   - Rule-Areas: `ResolveCacheRelevantRuleIdsExtension` (Default `[RuleAreas::PRODUCT_AREA]`); nur mit `CACHE_REWORK` werden Regel-IDs auf diese Areas reduziert, sonst alle.
-   - Cache-Key: `HttpCacheKeyEvent` (nur interner Symfony-Cache), `shopware.http_cache.ignored_url_parameters` (Tracking-Parameter wie `gclid`, `utm_*` vorbelegt).
-7. **Cache-Control per Policies (nur mit `CACHE_REWORK`)**: `shopware.http_cache.policies` / `default_policies` / `route_policies`. Defaults: `storefront.cacheable` (public, `max_age 0`, `s_maxage 7200`, `must_revalidate`), `store_api.cacheable` (`s_maxage 1800`, `stale_while_revalidate 86400`, `stale_if_error 7200`), `no_cache_private` für Nicht-Cachebares, jeweils `No-Vary-Search: key-order`. Auflösung in `CachePolicyProvider::getPolicy`: Route+Modifier (`route#modifier`), Route, Area-Default; `max_age`/`s_maxage` aus dem `CacheAttribute` überschreiben nur, wenn die Policy den Wert schon enthält. Doku-Leitlinie: Policies statt Listener, die Header umschreiben.
-8. **Reverse Proxy** (Projekt `config/packages/shopware.yaml`; Key seit 6.6 `shopware.http_cache.reverse_proxy`, vorher `storefront.reverse_proxy`):
+1. **Enable the cache**: `SHOPWARE_HTTP_CACHE_ENABLED=1` (default `1`, `core/Framework/DependencyInjection/services.php` lines 188-189; additionally `framework.http_cache.enabled: true`).
+2. **Make the route cacheable**: `_httpCache => true`. Allowed are `true`, an array (`clientMaxAge`, `sharedMaxAge`/`maxAge`, `states`) or a `CacheAttribute`. Only **GET** is cached (everything else gets an uncacheable policy, `CacheResponseSubscriber::setResponseCache`); 404 responses never.
+3. **Set tags**: `CacheTagCollector::addTag('my-tag', ...)` during the request. Tags are collected per request URI and attached to the response by `CacheStore::write()` or `ReverseProxyCache::write()` respectively. Core routes register their tags themselves (`EntityCacheKeyGenerator::buildProductTag($id)` = `product-<id>`, `CategoryRoute::buildName($id)`, etc.). If the controller loads everything via Store API routes, no custom invalidation is needed.
+4. **Invalidate**: `CacheInvalidator::invalidate($tags, $force)`. The core does this in `CacheInvalidationSubscriber` on `EntityWrittenContainerEvent`, indexer events and `InvalidateProductCache`. Custom entities: listen to `<entity>.written` (e.g. `ProductEvents::PRODUCT_MANUFACTURER_WRITTEN_EVENT`); the handler parameter there is `EntityWrittenEvent`, not `EntityWrittenContainerEvent` (the container event is only the return value of `create/update` and the event under `EntityWrittenContainerEvent::class`), otherwise TypeError. Invalidate your own tags.
+5. **Delayed invalidation**: `shopware.cache.invalidation.delay_enabled` (default `true`), `delay_options.storage` (`mysql` or `redis`, `connection`), `tag_invalidation_log_enabled: true` logs every purge with its caller. Processing: scheduled task `shopware.invalidate_cache` (every 300 s, requires a running worker) or `bin/console cache:clear:delayed`, continuously `bin/console cache:watch:delayed`. In test/CI mode it falls back to immediate.
+6. **Influencing the cache hash**:
+   - Additional cookies: `shopware.http_cache.cookies: [...]`.
+   - Custom components/abort: listener on `HttpCacheCookieEvent` (`add()`, `remove()`, `isCacheable = false` sets the cookie `not-cacheable` and bypasses the cache for subsequent requests, `doNotStore = true` only for the current response).
+   - When a hash is needed: extension `cache-hash.required` (`CacheHashRequiredExtension::NAME`), listener on `…required.post` (model: `storefront/Framework/Cache/CacheCookieEventSubscriber`).
+   - Rule areas: `ResolveCacheRelevantRuleIdsExtension` (default `[RuleAreas::PRODUCT_AREA]`); only with `CACHE_REWORK` are rule IDs reduced to these areas, otherwise all.
+   - Cache key: `HttpCacheKeyEvent` (internal Symfony cache only), `shopware.http_cache.ignored_url_parameters` (tracking parameters such as `gclid`, `utm_*` preset).
+7. **Cache-Control via policies (only with `CACHE_REWORK`)**: `shopware.http_cache.policies` / `default_policies` / `route_policies`. Defaults: `storefront.cacheable` (public, `max_age 0`, `s_maxage 7200`, `must_revalidate`), `store_api.cacheable` (`s_maxage 1800`, `stale_while_revalidate 86400`, `stale_if_error 7200`), `no_cache_private` for non-cacheable content, each with `No-Vary-Search: key-order`. Resolution in `CachePolicyProvider::getPolicy`: route+modifier (`route#modifier`), route, area default; `max_age`/`s_maxage` from the `CacheAttribute` only override if the policy already contains the value. Docs guideline: policies instead of listeners that rewrite headers.
+8. **Reverse proxy** (project `config/packages/shopware.yaml`; key since 6.6 `shopware.http_cache.reverse_proxy`, previously `storefront.reverse_proxy`):
 ```yaml
 shopware:
     http_cache:
@@ -53,13 +53,13 @@ shopware:
             max_parallel_invalidations: 3
             fastly: { enabled: false }
 ```
-   - **Varnish** (`VarnishReverseProxyGateway`): Antwort-Header `xkey: tag1 tag2`; Purge per HTTP-Methode `PURGE` mit Header `xkey` (max. 50 Tags je Request, gepuffert, Versand in `flush()`/`__destruct`). Braucht das xkey-vmod. `ban()` sendet `PURGE <host><url>`, `banAll()` sendet `BAN`. Optionen `ban_method`, `ban_headers`, `purge_all`, `use_varnish_xkey` sind deprecated und wirkungslos.
-   - **Fastly** (`FastlyReverseProxyGateway`): Header `surrogate-key` (optional `tag_prefix`/`instance_tag`), API `https://api.fastly.com`, Soft-Purge-Header `fastly-soft-purge`; `fastly: {enabled: true, api_key, service_id, soft_purge, tag_prefix, instance_tag}`.
-   - Antwort muss `Cache-Control: public` + Tag-Header tragen. Die Beispiel-VCL steht nur in der Doku.
-   - Eigene Gateways: von `AbstractReverseProxyGateway` ableiten (`tag`, `invalidate`, `ban`, `banAll`, `flush`) und per Dekoration ([T-06](./06-service-dekoration.md)) austauschen.
-9. **CLI**: `bin/console cache:clear` (Symfony-Systemcache), `cache:clear:http` (nur HTTP-Cache), `cache:clear:all` (alle Pools, abgelaufene Tags, alte Verzeichnisse), `cache:pool:clear --all` (nur Objekt-Caches), `cache:clear:delayed`, `cache:watch:delayed`. Prüfen: Response-Header `cache-control`, `sw-cache-hash`, `xkey`/`surrogate-key`.
+   - **Varnish** (`VarnishReverseProxyGateway`): response header `xkey: tag1 tag2`; purge via HTTP method `PURGE` with header `xkey` (max. 50 tags per request, buffered, sent in `flush()`/`__destruct`). Requires the xkey vmod. `ban()` sends `PURGE <host><url>`, `banAll()` sends `BAN`. Options `ban_method`, `ban_headers`, `purge_all`, `use_varnish_xkey` are deprecated and have no effect.
+   - **Fastly** (`FastlyReverseProxyGateway`): header `surrogate-key` (optionally `tag_prefix`/`instance_tag`), API `https://api.fastly.com`, soft-purge header `fastly-soft-purge`; `fastly: {enabled: true, api_key, service_id, soft_purge, tag_prefix, instance_tag}`.
+   - The response must carry `Cache-Control: public` + tag header. The example VCL is only in the docs.
+   - Custom gateways: extend `AbstractReverseProxyGateway` (`tag`, `invalidate`, `ban`, `banAll`, `flush`) and swap it in via decoration ([T-06](./06-service-decoration.md)).
+9. **CLI**: `bin/console cache:clear` (Symfony system cache), `cache:clear:http` (HTTP cache only), `cache:clear:all` (all pools, expired tags, old directories), `cache:pool:clear --all` (object caches only), `cache:clear:delayed`, `cache:watch:delayed`. Check: response headers `cache-control`, `sw-cache-hash`, `xkey`/`surrogate-key`.
 
-## 4. Beispiele
+## 4. Examples
 
 `src/Controller/ExampleController.php`
 ```php
@@ -92,7 +92,7 @@ class ExampleController extends StorefrontController
     )]
     public function show(SalesChannelContext $context): Response
     {
-        // Eigener Tag: Antwort wird bei Invalidierung dieses Tags verworfen
+        // Custom tag: response is discarded when this tag is invalidated
         $this->cacheTagCollector->addTag(self::TAG);
 
         return $this->renderStorefront('@SwagExample/storefront/page/example/index.html.twig', [
@@ -101,7 +101,7 @@ class ExampleController extends StorefrontController
     }
 }
 ```
-(`Symfony\Component\Routing\Attribute\Route` wird auch von den Core-Controllern genutzt, z. B. `NavigationController`.)
+(`Symfony\Component\Routing\Attribute\Route` is also used by the core controllers, e.g. `NavigationController`.)
 
 `src/Subscriber/ManufacturerCacheSubscriber.php`
 ```php
@@ -128,7 +128,7 @@ class ManufacturerCacheSubscriber implements EventSubscriberInterface
 
     public function onManufacturerWritten(EntityWrittenEvent $event): void
     {
-        // verzögert (Default); sofort: invalidate([...], true)
+        // delayed (default); immediate: invalidate([...], true)
         $this->cacheInvalidator->invalidate([ExampleController::TAG]);
     }
 }
@@ -160,7 +160,7 @@ return static function (ContainerConfigurator $container): void {
 };
 ```
 
-`src/Resources/config/routes.php` (XML-Routen sind in 6.7 deprecated; `routes.php` wird von `Bundle::configureRoutes` per Glob geladen)
+`src/Resources/config/routes.php` (XML routes are deprecated in 6.7; `routes.php` is loaded by `Bundle::configureRoutes` via glob)
 ```php
 <?php declare(strict_types=1);
 
@@ -170,85 +170,85 @@ return static function (RoutingConfigurator $routes): void {
     $routes->import(__DIR__ . '/../../Controller/**/*Controller.php', 'attribute');
 };
 ```
-Controller-Grundlagen, `setTwig` und Template: [T-16](./16-storefront-controller-pages.md). Event-Subscriber-Gerüst: [../templates/event-subscriber/README.md](../templates/event-subscriber/README.md).
+Controller basics, `setTwig` and template: [T-16](./16-storefront-controller-pages.md). Event subscriber scaffold: [../templates/event-subscriber/README.md](../templates/event-subscriber/README.md).
 
-Optional im Projekt (`config/packages/shopware.yaml`), wirksam für Policies nur mit Flag:
+Optional in the project (`config/packages/shopware.yaml`), effective for policies only with the flag:
 ```yaml
 shopware:
     http_cache:
-        cookies: ['my-custom-cookie']        # Cookie beeinflusst Cache-Hash
+        cookies: ['my-custom-cookie']        # cookie affects the cache hash
         route_policies:
             frontend.swag.example: storefront.cacheable
 ```
-Flag aktivieren: `bin/console feature:enable CACHE_REWORK` oder `.env` `CACHE_REWORK=1`.
+Enable the flag: `bin/console feature:enable CACHE_REWORK` or `.env` `CACHE_REWORK=1`.
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- **Veraltete Hooks**: `StoreApiRouteCacheTagsEvent`/`…KeyEvent` (und abgeleitete `CategoryRouteCacheTagsEvent` etc.) werden nicht mehr dispatcht. `CacheTagCollector::addTag()` verwenden.
-- **Tag vergessen**: `_httpCache` ohne Tag: Seite wird nie durch Datenänderung invalidiert, nur durch TTL.
-- **`CacheTagCollector` außerhalb eines Requests**: Tags hängen an der Request-URI (`sw-original-request-uri` bei Sub-Requests/ESI); ohne aktuellen Request landet der Tag unter `n/a` und geht verloren.
-- **`new AddCacheTagEvent(...)`** ist per PHPStan-Regel `NoAddCacheTagEventRule` verboten; `addTag()` dedupliziert.
-- **Invalidierung wirkungslos**: Delayed Invalidation ohne laufenden Worker/Scheduled Task. `force: true` oder `cache:clear:delayed`.
-- **POST/Formulare cachen**: nur GET; Seiten mit Flash-Messages werden bewusst umgangen (`CacheCookieEventSubscriber`).
-- **Personalisierte Inhalte in cachebarer Seite**: ohne `CACHE_REWORK` (bzw. `v6.8.0.0`/`PERFORMANCE_TWEAKS`) umgehen Cache-States (`sw-states`, `shopware.cache.invalidation.http_cache`) eingeloggte Kunden/gefüllte Warenkörbe; mit Flag der Cache-Hash. Eigene personalisierte Inhalte per `HttpCacheCookieEvent` (`isCacheable = false`) oder per AJAX/ESI nachladen.
-- **Cookie-Abhängigkeit nicht registriert**: Antwort variiert nach eigenem Cookie, der fehlt in `shopware.http_cache.cookies`: falsche Antworten aus dem Cache.
-- **Store-API-Routen werden nicht gecacht**: ohne `CACHE_REWORK` oder `v6.8.0.0` setzt `CacheResponseSubscriber` für Area `store_api` immer `noCache`, auch mit `_httpCache`.
-- **Zu viele Tags/Permutationen**: Tags minimal halten, Cache-Key muss alle Eingaben enthalten.
-- **Tracking-Parameter** erzeugen sonst je einen Cache-Eintrag: `ignored_url_parameters` (Standardliste vorhanden).
-- **Alte Assets**: Gecachtes HTML verweist auf alte Theme-/Media-Dateien; Löschen nur asynchron (Guideline `http-cache-and-assets`).
+- **Outdated hooks**: `StoreApiRouteCacheTagsEvent`/`…KeyEvent` (and derived `CategoryRouteCacheTagsEvent` etc.) are no longer dispatched. Use `CacheTagCollector::addTag()`.
+- **Forgotten tag**: `_httpCache` without a tag: the page is never invalidated by data changes, only by TTL.
+- **`CacheTagCollector` outside a request**: tags are attached to the request URI (`sw-original-request-uri` for sub-requests/ESI); without a current request the tag ends up under `n/a` and is lost.
+- **`new AddCacheTagEvent(...)`** is forbidden by the PHPStan rule `NoAddCacheTagEventRule`; `addTag()` deduplicates.
+- **Invalidation has no effect**: delayed invalidation without a running worker/scheduled task. `force: true` or `cache:clear:delayed`.
+- **Caching POST/forms**: GET only; pages with flash messages are deliberately bypassed (`CacheCookieEventSubscriber`).
+- **Personalized content in a cacheable page**: without `CACHE_REWORK` (or `v6.8.0.0`/`PERFORMANCE_TWEAKS`) cache states (`sw-states`, `shopware.cache.invalidation.http_cache`) bypass logged-in customers/filled carts; with the flag, the cache hash does. Load your own personalized content via `HttpCacheCookieEvent` (`isCacheable = false`) or via AJAX/ESI.
+- **Cookie dependency not registered**: the response varies by a custom cookie that is missing from `shopware.http_cache.cookies`: wrong responses from the cache.
+- **Store API routes are not cached**: without `CACHE_REWORK` or `v6.8.0.0`, `CacheResponseSubscriber` always sets `noCache` for area `store_api`, even with `_httpCache`.
+- **Too many tags/permutations**: keep tags minimal; the cache key must contain all inputs.
+- **Tracking parameters** would otherwise each create a cache entry: `ignored_url_parameters` (default list provided).
+- **Old assets**: cached HTML points to old theme/media files; deletion only asynchronously (guideline `http-cache-and-assets`).
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-| Thema | 6.5/6.6 | 6.7.15.1 |
+| Topic | 6.5/6.6 | 6.7.15.1 |
 |---|---|---|
-| Reverse-Proxy-Key | 6.5 `storefront.reverse_proxy`, ab 6.6 `shopware.http_cache.reverse_proxy` | `shopware.http_cache.reverse_proxy` |
-| Store-API-Route-Cache | `Cached*Route`, `StoreApiRouteCacheTagsEvent`/`KeyEvent` | Klassen entfernt, Events deprecated und ungenutzt; Tags über `CacheTagCollector` |
-| Cache-Control | `s-maxage` aus Default-TTL (`SHOPWARE_HTTP_DEFAULT_TTL`, 7200) | Policies, aber nur mit `CACHE_REWORK`; `default_ttl`, `stale_while_revalidate`, `stale_if_error` deprecated (6.8) |
-| Cache-States | `sw-states`-Cookie, `CacheStateValidator` | deprecated (6.8); mit Flag entfallen sie, stattdessen Cache-Hash |
-| Cache-Hash | alle Regel-IDs, Währung | mit Flag nur Regel-IDs der Rule-Areas, `sw-currency`-Cookie entfällt, Poisoning-Schutz (Client-Hash muss dem erwarteten entsprechen) |
-| Store-API-HTTP-Cache | aus | mit Flag an (`store_api.cacheable`) |
-| Soft-Purge | Fastly `soft_purge` | zusätzlich `shopware.http_cache.soft_purge`, `RefreshHttpCacheMessage` regeneriert veraltete Einträge |
-| Delayed Invalidation | seit 6.5, MySQL/Redis | unverändert (Default an); neu `tag_invalidation_log_enabled` |
-| Route-spezifische Invalidierungs-Optionen (`product_listing_route` usw.) | wirksam | deprecated, ohne Wirkung |
-| `CacheControlListener`, `BeforeCacheControlEvent` | aktiv | deprecated, mit Flag inaktiv |
-| `CACHE_CONTEXT_HASH_RULES_OPTIMIZATION` | | deprecated, ersetzt durch `CACHE_REWORK` |
+| Reverse proxy key | 6.5 `storefront.reverse_proxy`, from 6.6 `shopware.http_cache.reverse_proxy` | `shopware.http_cache.reverse_proxy` |
+| Store API route cache | `Cached*Route`, `StoreApiRouteCacheTagsEvent`/`KeyEvent` | classes removed, events deprecated and unused; tags via `CacheTagCollector` |
+| Cache-Control | `s-maxage` from default TTL (`SHOPWARE_HTTP_DEFAULT_TTL`, 7200) | policies, but only with `CACHE_REWORK`; `default_ttl`, `stale_while_revalidate`, `stale_if_error` deprecated (6.8) |
+| Cache states | `sw-states` cookie, `CacheStateValidator` | deprecated (6.8); with the flag they are dropped, replaced by the cache hash |
+| Cache hash | all rule IDs, currency | with the flag only rule IDs of the rule areas, `sw-currency` cookie dropped, poisoning protection (client hash must match the expected one) |
+| Store API HTTP cache | off | on with the flag (`store_api.cacheable`) |
+| Soft purge | Fastly `soft_purge` | additionally `shopware.http_cache.soft_purge`, `RefreshHttpCacheMessage` regenerates stale entries |
+| Delayed invalidation | since 6.5, MySQL/Redis | unchanged (on by default); new `tag_invalidation_log_enabled` |
+| Route-specific invalidation options (`product_listing_route` etc.) | effective | deprecated, no effect |
+| `CacheControlListener`, `BeforeCacheControlEvent` | active | deprecated, inactive with the flag |
+| `CACHE_CONTEXT_HASH_RULES_OPTIMIZATION` | | deprecated, replaced by `CACHE_REWORK` |
 
-XML-Service-/Routen-Konfiguration ist in 6.7 deprecated (`services.php`, `routes.php`).
+XML service/route configuration is deprecated in 6.7 (`services.php`, `routes.php`).
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] Route nur GET und mit `PlatformRequest::ATTRIBUTE_HTTP_CACHE => true`
-- [ ] Eigene Tags über `CacheTagCollector::addTag()` gesetzt (keine deprecated Store-API-Events)
-- [ ] Invalidierung über `CacheInvalidator` an passende `<entity>.written`-Events gehängt
-- [ ] Delayed Invalidation verstanden: Worker/Scheduled Task läuft oder `force` genutzt
-- [ ] Cookie-abhängige Inhalte in `shopware.http_cache.cookies` bzw. per `HttpCacheCookieEvent` abgebildet
-- [ ] Status von `CACHE_REWORK` geprüft (`bin/console feature:list`), Policy-/Store-API-Aussagen nur mit Flag angewandt
-- [ ] Bei Reverse Proxy: Tag-Header (`xkey`/`surrogate-key`) in der Antwort geprüft
-- [ ] Personalisierte Inhalte per AJAX/ESI statt in der cachebaren Seite
-- [ ] Nach Änderungen `bin/console cache:clear` bzw. `cache:clear:http`
+- [ ] Route GET only and with `PlatformRequest::ATTRIBUTE_HTTP_CACHE => true`
+- [ ] Custom tags set via `CacheTagCollector::addTag()` (no deprecated Store API events)
+- [ ] Invalidation via `CacheInvalidator` hooked to the matching `<entity>.written` events
+- [ ] Delayed invalidation understood: worker/scheduled task is running or `force` is used
+- [ ] Cookie-dependent content mapped in `shopware.http_cache.cookies` or via `HttpCacheCookieEvent`
+- [ ] Status of `CACHE_REWORK` checked (`bin/console feature:list`), policy/Store API statements applied only with the flag
+- [ ] With reverse proxy: tag header (`xkey`/`surrogate-key`) checked in the response
+- [ ] Personalized content via AJAX/ESI instead of in the cacheable page
+- [ ] After changes `bin/console cache:clear` or `cache:clear:http`
 
-## 7. Quellen
+## 7. Sources
 
-Doku:
+Docs:
 - https://developer.shopware.com/docs/guides/plugins/plugins/framework/caching/
 - https://developer.shopware.com/docs/guides/plugins/plugins/storefront/advanced/add-caching-to-custom-controller.html
 - https://developer.shopware.com/docs/resources/guidelines/code/core/http-cache-and-assets.html
 - https://developer.shopware.com/docs/guides/hosting/infrastructure/reverse-http-cache.html
 
-Quellcode (relativ zu `vendor/shopware/`):
+Source code (relative to `vendor/shopware/`):
 - `core/Framework/Adapter/Cache/{CacheInvalidator,CacheTagCollector,CacheInvalidationSubscriber,InvalidateCacheEvent,InvalidateCacheTask,InvalidateCacheTaskHandler}.php`, `Event/{AddCacheTagEvent,HttpCacheCookieEvent,HttpCacheKeyEvent,HttpCacheHitEvent,HttpCacheStoreEvent}.php`
 - `core/Framework/Adapter/Cache/Http/{CacheResponseSubscriber,CacheHeadersService,CacheStore,HttpCacheKeyGenerator,CachePolicyProvider,CachePolicy,DefaultPolicies,CacheAttribute,CacheRelevantRulesResolver,CacheControlListener}.php`, `Http/Extension/{CacheHashRequiredExtension,ResolveCacheRelevantRuleIdsExtension}.php`
 - `core/Framework/Adapter/Cache/InvalidatorStorage/*`, `ReverseProxy/*`, `Script/Facade/CacheInvalidatorFacade.php`, `StoreApiRouteCacheTagsEvent.php`, `StoreApiRouteCacheKeyEvent.php`
 - `core/Framework/Adapter/Kernel/HttpCacheKernel.php`, `Adapter/Command/{CacheClearHttpCommand,CacheClearAllCommand,CacheInvalidateDelayedCommand,CacheWatchDelayedCommand}.php`
-- `core/Framework/DependencyInjection/{cache.php,services.php,Configuration.php}` (cache.invalidation ca. Z. 775-830, http_cache ca. Z. 1336-1470)
+- `core/Framework/DependencyInjection/{cache.php,services.php,Configuration.php}` (cache.invalidation approx. lines 775-830, http_cache approx. lines 1336-1470)
 - `core/Framework/Resources/config/packages/{shopware.yaml,framework.yaml,feature.yaml}`, `core/PlatformRequest.php`, `core/Framework/Bundle.php` (`configureRoutes`)
-- Beispiele: `core/Content/Product/SalesChannel/Detail/ProductDetailRoute.php`, `core/Content/Category/SalesChannel/CategoryRoute.php`, `storefront/Controller/{NavigationController,ProductController,ScriptController}.php`, `storefront/Framework/Cache/CacheCookieEventSubscriber.php`
+- Examples: `core/Content/Product/SalesChannel/Detail/ProductDetailRoute.php`, `core/Content/Category/SalesChannel/CategoryRoute.php`, `storefront/Controller/{NavigationController,ProductController,ScriptController}.php`, `storefront/Framework/Cache/CacheCookieEventSubscriber.php`
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ UNGEPRÜFT: Aktivierungsstatus von `CACHE_REWORK` in der konkreten Installation (Default `false`); alle Aussagen zu Policies/Store-API-Cache/Cache-Hash-Areas gelten nur mit Flag oder ab 6.8. Der Befehl `bin/console feature:enable CACHE_REWORK` wurde nicht ausgeführt.
-- ⚠ UNGEPRÜFT: Controller-Registrierung (`public()`, `setContainer`) und `routes.php`-Glob-Import mit `attribute`-Typ wurden nicht in einer Laufzeitumgebung getestet (Muster aus Doku/Core; die Recherche zeigte ursprünglich XML).
-- ⚠ LÜCKE: Die Doku-Seite "add-caching-to-custom-controller" nennt noch "Store API tags generated"; ohne `CACHE_REWORK` gilt das nur für die Storefront-Seite.
-- ⚠ LÜCKE: `CacheTagCollection` ist registriert, aber im Core nur in der DI-Definition gefunden; Rolle unklar, nicht empfohlen.
-- ⚠ UNGEPRÜFT: Verhalten von `ignored_url_parameters` beim Überschreiben im Projekt (Merge/Ersatz); Redis-Invalidator-Konfiguration (`delay_options.connection`-Format); VCL-Beispiele und Fastly-Details nur aus der Doku-Zusammenfassung.
-- ⚠ UNGEPRÜFT: Dass der Scheduled Task `shopware.invalidate_cache` einen laufenden Worker braucht, ist aus dem Aufbau abgeleitet.
+- ⚠ UNVERIFIED: Activation status of `CACHE_REWORK` in the concrete installation (default `false`); all statements on policies/Store API cache/cache hash areas apply only with the flag or from 6.8. The command `bin/console feature:enable CACHE_REWORK` was not executed.
+- ⚠ UNVERIFIED: Controller registration (`public()`, `setContainer`) and the `routes.php` glob import with type `attribute` were not tested in a runtime environment (pattern from docs/core; the research originally showed XML).
+- ⚠ GAP: The docs page "add-caching-to-custom-controller" still mentions "Store API tags generated"; without `CACHE_REWORK` this only applies to the Storefront page.
+- ⚠ GAP: `CacheTagCollection` is registered, but in the core it was only found in the DI definition; role unclear, not recommended.
+- ⚠ UNVERIFIED: Behavior of `ignored_url_parameters` when overridden in the project (merge/replace); Redis invalidator configuration (`delay_options.connection` format); VCL examples and Fastly details only from the docs summary.
+- ⚠ UNVERIFIED: That the scheduled task `shopware.invalidate_cache` requires a running worker is inferred from the structure.

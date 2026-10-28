@@ -8,8 +8,8 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\HttpFoundation\Request;
 
-// Dekoriert einen Core-Service (Store-API-Route). KEIN #[Route] am Decorator:
-// Routen definiert nur der Core-Service.
+// Decorates a core service (Store API route). NO #[Route] on the decorator:
+// only the core service defines routes.
 class ProductListingRouteDecorator extends AbstractProductListingRoute
 {
     public function __construct(private readonly AbstractProductListingRoute $inner)
@@ -23,7 +23,7 @@ class ProductListingRouteDecorator extends AbstractProductListingRoute
 
     public function load(string $categoryId, Request $request, SalesChannelContext $context, Criteria $criteria): ProductListingRouteResponse
     {
-        // Beispiel: Criteria vor dem Aufruf anpassen
+        // Example: adjust criteria before the call
         $criteria->setLimit(12);
 
         return $this->getDecorated()->load($categoryId, $request, $context, $criteria);

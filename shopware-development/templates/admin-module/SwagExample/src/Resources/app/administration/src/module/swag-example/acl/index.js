@@ -1,14 +1,14 @@
-// Admin-Privilegien "swag_example.viewer|editor|creator|deleter" -> Backend-Privilegien <entity>:<operation>.
-// Muss per "import './acl'" aus module/swag-example/index.js geladen werden.
+// Admin privileges "swag_example.viewer|editor|creator|deleter" -> backend privileges <entity>:<operation>.
+// Must be loaded via "import './acl'" from module/swag-example/index.js.
 Shopware.Service('privileges').addPrivilegeMappingEntry({
     category: 'permissions',
-    parent: 'catalogues', // oder null (Gruppe "Other"); sonst catalogues|content|customers|marketing|orders|settings
+    parent: 'catalogues', // or null (group "Other"); otherwise catalogues|content|customers|marketing|orders|settings
     key: 'swag_example',
     roles: {
         viewer: {
             privileges: [
                 'swag_example:read',
-                // Hilfs-Entitaeten, die die Seiten laden
+                // helper entities that the pages load
                 'user_config:read',
                 'user_config:create',
                 'user_config:update',

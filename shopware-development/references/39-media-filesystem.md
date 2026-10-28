@@ -1,32 +1,32 @@
-# Media und Filesystem (Referenz, Shopware 6.7.15.1)
+# Media and filesystem (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn ein Plugin Dateien speichert (Flysystem), Medien hochlädt oder importiert, erlaubte Dateiendungen erweitert, Thumbnails erzeugt/ausgibt oder Medien in der Storefront rendert.
+This reference applies when a plugin stores files (Flysystem), uploads or imports media, extends the allowed file extensions, generates/outputs thumbnails, or renders media in the storefront.
 
-Abgrenzung: Twig-Blöcke allgemein in [T-14 Twig-Templates](./14-storefront-twig-templates.md); Admin-Upload-Komponenten in [T-25 Admin-Komponenten](./25-admin-komponenten.md); Message-Queue für Thumbnails in [T-34 Message Queue](./34-message-queue.md); Service-Registrierung in [T-05](./05-services-registrieren.md); Build/Deployment (S3/CDN-Betrieb) in [T-49](./49-build-deployment.md).
+Scope: Twig blocks in general in [T-14 Twig templates](./14-storefront-twig-templates.md); admin upload components in [T-25 Admin components](./25-admin-components.md); message queue for thumbnails in [T-34 Message queue](./34-message-queue.md); service registration in [T-05](./05-registering-services.md); build/deployment (S3/CDN operation) in [T-49](./49-build-deployment.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-- **Filesystem = Flysystem** (`League\Flysystem\FilesystemOperator`). Core-Services (öffentlich): `shopware.filesystem.public`, `.private`, `.temp`, `.theme`, `.asset`, `.sitemap` (`core/Framework/DependencyInjection/filesystem.php`), erzeugt von `FilesystemFactory`. Adapter-Typen: `local`, `amazon-s3`, `google-storage` (Tag `shopware.filesystem.factory`, Interface `AdapterFactoryInterface`).
-- **Plugin-Filesystems entstehen automatisch**: `Bundle::registerFilesystem()` registriert je Plugin `<snake_case_name>.filesystem.public` und `.private` als `PrefixFilesystem` mit Präfix `plugins/<snake_case_name>` auf dem Core-Filesystem, plus Autowiring-Alias nach dem Muster `$swagExamplePublicFilesystem` / `$swagExamplePrivateFilesystem` (`FilesystemOperator`). Für `SwagExample`: `swag_example.filesystem.public|private`.
-- **Upload-APIs (Entscheidungshilfe)**:
+- **Filesystem = Flysystem** (`League\Flysystem\FilesystemOperator`). Core services (public): `shopware.filesystem.public`, `.private`, `.temp`, `.theme`, `.asset`, `.sitemap` (`core/Framework/DependencyInjection/filesystem.php`), created by `FilesystemFactory`. Adapter types: `local`, `amazon-s3`, `google-storage` (tag `shopware.filesystem.factory`, interface `AdapterFactoryInterface`).
+- **Plugin filesystems are created automatically**: `Bundle::registerFilesystem()` registers `<snake_case_name>.filesystem.public` and `.private` per plugin as `PrefixFilesystem` with prefix `plugins/<snake_case_name>` on the core filesystem, plus an autowiring alias following the pattern `$swagExamplePublicFilesystem` / `$swagExamplePrivateFilesystem` (`FilesystemOperator`). For `SwagExample`: `swag_example.filesystem.public|private`.
+- **Upload APIs (decision guide)**:
 
-| Quelle | API |
+| Source | API |
 |---|---|
-| Lokale Datei | `MediaUploadService::uploadFromLocalPath` |
-| HTTP-Request (Multipart-Feld `file`) | `MediaUploadService::uploadFromRequest` |
-| Fremd-URL laden | `MediaUploadService::uploadFromURL` |
-| Nur verlinken, nichts speichern | `MediaUploadService::linkURL` (`mimeType` in `MediaUploadParameters` Pflicht) |
+| Local file | `MediaUploadService::uploadFromLocalPath` |
+| HTTP request (multipart field `file`) | `MediaUploadService::uploadFromRequest` |
+| Load an external URL | `MediaUploadService::uploadFromURL` |
+| Only link, store nothing | `MediaUploadService::linkURL` (`mimeType` in `MediaUploadParameters` required) |
 | Blob | `MediaService::saveFile` |
-| Kunde in Storefront | `StorefrontMediaUploader::upload` |
+| Customer in storefront | `StorefrontMediaUploader::upload` |
 
-  `MediaUploadService` (`core/Content/Media/Upload/`) ist die moderne 6.7-API und `@final`. `MediaService`/`FileSaver::persistFileToMedia()` funktionieren weiter (kein `@deprecated` gefunden), haben aber `@internal`-Konstruktoren: injizieren, nicht instanziieren/erweitern.
-- **Erlaubte Endungen**: Config `shopware.filesystem.allowed_extensions` (öffentlich, ersetzt die Standardliste komplett) und `private_allowed_extensions` (private enthält zusätzlich `zip`, `rar`, `xml`); zur Laufzeit erweiterbar über `MediaFileExtensionWhitelistEvent` (wirkt auf öffentliche und private Liste gleichermaßen, keine Unterscheidung im Event). Typ-Erkennung über Tag `shopware.media_type.detector` (`TypeDetectorInterface`).
-- **Thumbnails**: `ThumbnailService`, Größen pro Media-Ordner (`MediaFolderConfiguration` + `MediaThumbnailSize`, `thumbnailQuality` Standard 80). Erzeugung beim Upload asynchron über die Message Queue.
-- **Pfad/URL**: `AbstractMediaPathStrategy` (Strategien `id`, `filename`, `physical_filename`, `plain`), gewählt über `shopware.cdn.strategy`; `Media.path` und `Media.url` sind Felder der `MediaDefinition`.
+  `MediaUploadService` (`core/Content/Media/Upload/`) is the modern 6.7 API and `@final`. `MediaService`/`FileSaver::persistFileToMedia()` continue to work (no `@deprecated` found), but have `@internal` constructors: inject them, do not instantiate/extend them.
+- **Allowed extensions**: config `shopware.filesystem.allowed_extensions` (public, replaces the default list completely) and `private_allowed_extensions` (private additionally contains `zip`, `rar`, `xml`); extensible at runtime via `MediaFileExtensionWhitelistEvent` (affects the public and private list equally, no distinction in the event). Type detection via tag `shopware.media_type.detector` (`TypeDetectorInterface`).
+- **Thumbnails**: `ThumbnailService`, sizes per media folder (`MediaFolderConfiguration` + `MediaThumbnailSize`, `thumbnailQuality` default 80). Generated asynchronously via the message queue on upload.
+- **Path/URL**: `AbstractMediaPathStrategy` (strategies `id`, `filename`, `physical_filename`, `plain`), selected via `shopware.cdn.strategy`; `Media.path` and `Media.url` are fields of the `MediaDefinition`.
 
-Plugin-Baum:
+Plugin tree:
 ```
 custom/plugins/SwagExample/
 └── src/
@@ -39,37 +39,37 @@ custom/plugins/SwagExample/
     └── Subscriber/MediaExtensionSubscriber.php
 ```
 
-## 3. Anleitung
+## 3. Instructions
 
-1. Plugin anlegen ([T-02](./02-plugin-aufbau.md)), `services.php` wie in 4.1, dann `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample && bin/console cache:clear`.
-2. Filesystem-Service-IDs prüfen: `bin/console debug:container --show-hidden | grep filesystem`.
-3. Upload-Weg wählen (Tabelle oben). URL-Validierung gegen private IPs steuern `shopware.media.enable_url_validation` und `enable_url_upload_feature`.
-4. Endung freigeben (4.4). Eigener Typ: `TypeDetectorInterface::detect(MediaFile $mediaFile, ?MediaType $previouslyDetectedType): ?MediaType`, Tag `shopware.media_type.detector` (Core nutzt Priorität 10 bzw. 0). Bestehende Medien neu klassifizieren: `bin/console media:generate-media-types`.
-5. Thumbnails: Größen pro Ordner im Admin (Einstellungen, Medien-Ordner) bzw. Entität `media_thumbnail_size`. Nachträglich:
-   - `bin/console media:generate-thumbnails` (u. a. `--batch-size/-b`)
+1. Create the plugin ([T-02](./02-plugin-structure.md)), `services.php` as in 4.1, then `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample && bin/console cache:clear`.
+2. Check the filesystem service IDs: `bin/console debug:container --show-hidden | grep filesystem`.
+3. Choose the upload path (table above). URL validation against private IPs is controlled by `shopware.media.enable_url_validation` and `enable_url_upload_feature`.
+4. Allow the extension (4.4). Custom type: `TypeDetectorInterface::detect(MediaFile $mediaFile, ?MediaType $previouslyDetectedType): ?MediaType`, tag `shopware.media_type.detector` (core uses priority 10 or 0, respectively). Reclassify existing media: `bin/console media:generate-media-types`.
+5. Thumbnails: sizes per folder in the Admin (Settings, media folders) or entity `media_thumbnail_size`. Afterwards:
+   - `bin/console media:generate-thumbnails` (among others `--batch-size/-b`)
    - `bin/console media:delete-local-thumbnails`
    - `bin/console media:delete-unused`
-   Ein laufender Worker (`messenger:consume`) ist Voraussetzung für die asynchrone Erzeugung.
-6. Storefront: Association `thumbnails` laden; Ausgabe mit `{% sw_thumbnails %}` (4.5); Original über `media.url` bzw. Filter `sw_encode_media_url`.
-7. Admin: `sw-media-upload-v2` (+ `sw-upload-listener`) und `sw-media-preview-v2` laut Doku `handling-media.html` (siehe Lücken).
-8. Kunden-Upload in der Storefront: `Shopware\Storefront\Framework\Media\StorefrontMediaUploader::upload(UploadedFile $file, string $folder, string $type, Context $context, bool $isPrivate = false)`; Validierung über `StorefrontMediaValidatorRegistry` und Validatoren mit Tag `storefront.media.upload.validator` (`StorefrontMediaValidatorInterface::getType()/validate()`; Core: `StorefrontMediaImageValidator`, `StorefrontMediaDocumentValidator`). PHP-Dateinamen werden geblockt.
-9. Betreiber-Konfiguration (Projekt `config/packages/shopware.yaml`, Defaults in `core/Framework/Resources/config/packages/shopware.yaml`):
+   A running worker (`messenger:consume`) is a prerequisite for asynchronous generation.
+6. Storefront: load the `thumbnails` association; output with `{% sw_thumbnails %}` (4.5); original via `media.url` or the filter `sw_encode_media_url`.
+7. Admin: `sw-media-upload-v2` (+ `sw-upload-listener`) and `sw-media-preview-v2` according to the docs `handling-media.html` (see gaps).
+8. Customer upload in the storefront: `Shopware\Storefront\Framework\Media\StorefrontMediaUploader::upload(UploadedFile $file, string $folder, string $type, Context $context, bool $isPrivate = false)`; validation via `StorefrontMediaValidatorRegistry` and validators with tag `storefront.media.upload.validator` (`StorefrontMediaValidatorInterface::getType()/validate()`; core: `StorefrontMediaImageValidator`, `StorefrontMediaDocumentValidator`). PHP file names are blocked.
+9. Operator configuration (project `config/packages/shopware.yaml`, defaults in `core/Framework/Resources/config/packages/shopware.yaml`):
 ```yaml
 shopware:
     filesystem:
         public:
-            type: "amazon-s3"       # oder local, google-storage
+            type: "amazon-s3"       # or local, google-storage
             url: "https://cdn.example.com"
             config:
                 bucket: "..."
                 region: "..."
-        allowed_extensions: [...]   # ersetzt die Standardliste komplett
+        allowed_extensions: [...]   # replaces the default list completely
     media:
         remote_thumbnails:
             enable: false
 ```
 
-## 4. Beispiele
+## 4. Examples
 
 ### 4.1 Services
 
@@ -88,7 +88,7 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 return static function (ContainerConfigurator $container): void {
     $services = $container->services();
 
-    // Service-ID aus dem Plugin-Namen: SwagExample -> swag_example
+    // Service ID from the plugin name: SwagExample -> swag_example
     $services->set(ReportStorage::class)
         ->args([
             service('swag_example.filesystem.private'),
@@ -102,9 +102,9 @@ return static function (ContainerConfigurator $container): void {
         ->tag('kernel.event_subscriber');
 };
 ```
-XML-Service-Konfiguration ist ab 6.7 deprecated (entfällt mit 6.8), daher `services.php`.
+XML service configuration is deprecated as of 6.7 (removed in 6.8), hence `services.php`.
 
-### 4.2 Plugin-Filesystem nutzen
+### 4.2 Using the plugin filesystem
 
 `src/Storage/ReportStorage.php`
 ```php
@@ -124,7 +124,7 @@ class ReportStorage
 
     public function writeReport(string $name, string $content): void
     {
-        // landet physisch in files/plugins/swag_example/reports/<name>
+        // physically ends up in files/plugins/swag_example/reports/<name>
         $this->privateFilesystem->write('reports/' . $name, $content);
     }
 
@@ -134,9 +134,9 @@ class ReportStorage
     }
 }
 ```
-Alternativ per Autowiring: Konstruktor-Parameter `FilesystemOperator $swagExamplePrivateFilesystem` (Alias-Name aus `Bundle::registerFilesystem`).
+Alternatively via autowiring: constructor parameter `FilesystemOperator $swagExamplePrivateFilesystem` (alias name from `Bundle::registerFilesystem`).
 
-### 4.3 Media hochladen
+### 4.3 Uploading media
 
 `src/Service/MediaImporter.php`
 ```php
@@ -162,23 +162,23 @@ class MediaImporter
             new MediaUploadParameters(
                 mediaFolderId: $folderId,
                 private: false,
-                fileName: 'my-image.jpg',   // MIT Endung
-                deduplicate: true,          // Hash-Vergleich, liefert vorhandene ID zurück
+                fileName: 'my-image.jpg',   // WITH extension
+                deduplicate: true,          // hash comparison, returns the existing ID
             )
         );
     }
 }
 ```
-Klassische Variante (Standardordner per Entity-Name, z. B. `product`; `MediaService` injizieren):
+Classic variant (default folder by entity name, e.g. `product`; inject `MediaService`):
 ```php
 $mediaId = $this->mediaService->saveFile(
-    $blob, 'png', 'image/png', 'filename-ohne-endung', $context, 'product', null, false
+    $blob, 'png', 'image/png', 'filename-without-extension', $context, 'product', null, false
 );
-// oder: createMediaInFolder('product', $context, false) + FileSaver::persistFileToMedia($mediaFile, $name, $mediaId, $context)
+// or: createMediaInFolder('product', $context, false) + FileSaver::persistFileToMedia($mediaFile, $name, $mediaId, $context)
 ```
-`MediaService::createMediaInFolder(..., bool $private = true)`: Default ist `true`, für Storefront-Bilder `false` setzen. Bei `MediaUploadService` ergibt `private: null` im Code `false` (`$params->private ?? false`, am Quellcode verifiziert).
+`MediaService::createMediaInFolder(..., bool $private = true)`: the default is `true`, set `false` for storefront images. With `MediaUploadService`, `private: null` results in `false` in the code (`$params->private ?? false`, verified against the source code).
 
-### 4.4 Endung erlauben
+### 4.4 Allowing an extension
 
 `src/Subscriber/MediaExtensionSubscriber.php`
 ```php
@@ -204,11 +204,11 @@ class MediaExtensionSubscriber implements EventSubscriberInterface
     }
 }
 ```
-Das Event feuert für öffentliche und private Medien (`MediaFileExtensionListProvider::getAllowedExtensions($private, $context)`), enthält aber kein Public/Private-Kennzeichen: `getContext()` ist nur der Request-Context, der Subscriber kann die beiden Listen nicht unterscheiden. Eine ergänzte Endung gilt daher für beide. Nur für eine Sichtbarkeit: Config `shopware.filesystem.allowed_extensions` bzw. `private_allowed_extensions` setzen (öffentlich ersetzt dabei die Standardliste komplett). Siehe [Event-Subscriber-Gerüst](../templates/event-subscriber/README.md).
+The event fires for public and private media (`MediaFileExtensionListProvider::getAllowedExtensions($private, $context)`), but contains no public/private flag: `getContext()` is only the request context, the subscriber cannot distinguish the two lists. An added extension therefore applies to both. For one visibility only: set the config `shopware.filesystem.allowed_extensions` or `private_allowed_extensions` (public replaces the default list completely). See [event subscriber scaffold](../templates/event-subscriber/README.md).
 
-### 4.5 Storefront-Thumbnails
+### 4.5 Storefront thumbnails
 
-`src/Resources/views/storefront/page/product-detail/buy-widget.html.twig` (Einbettung in einen Block des Core-Templates: [T-14](./14-storefront-twig-templates.md))
+`src/Resources/views/storefront/page/product-detail/buy-widget.html.twig` (embedding into a block of the core template: [T-14](./14-storefront-twig-templates.md))
 ```twig
 {% if product.cover.media %}
     {% sw_thumbnails 'swag-example-thumbnails' with {
@@ -218,50 +218,50 @@ Das Event feuert für öffentliche und private Medien (`MediaFileExtensionListPr
     } %}
 {% endif %}
 ```
-Der erste String wird als Variable `name` an `thumbnail.html.twig` übergeben (`ThumbnailTokenParser::parse`). `{% sw_thumbnails %}` ist ein `sw_include` auf `@Storefront/storefront/utilities/thumbnail.html.twig`; der Block `thumbnail_utility_img` ist überschreibbar. Die Doku-Aussage "Lazy Loading standardmäßig aus" stimmt: ohne `loading` setzt das Template `eager`.
+The first string is passed to `thumbnail.html.twig` as the variable `name` (`ThumbnailTokenParser::parse`). `{% sw_thumbnails %}` is an `sw_include` of `@Storefront/storefront/utilities/thumbnail.html.twig`; the block `thumbnail_utility_img` can be overridden. The docs statement "lazy loading off by default" is correct: without `loading`, the template sets `eager`.
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- **Media bleibt `private`** (Default `true` in `MediaService`): Bild in der Storefront nicht abrufbar, `private: false` übergeben.
-- **`fileExtensionNotSupported`**: Endung fehlt in der Liste; zwei getrennte Listen (public/private); Config-Override ersetzt die gesamte Liste, Event-Erweiterung ist additiv.
-- **Dateiname mit/ohne Endung**: an `saveFile`/`persistFileToMedia` ohne Endung (kommt aus `MediaFile`); bei `MediaUploadParameters::fileName` mit Endung (wird via `getFileNameWithoutExtension()` zerlegt).
-- **Namenskollision**: `FileSaver::ensureFileNameIsUnique` wirft bei gleichem Namen+Endung im selben Pfad eine Exception.
-- **Temp-Dateien**: bei `fetchBlob` ohne `cleanUpTempFile` aufräumen (`MediaService::saveFile` macht es selbst).
-- **Thumbnails fehlen**: Worker läuft nicht (`messenger:consume`), Ordner-Konfiguration ohne Größen oder `createThumbnails` aus, Association `thumbnails` nicht geladen.
-- **Direkter Zugriff auf `public/`-Pfade** statt Flysystem bricht bei S3/CDN.
-- **`{% sw_thumbnails %}` mit nur einer Media-ID** statt vollständiger Entität: keine Thumbnails.
-- **`@internal`/`@final`**: `MediaService`, `FileSaver`, `FileFetcher` nicht erweitern/instanziieren; `MediaUploadService` ist `@final`.
+- **Media stays `private`** (default `true` in `MediaService`): image not retrievable in the storefront, pass `private: false`.
+- **`fileExtensionNotSupported`**: extension missing from the list; two separate lists (public/private); a config override replaces the entire list, the event extension is additive.
+- **File name with/without extension**: to `saveFile`/`persistFileToMedia` without extension (comes from `MediaFile`); for `MediaUploadParameters::fileName` with extension (split via `getFileNameWithoutExtension()`).
+- **Name collision**: `FileSaver::ensureFileNameIsUnique` throws an exception for the same name+extension in the same path.
+- **Temp files**: clean up with `fetchBlob` without `cleanUpTempFile` (`MediaService::saveFile` does it itself).
+- **Thumbnails missing**: worker not running (`messenger:consume`), folder configuration without sizes or `createThumbnails` off, association `thumbnails` not loaded.
+- **Direct access to `public/` paths** instead of Flysystem breaks with S3/CDN.
+- **`{% sw_thumbnails %}` with only a media ID** instead of the full entity: no thumbnails.
+- **`@internal`/`@final`**: do not extend/instantiate `MediaService`, `FileSaver`, `FileFetcher`; `MediaUploadService` is `@final`.
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-- `MediaUploadService`, `MediaUploadParameters`, `linkURL`, externe Thumbnails (`ExternalThumbnailCollection`), Presigned Uploads (`Upload/PresignedMediaUploadService`, Config `shopware.media.presigned_upload`), `remote_thumbnails`: in 6.7.15.1 vorhanden; Einführungsversion nicht belegt.
-- Alte `UrlGenerator`-Klassen (6.5) sind nicht mehr vorhanden; stattdessen `AbstractMediaPathStrategy`.
-- Flysystem 3 (`FilesystemOperator`, `publicUrl()`); Plugin-Filesystems als `PrefixFilesystem`.
-- `@deprecated tag:v6.8.0`: `MediaFileExtensionWhitelistEvent`-Konstruktor ohne `$context` und `getNullableContext()` (im Subscriber `getContext()` nutzen); `FilesystemFactory::factory()` mit `visibility` in `config.options` (stattdessen `visibility` neben `type`); `ThumbnailService::updateThumbnails()` `$force` wird Pflichtteil der Signatur; `MediaUploadService::validateExternalUrl()` (static), Ersatz `assertValidExternalUrl()` auf injizierter Instanz; XML-Service-/Packages-Konfiguration.
-- Unter `feature('v6.8.0.0')` wird `thumbnail.url` in `thumbnail.html.twig` nicht mehr via `sw_encode_url` kodiert.
+- `MediaUploadService`, `MediaUploadParameters`, `linkURL`, external thumbnails (`ExternalThumbnailCollection`), presigned uploads (`Upload/PresignedMediaUploadService`, config `shopware.media.presigned_upload`), `remote_thumbnails`: present in 6.7.15.1; version of introduction not documented.
+- The old `UrlGenerator` classes (6.5) no longer exist; use `AbstractMediaPathStrategy` instead.
+- Flysystem 3 (`FilesystemOperator`, `publicUrl()`); plugin filesystems as `PrefixFilesystem`.
+- `@deprecated tag:v6.8.0`: `MediaFileExtensionWhitelistEvent` constructor without `$context` and `getNullableContext()` (use `getContext()` in the subscriber); `FilesystemFactory::factory()` with `visibility` in `config.options` (instead `visibility` next to `type`); `ThumbnailService::updateThumbnails()` `$force` becomes a mandatory part of the signature; `MediaUploadService::validateExternalUrl()` (static), replacement `assertValidExternalUrl()` on an injected instance; XML service/packages configuration.
+- Under `feature('v6.8.0.0')`, `thumbnail.url` in `thumbnail.html.twig` is no longer encoded via `sw_encode_url`.
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] Plugin-Filesystem per Service-ID `<snake_case>.filesystem.public|private` oder Autowiring-Alias injiziert, keine direkten Dateipfade
-- [ ] Passender Upload-Weg gewählt, `MediaUploadService` bevorzugt
-- [ ] `private: false` für Storefront-sichtbare Medien gesetzt
-- [ ] Dateinamen-Konvention beachtet (mit Endung bei `MediaUploadParameters`, ohne bei `saveFile`)
-- [ ] Zusätzliche Endungen über `MediaFileExtensionWhitelistEvent` (nicht per Config-Override) freigegeben
-- [ ] Association `thumbnails` geladen, `{% sw_thumbnails %}` mit voller Media-Entität
-- [ ] Thumbnail-Größen im Media-Ordner konfiguriert, Worker läuft
-- [ ] Deprecated-APIs (`validateExternalUrl`, `getNullableContext`, XML-Services) vermieden
-- [ ] Kundenuploads über `StorefrontMediaUploader` mit Validator abgesichert
+- [ ] Plugin filesystem injected via service ID `<snake_case>.filesystem.public|private` or autowiring alias, no direct file paths
+- [ ] Appropriate upload path chosen, `MediaUploadService` preferred
+- [ ] `private: false` set for storefront-visible media
+- [ ] File name convention observed (with extension for `MediaUploadParameters`, without for `saveFile`)
+- [ ] Additional extensions allowed via `MediaFileExtensionWhitelistEvent` (not via config override)
+- [ ] Association `thumbnails` loaded, `{% sw_thumbnails %}` with the full media entity
+- [ ] Thumbnail sizes configured in the media folder, worker running
+- [ ] Deprecated APIs (`validateExternalUrl`, `getNullableContext`, XML services) avoided
+- [ ] Customer uploads secured via `StorefrontMediaUploader` with a validator
 
-## 7. Quellen
+## 7. Sources
 
-Doku:
+Docs:
 - https://developer.shopware.com/docs/guides/plugins/plugins/framework/filesystem/filesystem.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/content/media/add-custom-file-extension.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/storefront/howto/use-media-thumbnails.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/administration/data-handling-processing/handling-media.html
 - https://flysystem.thephpleague.com/docs/usage/filesystem-api/
 
-Quellcode (relativ zu `vendor/shopware/`):
+Source code (relative to `vendor/shopware/`):
 - `core/Framework/Adapter/Filesystem/{FilesystemFactory,PrefixFilesystem}.php`, `Adapter/{LocalFactory,AwsS3v3Factory,GoogleStorageFactory,AdapterFactoryInterface}.php`
 - `core/Framework/DependencyInjection/filesystem.php`, `core/Framework/Bundle.php` (`registerFilesystem`, `registerContainerFile`)
 - `core/Content/Media/MediaService.php`, `File/{FileSaver,FileFetcher,MediaFile}.php`
@@ -269,12 +269,12 @@ Quellcode (relativ zu `vendor/shopware/`):
 - `core/Content/Media/TypeDetector/TypeDetectorInterface.php`, `Thumbnail/ThumbnailService.php`, `Commands/*.php`, `Core/Strategy/*`
 - `storefront/Framework/Media/{StorefrontMediaUploader,StorefrontMediaValidatorInterface}.php`
 - `storefront/Framework/Twig/TokenParser/ThumbnailTokenParser.php`, `storefront/Resources/views/storefront/utilities/thumbnail.html.twig`
-- `core/Framework/Resources/config/packages/shopware.yaml` (Abschnitte `filesystem`, `media`)
+- `core/Framework/Resources/config/packages/shopware.yaml` (sections `filesystem`, `media`)
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ LÜCKE: Plugin-API für eigene, vom Prefix-Schema unabhängige Filesystems nicht gefunden; ein eigener `FilesystemOperator`-Service über `FilesystemFactory` wäre nur eine Ableitung (nicht in der Doku, nicht getestet).
-- ⚠ UNGEPRÜFT: Beispiele wurden nicht in einer laufenden Installation ausgeführt.
-- ⚠ UNGEPRÜFT: Einführungsversionen von `MediaUploadService` und Presigned Upload.
-- ⚠ UNGEPRÜFT: Admin-Komponenten `sw-media-upload-v2`/`sw-media-preview-v2` nur aus der Doku, nicht am Admin-Quellcode verifiziert.
-- ⚠ LÜCKE: Optionsliste von `media:generate-thumbnails` nicht vollständig ausgelesen. Das Thumbnail-Template kennt weitere undokumentierte Variablen (`load`, `loadOriginalImage`, `autoColumnSizes`, `columns`, `layout`).
+- ⚠ GAP: No plugin API found for custom filesystems independent of the prefix scheme; a custom `FilesystemOperator` service via `FilesystemFactory` would only be a derivation (not in the docs, not tested).
+- ⚠ UNVERIFIED: Examples were not executed in a running installation.
+- ⚠ UNVERIFIED: Versions of introduction of `MediaUploadService` and presigned upload.
+- ⚠ UNVERIFIED: Admin components `sw-media-upload-v2`/`sw-media-preview-v2` only from the docs, not verified against the admin source code.
+- ⚠ GAP: Option list of `media:generate-thumbnails` not read out completely. The thumbnail template knows further undocumented variables (`load`, `loadOriginalImage`, `autoColumnSizes`, `columns`, `layout`).

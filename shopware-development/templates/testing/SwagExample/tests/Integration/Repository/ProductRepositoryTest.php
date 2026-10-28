@@ -12,10 +12,10 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 use Shopware\Core\Test\Stub\Framework\IdsCollection;
 
-// Pfad im Plugin: custom/plugins/SwagExample/tests/Integration/Repository/ProductRepositoryTest.php
-// Integrationstest ueber das DAL: echter Kernel + Test-DB (shopware_test), jeder Test in einer zurueckgerollten Transaktion.
-// Der Zugriff laeuft ueber den Test-Container (static::getContainer()); dort sind auch private Services abrufbar,
-// ABER nur solche, die im kompilierten Container noch existieren (ungenutzte private Services werden entfernt).
+// Path in the plugin: custom/plugins/SwagExample/tests/Integration/Repository/ProductRepositoryTest.php
+// Integration test via the DAL: real kernel + test DB (shopware_test), each test in a rolled-back transaction.
+// Access goes through the test container (static::getContainer()); private services can be retrieved there too,
+// BUT only those that still exist in the compiled container (unused private services are removed).
 class ProductRepositoryTest extends TestCase
 {
     use IntegrationTestBehaviour;

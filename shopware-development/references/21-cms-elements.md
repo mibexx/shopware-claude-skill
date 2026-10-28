@@ -1,22 +1,22 @@
-# Eigene CMS-Elemente (Referenz, Shopware 6.7.15.1)
+# Custom CMS elements (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn ein eigenes Shopping-Experiences-Element (Slot-Inhalt) entstehen soll: Admin-Komponenten (Editor, Konfiguration, Vorschau), Storefront-Twig und optional ein PHP-Resolver, der Daten nachlädt.
+This reference applies when a custom Shopping Experiences element (slot content) is to be built: admin components (editor, configuration, preview), storefront Twig and optionally a PHP resolver that loads additional data.
 
-Abgrenzung: Blöcke (Layout-Container mit Slots), Sektionen und Sichtbarkeit: [T-22 CMS-Blöcke und Sichtbarkeit](./22-cms-bloecke-sichtbarkeit.md). Twig-Mechanik: [T-14](./14-storefront-twig-templates.md). Snippets: [T-18](./18-snippets-uebersetzungen.md). Admin-Build: [T-49](./49-build-deployment.md). Gerüst: [../templates/cms-element/README.md](../templates/cms-element/README.md).
+Scope: blocks (layout containers with slots), sections and visibility: [T-22 CMS blocks and visibility](./22-cms-blocks-visibility.md). Twig mechanics: [T-14](./14-storefront-twig-templates.md). Snippets: [T-18](./18-snippets-translations.md). Admin build: [T-49](./49-build-deployment.md). Scaffold: [../templates/cms-element/README.md](../templates/cms-element/README.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-Ein CMS-Element besteht aus drei Teilen:
+A CMS element consists of three parts:
 
-1. **Administration:** drei Vue-Komponenten (Editor-Ansicht `component`, Einstellungen `configComponent`, Vorschau `previewComponent`), registriert mit `Shopware.Service('cmsService').registerCmsElement({...})`, geladen aus `src/Resources/app/administration/src/main.js`.
-2. **Storefront:** Twig `src/Resources/views/storefront/element/cms-element-<name>.html.twig`. Der Block-Wrapper bindet es per `sw_include '@Storefront/storefront/element/cms-element-' ~ element.type ~ '.html.twig' ignore missing` ein (z. B. `block/cms-block-text.html.twig:7`). Im Template: `element` (= `CmsSlotEntity`), `element.fieldConfig.elements` (Config), `element.data` (vom Resolver gesetztes Struct).
-3. **Optional PHP-Resolver:** implementiert `CmsElementResolverInterface` (üblich `extends AbstractCmsElementResolver`) mit `getType()`, `collect()`, `enrich()`. Typ = `name` des Elements. Tag `shopware.cms.data_resolver` setzt der Container per Autoconfiguration (`AutoconfigureCompilerPass.php:149-151`); explizites Tag schadet nicht.
+1. **Administration:** three Vue components (editor view `component`, settings `configComponent`, preview `previewComponent`), registered with `Shopware.Service('cmsService').registerCmsElement({...})`, loaded from `src/Resources/app/administration/src/main.js`.
+2. **Storefront:** Twig `src/Resources/views/storefront/element/cms-element-<name>.html.twig`. The block wrapper includes it via `sw_include '@Storefront/storefront/element/cms-element-' ~ element.type ~ '.html.twig' ignore missing` (e.g. `block/cms-block-text.html.twig:7`). In the template: `element` (= `CmsSlotEntity`), `element.fieldConfig.elements` (config), `element.data` (struct set by the resolver).
+3. **Optional PHP resolver:** implements `CmsElementResolverInterface` (usually `extends AbstractCmsElementResolver`) with `getType()`, `collect()`, `enrich()`. Type = `name` of the element. The container sets the tag `shopware.cms.data_resolver` via autoconfiguration (`AutoconfigureCompilerPass.php:149-151`); an explicit tag does no harm.
 
-Ohne Resolver bleibt `element.data` leer; reine Config-Werte (`element.fieldConfig.elements.<key>.value`) funktionieren trotzdem.
+Without a resolver, `element.data` stays empty; plain config values (`element.fieldConfig.elements.<key>.value`) still work.
 
-Namensgleichheit: `name` in `registerCmsElement` = `getType()` = Suffix im Twig-Dateinamen.
+Name identity: `name` in `registerCmsElement` = `getType()` = suffix in the Twig file name.
 
 ```
 custom/plugins/SwagExample/
@@ -36,29 +36,29 @@ custom/plugins/SwagExample/
                 ├── config/{index.js, sw-cms-el-config-swag-quote.html.twig}
                 └── preview/{index.js, sw-cms-el-preview-swag-quote.html.twig}
 ```
-Pfad `module/sw-cms/elements/<name>/` ist Konvention (Core: `administration/Resources/app/administration/src/module/sw-cms/elements/`), kein Zwang.
+The path `module/sw-cms/elements/<name>/` is a convention (core: `administration/Resources/app/administration/src/module/sw-cms/elements/`), not a requirement.
 
-Entscheidungshilfe: nur statische Eingaben -> kein Resolver. Entities/Medien/Produkte nachladen -> Resolver mit `collect()` (Criteria bündeln). Für Änderungen an Core-Elementen Extension-Points/Dekoration statt eigenem Resolver mit Core-Typ ([T-08](./08-extension-points.md)).
+Decision guide: static inputs only -> no resolver. Loading entities/media/products -> resolver with `collect()` (bundle criteria). For changes to core elements, use extension points/decoration instead of a custom resolver with a core type ([T-08](./08-extension-points.md)).
 
-## 3. Anleitung
+## 3. Instructions
 
-1. Plugin anlegen ([T-01](./01-projektstruktur-dev-umgebung.md), [T-02](./02-plugin-aufbau.md)); Resolver, Struct, `services.php` schreiben.
-2. Admin-Dateien unter `src/Resources/app/administration/src/` anlegen; `main.js` importiert das Element-Modul.
-3. Storefront-Twig `cms-element-<name>.html.twig` ablegen.
-4. CLI (im Shopware-Root):
+1. Create the plugin ([T-01](./01-project-structure-dev-environment.md), [T-02](./02-plugin-structure.md)); write resolver, struct, `services.php`.
+2. Create admin files under `src/Resources/app/administration/src/`; `main.js` imports the element module.
+3. Place the storefront Twig `cms-element-<name>.html.twig`.
+4. CLI (in the Shopware root):
    ```bash
    bin/console plugin:refresh
    bin/console plugin:install --activate SwagExample
-   bin/build-administration.sh      # Admin-Bundle neu bauen (T-49)
+   bin/build-administration.sh      # rebuild admin bundle (T-49)
    bin/console cache:clear
    ```
-   Iteration: `bin/watch-administration.sh`. Änderungen nur an Twig/PHP: `cache:clear` genügt.
-5. Admin: Inhalte → Shopping Experiences → Layout öffnen → Block mit Slot hinzufügen → im Slot-Dialog das Element wählen. Ein Block kann den Slot-Typ fest vorgeben (`slots: { … : 'swag-quote' }`, siehe T-22).
-6. `registerCmsElement`-Optionen (Typ `CmsElementConfig`, `cms.service.ts`): `name`, `label`, `component`, `configComponent`, `previewComponent`, `defaultConfig` (Pflicht: `name`, `component`); optional `allowedPageTypes`, `defaultData`, `hidden`, `removable`, `flag`, `collect`, `enrich`, `appData`, `hover`, `disabledConfigInfoTextKey`.
+   Iteration: `bin/watch-administration.sh`. Changes to Twig/PHP only: `cache:clear` is enough.
+5. Admin: Content → Shopping Experiences → open layout → add a block with a slot → choose the element in the slot dialog. A block can fix the slot type (`slots: { … : 'swag-quote' }`, see T-22).
+6. `registerCmsElement` options (type `CmsElementConfig`, `cms.service.ts`): `name`, `label`, `component`, `configComponent`, `previewComponent`, `defaultConfig` (required: `name`, `component`); optional `allowedPageTypes`, `defaultData`, `hidden`, `removable`, `flag`, `collect`, `enrich`, `appData`, `hover`, `disabledConfigInfoTextKey`.
 
-## 4. Beispiele
+## 4. Examples
 
-Element „swag-quote": Zitat, Autor, Bild (Media-ID); der Resolver lädt die Media-Entity.
+Element "swag-quote": quote, author, image (media ID); the resolver loads the media entity.
 
 `composer.json`
 ```json
@@ -151,7 +151,7 @@ class QuoteCmsElementResolver extends AbstractCmsElementResolver
         }
 
         $collection = new CriteriaCollection();
-        // Key muss über alle Slots eindeutig sein (sonst CmsException::duplicateCriteriaKey)
+        // Key must be unique across all slots (otherwise CmsException::duplicateCriteriaKey)
         $collection->add(
             'media_' . $slot->getUniqueIdentifier(),
             MediaDefinition::class,
@@ -164,7 +164,7 @@ class QuoteCmsElementResolver extends AbstractCmsElementResolver
     public function enrich(CmsSlotEntity $slot, ResolverContext $resolverContext, ElementDataCollection $result): void
     {
         $struct = new QuoteStruct();
-        $slot->setData($struct); // immer ein Struct setzen
+        $slot->setData($struct); // always set a struct
 
         $mediaConfig = $slot->getFieldConfig()->get('media');
         if ($mediaConfig === null || $mediaConfig->isMapped() || $mediaConfig->getValue() === null) {
@@ -192,7 +192,7 @@ return static function (ContainerConfigurator $container): void {
         ->tag('shopware.cms.data_resolver');
 };
 ```
-Alternativ `services.xml` ([T-05](./05-services-registrieren.md)): XML ist in 6.7 deprecated, Entfernung in 6.8.
+Alternatively `services.xml` ([T-05](./05-registering-services.md)): XML is deprecated in 6.7, removal in 6.8.
 
 `src/Resources/views/storefront/element/cms-element-swag-quote.html.twig`
 ```twig
@@ -230,7 +230,7 @@ Shopware.Component.register('sw-cms-el-swag-quote', () => import('./component'))
 
 Shopware.Service('cmsService').registerCmsElement({
     name: 'swag-quote',
-    label: 'swag-quote.elements.quote.label',   // Snippet-Schlüssel (T-18)
+    label: 'swag-quote.elements.quote.label',   // snippet key (T-18)
     component: 'sw-cms-el-swag-quote',
     configComponent: 'sw-cms-el-config-swag-quote',
     previewComponent: 'sw-cms-el-preview-swag-quote',
@@ -242,7 +242,7 @@ Shopware.Service('cmsService').registerCmsElement({
 });
 ```
 
-`…/component/index.js` und `sw-cms-el-swag-quote.html.twig`
+`…/component/index.js` and `sw-cms-el-swag-quote.html.twig`
 ```js
 import template from './sw-cms-el-swag-quote.html.twig';
 
@@ -271,7 +271,7 @@ export default {
 {% endblock %}
 ```
 
-`…/config/index.js` und `sw-cms-el-config-swag-quote.html.twig`
+`…/config/index.js` and `sw-cms-el-config-swag-quote.html.twig`
 ```js
 import template from './sw-cms-el-config-swag-quote.html.twig';
 
@@ -306,7 +306,7 @@ export default {
 {% endblock %}
 ```
 
-`…/preview/index.js` und `sw-cms-el-preview-swag-quote.html.twig`
+`…/preview/index.js` and `sw-cms-el-preview-swag-quote.html.twig`
 ```js
 import template from './sw-cms-el-preview-swag-quote.html.twig';
 
@@ -318,44 +318,44 @@ export default { template };
 {% endblock %}
 ```
 
-Medienauswahl im Config-Dialog fehlt im Minimalbeispiel (Core: `sw-cms-mapping-field` bzw. `sw-media-upload-v2`, siehe `elements/image/config/`); die Media-ID käme sonst nur über Default/Import. Referenzelemente im Core: `elements/youtube-video/` (index.ts, component/, config/, preview/) und `elements/html/`.
+Media selection in the config dialog is missing from the minimal example (core: `sw-cms-mapping-field` or `sw-media-upload-v2`, see `elements/image/config/`); otherwise the media ID would only come via default/import. Reference elements in the core: `elements/youtube-video/` (index.ts, component/, config/, preview/) and `elements/html/`.
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- `name` ≠ `getType()` ≠ Template-Suffix: kein Resolver bzw. leeres Element (`ignore missing` verschluckt fehlendes Template stumm).
-- Doppelter Criteria-Key in `collect()` -> `CmsException::duplicateCriteriaKey`; Key mit `$slot->getUniqueIdentifier()` suffixen.
-- `enrich()` ohne `$slot->setData()`: `element.data` bleibt leer.
-- `createdComponent()` ohne `initElementConfig('<name>')`: `defaultConfig` wird nicht gemergt -> `Cannot read properties of undefined`.
-- Config-Komponente ohne `emits: ['element-update']`/Emit: Änderungen werden nicht übernommen.
-- Admin-Build vergessen (nur `cache:clear`): Element erscheint nicht.
-- `registerCmsElement` ohne `name`/`component` oder mit `flag: false` gibt `false` zurück und registriert nicht.
-- Eigener Resolver mit Typ eines Core-Elements: der später iterierte überschreibt den früheren (`CmsSlotsDataResolver::__construct`).
-- `source: 'mapped'`-Felder müssen über `resolveEntityValue()` aufgelöst werden (Vorbild `TextCmsElementResolver`).
-- Ungesäuberten HTML-Inhalt ausgeben: Core nutzt `HtmlSanitizer`; `|raw` nur mit gesäuberten Daten.
-- Datenabfrage im `enrich()` per Repository statt `collect()`: verhindert `optimizeCriteriaObjects`, erzeugt N+1.
+- `name` ≠ `getType()` ≠ template suffix: no resolver or an empty element (`ignore missing` silently swallows a missing template).
+- Duplicate criteria key in `collect()` -> `CmsException::duplicateCriteriaKey`; suffix the key with `$slot->getUniqueIdentifier()`.
+- `enrich()` without `$slot->setData()`: `element.data` stays empty.
+- `createdComponent()` without `initElementConfig('<name>')`: `defaultConfig` is not merged -> `Cannot read properties of undefined`.
+- Config component without `emits: ['element-update']`/emit: changes are not applied.
+- Admin build forgotten (only `cache:clear`): element does not appear.
+- `registerCmsElement` without `name`/`component` or with `flag: false` returns `false` and does not register.
+- Custom resolver with the type of a core element: the one iterated later overwrites the earlier one (`CmsSlotsDataResolver::__construct`).
+- `source: 'mapped'` fields must be resolved via `resolveEntityValue()` (model: `TextCmsElementResolver`).
+- Outputting unsanitized HTML content: core uses `HtmlSanitizer`; `|raw` only with sanitized data.
+- Querying data in `enrich()` via repository instead of `collect()`: prevents `optimizeCriteriaObjects`, causes N+1.
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-- Admin ist Vue 3: Config-Komponenten deklarieren `emits: ['element-update']`, `v-model:value` statt `.sync`.
-- `Shopware.Component.register(name, () => import(...))` (lazy) ist in Core-Elementen Standard.
-- `cms.service.ts` und `elements/*/index.ts` sind TypeScript; `CmsElementConfig` ist typisiert.
-- `AbstractCmsElementResolver::resolveDefinitionField()` und `resolveCriteriaForLazyLoadedRelations()` `@deprecated tag:v6.8.0` – nicht verwenden.
-- Extension-Points `CmsSlotsDataCollectExtension`, `CmsSlotsDataEnrichExtension`, `CmsSlotsDataResolveExtension` (`core/Content/Cms/Extension/`).
-- Composable `useCmsElement` ist in 6.7.15.1 vorhanden, aber `@experimental stableVersion:v6.9.0 feature:ADMIN_MIXIN_COMPOSABLES` und `@private`; Doku nennt „seit 6.7.16.0" (Code gilt). Für Plugins in 6.7: Mixin `cms-element` verwenden; `use-cms-element-deprecated.ts` ist `@deprecated tag:v6.9.0`.
+- Admin is Vue 3: config components declare `emits: ['element-update']`, `v-model:value` instead of `.sync`.
+- `Shopware.Component.register(name, () => import(...))` (lazy) is standard in core elements.
+- `cms.service.ts` and `elements/*/index.ts` are TypeScript; `CmsElementConfig` is typed.
+- `AbstractCmsElementResolver::resolveDefinitionField()` and `resolveCriteriaForLazyLoadedRelations()` are `@deprecated tag:v6.8.0` – do not use.
+- Extension points `CmsSlotsDataCollectExtension`, `CmsSlotsDataEnrichExtension`, `CmsSlotsDataResolveExtension` (`core/Content/Cms/Extension/`).
+- The composable `useCmsElement` exists in 6.7.15.1, but is `@experimental stableVersion:v6.9.0 feature:ADMIN_MIXIN_COMPOSABLES` and `@private`; the docs say "since 6.7.16.0" (code takes precedence). For plugins in 6.7: use the mixin `cms-element`; `use-cms-element-deprecated.ts` is `@deprecated tag:v6.9.0`.
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] `name` = `getType()` = Twig-Suffix, mit Vendor-Präfix (`swag-quote`).
-- [ ] `component`, `configComponent`, `previewComponent` registriert und per `main.js` importiert.
-- [ ] `initElementConfig('<name>')` in Editor- und Config-Komponente.
-- [ ] Config-Komponente emittiert `element-update`.
-- [ ] Resolver: Criteria-Keys eindeutig, `enrich()` setzt immer ein Struct, Daten nur in `collect()` geladen.
-- [ ] Storefront-Twig mit eigenen `{% block %}`-Wrappern für Erweiterbarkeit.
-- [ ] Mapped-Felder und HTML-Ausgabe (Sanitizing) behandelt.
-- [ ] Admin neu gebaut (`bin/build-administration.sh`), Cache geleert.
-- [ ] Label als Snippet-Schlüssel (de + en).
+- [ ] `name` = `getType()` = Twig suffix, with vendor prefix (`swag-quote`).
+- [ ] `component`, `configComponent`, `previewComponent` registered and imported via `main.js`.
+- [ ] `initElementConfig('<name>')` in editor and config component.
+- [ ] Config component emits `element-update`.
+- [ ] Resolver: criteria keys unique, `enrich()` always sets a struct, data loaded only in `collect()`.
+- [ ] Storefront Twig with its own `{% block %}` wrappers for extensibility.
+- [ ] Mapped fields and HTML output (sanitizing) handled.
+- [ ] Admin rebuilt (`bin/build-administration.sh`), cache cleared.
+- [ ] Label as snippet key (de + en).
 
-## 7. Quellen
+## 7. Sources
 
 - https://developer.shopware.com/docs/guides/plugins/plugins/content/cms/add-cms-element.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/content/cms/add-data-to-cms-elements.html
@@ -364,10 +364,10 @@ Medienauswahl im Config-Dialog fehlt im Minimalbeispiel (Core: `sw-cms-mapping-f
 - Admin: `module/sw-cms/service/cms.service.ts` (`registerCmsElement`), `module/sw-cms/mixin/sw-cms-element.mixin.ts`, `module/sw-cms/elements/youtube-video/`, `html/`, `app/composables/use-cms-element.ts`.
 - Storefront: `storefront/Resources/views/storefront/element/cms-element-*.html.twig`, `block/cms-block-text.html.twig`.
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ UNGEPRÜFT: Minimalbeispiel nicht gebaut/ausgeführt; folgt Doku und Core-Mustern.
-- ⚠ UNGEPRÜFT: `services.php` im Plugin: Doku nennt es, ob 6.7.15.1 beide Formate (php/xml) im Plugin lädt, am Plugin-Loader nicht geprüft.
-- ⚠ UNGEPRÜFT: `sw_thumbnails … with {media, sizes}` nach Core-Mustern (`cms-element-image.html.twig`) übernommen; `mt-textarea`/`mt-text-field` im Core nicht einzeln nachgesehen.
-- ⚠ UNGEPRÜFT: Registrierung per Objekt-Form (`Component.register(name, {…})`) in 6.7 nicht erneut verifiziert; Einstieg `main.js` vs. `main.ts` nicht separat geprüft.
-- ⚠ LÜCKE: Ob `CmsSlots*Extension` in 6.5/6.6 existierten, nicht belegt; Diskrepanz Doku (6.7.16.0) vs. Code für `useCmsElement` nicht aufgeklärt.
+- ⚠ UNVERIFIED: minimal example not built/run; follows the docs and core patterns.
+- ⚠ UNVERIFIED: `services.php` in the plugin: the docs mention it; whether 6.7.15.1 loads both formats (php/xml) in the plugin was not checked against the plugin loader.
+- ⚠ UNVERIFIED: `sw_thumbnails … with {media, sizes}` adopted from core patterns (`cms-element-image.html.twig`); `mt-textarea`/`mt-text-field` not individually looked up in the core.
+- ⚠ UNVERIFIED: registration via object form (`Component.register(name, {…})`) not re-verified in 6.7; entry point `main.js` vs. `main.ts` not checked separately.
+- ⚠ GAP: whether `CmsSlots*Extension` existed in 6.5/6.6 is not documented; discrepancy between docs (6.7.16.0) and code for `useCmsElement` not resolved.

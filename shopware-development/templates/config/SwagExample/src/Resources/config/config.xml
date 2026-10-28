@@ -2,8 +2,8 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/shopware/trunk/src/Core/System/SystemConfig/Schema/config.xsd">
 
-    <!-- Schlüssel in der DB / im Code: SwagExample.config.<name>
-         Feldnamen: [a-zA-Z][a-zA-Z0-9]*, eindeutig über alle input-field der Datei. -->
+    <!-- Key in the DB / in code: SwagExample.config.<name>
+         Field names: [a-zA-Z][a-zA-Z0-9]*, unique across all input-field elements of the file. -->
 
     <card>
         <title>General</title>
@@ -153,7 +153,7 @@
             </options>
         </input-field>
 
-        <!-- Entity-Auswahl ist KEIN type, sondern eine Komponente -->
+        <!-- Entity selection is NOT a type, but a component -->
         <component name="sw-entity-single-select">
             <name>defaultCountryId</name>
             <entity>country</entity>
@@ -175,7 +175,7 @@
         <title>Cache relevant</title>
         <title lang="de-DE">Cache-relevant</title>
 
-        <!-- cache-relevant: Admin reagiert nach dem Speichern auf Cache-relevante Änderungen (laut Doku ab 6.7.12.0) -->
+        <!-- cache-relevant: after saving, the admin reacts to cache-relevant changes (according to the docs since 6.7.12.0) -->
         <input-field type="bool" cache-relevant="true">
             <name>showBadgeInListing</name>
             <label>Show badge in listing</label>

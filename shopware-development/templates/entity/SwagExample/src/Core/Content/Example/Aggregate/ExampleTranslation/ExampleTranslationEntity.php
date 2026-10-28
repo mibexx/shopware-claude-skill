@@ -7,7 +7,7 @@ use SwagExample\Core\Content\Example\ExampleEntity;
 
 class ExampleTranslationEntity extends TranslationEntity
 {
-    // Namen werden aus dem Entity-Namen abgeleitet: swag_example => swagExampleId / swagExample
+    // Names are derived from the entity name: swag_example => swagExampleId / swagExample
     protected string $swagExampleId;
 
     protected ?string $name = null;

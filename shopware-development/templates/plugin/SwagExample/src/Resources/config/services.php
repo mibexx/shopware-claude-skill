@@ -7,10 +7,10 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 return static function (ContainerConfigurator $containerConfigurator): void {
     $services = $containerConfigurator->services();
 
-    // Explizite Registrierung (Core-Stil): kein Autowiring, Argumente und Tags werden angegeben.
-    // Beispiel:
+    // Explicit registration (core style): no autowiring, arguments and tags are specified.
+    // Example:
     // $services->set(\SwagExample\Service\MyService::class)
     //     ->args([service(\Shopware\Core\System\SystemConfig\SystemConfigService::class)]);
     //
-    // Alternative mit Autowiring/Autoconfigure: siehe README.md (Variante B).
+    // Alternative with autowiring/autoconfigure: see README.md (variant B).
 };

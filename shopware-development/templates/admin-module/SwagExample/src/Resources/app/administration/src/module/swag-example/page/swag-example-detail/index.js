@@ -37,7 +37,7 @@ export default {
             return this.repositoryFactory.create('swag_example');
         },
 
-        // erzeugt exampleNameError und exampleTechnicalNameError fuer :error im Template
+        // creates exampleNameError and exampleTechnicalNameError for :error in the template
         ...mapPropertyErrors('example', ['name', 'technicalName']),
     },
 
@@ -87,12 +87,12 @@ export default {
                 this.isSaveSuccessful = true;
 
                 if (this.exampleId === null) {
-                    // nach dem Anlegen auf die Detail-Route wechseln
+                    // switch to the detail route after creation
                     void this.$router.push({ name: 'swag.example.detail', params: { id: this.example.id } });
                     return;
                 }
 
-                // lokale Entity wird durch save() nicht aktualisiert, daher neu laden
+                // the local entity is not updated by save(), so reload
                 await this.loadEntity();
             } catch {
                 this.createNotificationError({

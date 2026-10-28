@@ -1,23 +1,23 @@
-# MCP-Server-Erweiterung (Referenz, Shopware 6.7.15.1)
+# MCP server extension (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn ein Plugin eigene Tools, Prompts oder Resources für den Shopware-MCP-Server (Model Context Protocol) bereitstellen soll, damit KI-Clients (Claude Desktop, Cursor usw.) einen Shop bedienen können. **Einordnung: optional (Randthema) und experimentell** (`@experimental stableVersion:v6.8.0`, kein Feature-Flag). Für normale Plugin-, Theme- und Admin-Entwicklung nicht nötig.
+This reference applies when a plugin should provide its own tools, prompts or resources for the Shopware MCP server (Model Context Protocol), so that AI clients (Claude Desktop, Cursor, etc.) can operate a shop. **Classification: optional (fringe topic) and experimental** (`@experimental stableVersion:v6.8.0`, no feature flag). Not needed for normal plugin, theme and admin development.
 
-Abgrenzung: Service-Registrierung und Tags allgemein in [T-05 Services](./05-services-registrieren.md); App-basierte MCP-Fähigkeiten (`mcp.xml`) nur zur Abgrenzung hier, Details in [T-10 App-System](./10-app-system-abgrenzung.md); Rechte/ACL in [T-23 ACL](./23-acl-rechte-rollen.md); Plugin-Gerüst in [T-02 Plugin-Aufbau](./02-plugin-aufbau.md).
+Scope: service registration and tags in general in [T-05 Services](./05-registering-services.md); app-based MCP capabilities (`mcp.xml`) only for delimitation here, details in [T-10 App system](./10-app-system-scope.md); permissions/ACL in [T-23 ACL](./23-acl-permissions-roles.md); plugin scaffold in [T-02 Plugin structure](./02-plugin-structure.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-- **Zwei Server:** Admin-API-Server `POST|GET|DELETE|OPTIONS /api/_mcp` (Route `api.mcp.endpoint`, `McpServerController`) und Store-API-Server `/store-api/_mcp` (Route `store-api.mcp.endpoint`, `StoreApiMcpServerController`).
-- **Status:** in 6.7.15.1 immer aktiv (`symfony/mcp-bundle ~0.13.0`, `mcp/sdk ^0.8.1` in `require`). API kann sich bis 6.8.0 ändern.
-- **Capabilities:** Tool (`#[McpTool]`), Prompt (`#[McpPrompt]`), Resource (`#[McpResource]`, alle aus `Mcp\Capability\Attribute`). Shopware-Zusatzattribute (`Shopware\Core\Framework\Mcp\Attribute`): `#[McpToolGroup]` (Toolset), `#[McpToolRequires]` (nur deklarativ!), `#[McpToolDependsOn]`.
-- **Plugin-Tags:** `shopware.mcp.tool|prompt|resource` (Admin-Server), `shopware.store_api_mcp.tool|prompt|resource` (Store-API-Server). Der `McpToolDiscoveryCompilerPass` mappt sie auf `mcp.*` und weist sie dem Server zu. Das Tag `mcp.tool` direkt ist nur für In-Tree-Bundles (Namespace-Präfixe `Shopware\Core\Framework\Mcp\`, `Shopware\Storefront\Mcp\`).
-- **Toolsets:** Die Gruppe aus `#[McpToolGroup('…')]` ist ein Toolset; ohne Gruppe: Fallback-Toolset `other`. Frische Sessions sehen nur Discovery-Tools (`shopware-tool-search`, `shopware-toolsets-list`, `shopware-toolset-enable`); alle anderen sind "deferred", bis das Toolset aktiviert ist (Session-Tool oder URL `?toolsets=a,b` / `?toolsets=all`).
-- **Namensschema:** `{vendor}-{plugin}-{name}`, nur `a-zA-Z0-9_-`, keine Punkte; Präfix `shopware-` ist für den Core reserviert.
-- **Allow-List, zwei Ebenen:** (1) pro Integration/Benutzer in der DB (`mcp_allowlist` JSON mit `tools`/`resources`/`prompts`; `null` = unbeschränkt, leeres Array = alles gesperrt); (2) global `shopware.mcp.allowed_tools` (Compile-Zeit, entfernt Tool-Services aus dem Container).
-- **Authentifizierung Admin-Server:** Header `sw-access-key` + `sw-secret-access-key` (Integration oder Benutzer; andere Key-Origins werfen `McpException::unsupportedKeyType()`) **oder** Bearer-JWT. Store-API-Server: `sw-access-key` (Sales-Channel-Key), optional `sw-context-token`.
+- **Two servers:** Admin API server `POST|GET|DELETE|OPTIONS /api/_mcp` (route `api.mcp.endpoint`, `McpServerController`) and Store API server `/store-api/_mcp` (route `store-api.mcp.endpoint`, `StoreApiMcpServerController`).
+- **Status:** always active in 6.7.15.1 (`symfony/mcp-bundle ~0.13.0`, `mcp/sdk ^0.8.1` in `require`). The API may change until 6.8.0.
+- **Capabilities:** tool (`#[McpTool]`), prompt (`#[McpPrompt]`), resource (`#[McpResource]`, all from `Mcp\Capability\Attribute`). Shopware additional attributes (`Shopware\Core\Framework\Mcp\Attribute`): `#[McpToolGroup]` (toolset), `#[McpToolRequires]` (declarative only!), `#[McpToolDependsOn]`.
+- **Plugin tags:** `shopware.mcp.tool|prompt|resource` (admin server), `shopware.store_api_mcp.tool|prompt|resource` (Store API server). `McpToolDiscoveryCompilerPass` maps them to `mcp.*` and assigns them to the server. The tag `mcp.tool` directly is only for in-tree bundles (namespace prefixes `Shopware\Core\Framework\Mcp\`, `Shopware\Storefront\Mcp\`).
+- **Toolsets:** The group from `#[McpToolGroup('…')]` is a toolset; without a group: fallback toolset `other`. Fresh sessions only see discovery tools (`shopware-tool-search`, `shopware-toolsets-list`, `shopware-toolset-enable`); all others are "deferred" until the toolset is enabled (session tool or URL `?toolsets=a,b` / `?toolsets=all`).
+- **Naming scheme:** `{vendor}-{plugin}-{name}`, only `a-zA-Z0-9_-`, no dots; the prefix `shopware-` is reserved for the core.
+- **Allow list, two levels:** (1) per integration/user in the DB (`mcp_allowlist` JSON with `tools`/`resources`/`prompts`; `null` = unrestricted, empty array = everything blocked); (2) global `shopware.mcp.allowed_tools` (compile time, removes tool services from the container).
+- **Authentication admin server:** headers `sw-access-key` + `sw-secret-access-key` (integration or user; other key origins throw `McpException::unsupportedKeyType()`) **or** Bearer JWT. Store API server: `sw-access-key` (sales channel key), optionally `sw-context-token`.
 
-Plugin-Struktur:
+Plugin structure:
 
 ```
 custom/plugins/SwagExample/
@@ -28,47 +28,47 @@ custom/plugins/SwagExample/
     └── Resources/config/services.php
 ```
 
-Core-Referenz (nicht ändern): `core/Framework/Mcp/` (`AGENTS.md`, `Tool/McpToolResponse.php`, `McpToolsetRegistry.php`), `storefront/Mcp/Tool/ThemeConfigTool.php`.
+Core reference (do not modify): `core/Framework/Mcp/` (`AGENTS.md`, `Tool/McpToolResponse.php`, `McpToolsetRegistry.php`), `storefront/Mcp/Tool/ThemeConfigTool.php`.
 
-## 3. Anleitung
+## 3. Instructions
 
-1. Plugin anlegen (siehe T-02).
-2. Tool-Klasse: `#[McpTool]` an der Klasse (Standard) oder an `__invoke()` (beides wird von `McpToolAttributeReader` gelesen: erst Klasse, dann `__invoke`; `McpToolGroup` erlaubt Klasse oder Methode, `McpToolRequires`/`McpToolDependsOn` nur Klasse), `extends McpToolResponse`, `__invoke()` mit Parametertypen `string|int|float|bool`, Beschreibung der Parameter per `@param`-Docblock; Rückgabe JSON-String über `$this->success($data, $meta)` oder `$this->error($msg)`.
-3. Kontext immer über `McpContextProvider::getContext()`, nie `Context::createDefaultContext()`. Rechte zur Laufzeit mit `$this->requirePrivilege($context, '…')` erzwingen (`#[McpToolRequires]` erzwingt nichts).
-4. `#[McpToolGroup('mein-plugin')]` setzen; optional `#[McpToolDependsOn('shopware-entity-schema')]` (unbekannte Namen brechen den Container-Build).
-5. Service in `services.php` mit Tag `shopware.mcp.tool` registrieren (XML-Services sind in 6.7 deprecated, `Bundle.php`).
-6. Installieren und prüfen:
+1. Create a plugin (see T-02).
+2. Tool class: `#[McpTool]` on the class (standard) or on `__invoke()` (both are read by `McpToolAttributeReader`: first class, then `__invoke`; `McpToolGroup` allows class or method, `McpToolRequires`/`McpToolDependsOn` class only), `extends McpToolResponse`, `__invoke()` with parameter types `string|int|float|bool`, parameter descriptions via `@param` docblock; return a JSON string via `$this->success($data, $meta)` or `$this->error($msg)`.
+3. Always get the context via `McpContextProvider::getContext()`, never `Context::createDefaultContext()`. Enforce permissions at runtime with `$this->requirePrivilege($context, '…')` (`#[McpToolRequires]` enforces nothing).
+4. Set `#[McpToolGroup('my-plugin')]`; optionally `#[McpToolDependsOn('shopware-entity-schema')]` (unknown names break the container build).
+5. Register the service in `services.php` with tag `shopware.mcp.tool` (XML services are deprecated in 6.7, `Bundle.php`).
+6. Install and check:
 
 ```bash
 bin/console plugin:refresh
 bin/console plugin:install --activate SwagExample
-bin/console cache:clear                       # Attribute sind im Container-Cache eingebacken
-bin/console debug:mcp                         # beide Server; Spalten Group/Dependencies/Privileges
+bin/console cache:clear                       # attributes are baked into the container cache
+bin/console debug:mcp                         # both servers; columns Group/Dependencies/Privileges
 bin/console debug:mcp --scope=api
-bin/console debug:mcp --native                # Sicht des MCP-Bundles inkl. nicht zugewiesener Capabilities
-bin/console debug:mcp swag-example-orders     # Detailansicht
-bin/console debug:mcp --integration SWIA...   # gefiltert nach Allow-List einer Integration
+bin/console debug:mcp --native                # MCP bundle view incl. unassigned capabilities
+bin/console debug:mcp swag-example-orders     # detail view
+bin/console debug:mcp --integration SWIA...   # filtered by an integration's allow list
 ```
 
-7. Authentifizieren: Integration anlegen (Administration, Einstellungen, System, Integrationen), Rolle mit nötigen Rechten zuweisen, Key/Secret im MCP-Client eintragen (`https://shop.example/api/_mcp`).
-8. Allow-List: pro Integration über Administration "MCP-Allowlist bearbeiten" (Recht `integration_mcp.editor`; `POST /api/_action/integration/{id}/mcp-allowlist`); pro Benutzer `UserMcpAllowlistController`; global:
+7. Authenticate: create an integration (Administration, Settings, System, Integrations), assign a role with the required permissions, enter key/secret in the MCP client (`https://shop.example/api/_mcp`).
+8. Allow list: per integration via Administration "Edit MCP allowlist" (permission `integration_mcp.editor`; `POST /api/_action/integration/{id}/mcp-allowlist`); per user `UserMcpAllowlistController`; global:
 
 ```yaml
 # config/packages/shopware.yaml
 shopware:
     mcp:
-        allowed_tools:            # leer = alle erlaubt; fehlende Tools werden zur Compile-Zeit entfernt
+        allowed_tools:            # empty = all allowed; missing tools are removed at compile time
             - shopware-entity-search
             - swag-example-orders
-        app_tool_timeout: 10      # Sekunden für App-Webhook-Tools
+        app_tool_timeout: 10      # seconds for app webhook tools
 ```
 
-9. Toolset im Client aktivieren: `https://shop.example/api/_mcp?toolsets=swag-example` oder Tool `shopware-toolset-enable`.
-10. Store-API-Capabilities (kundenseitig): Tags `shopware.store_api_mcp.*`, Kontext über `StoreApiMcpContextProvider`; Klassen nicht unter einem Admin-Namespace-Präfix ablegen.
+9. Enable the toolset in the client: `https://shop.example/api/_mcp?toolsets=swag-example` or tool `shopware-toolset-enable`.
+10. Store API capabilities (customer-facing): tags `shopware.store_api_mcp.*`, context via `StoreApiMcpContextProvider`; do not place classes under an admin namespace prefix.
 
-## 4. Beispiele
+## 4. Examples
 
-Dateien nach Doku und Core-Tool `SystemConfigReadTool` abgeglichen. ⚠ UNGEPRÜFT: nicht in einer laufenden Instanz ausgeführt (kein PHP/Docker lokal).
+Files cross-checked against the docs and the core tool `SystemConfigReadTool`. ⚠ UNVERIFIED: not executed in a running instance (no PHP/Docker locally).
 
 `src/SwagExample.php`
 
@@ -229,7 +229,7 @@ return static function (ContainerConfigurator $container): void {
 
     $services->set(OrderListTool::class)
         ->args([service('order.repository'), service(McpContextProvider::class)])
-        // optional: Ergebnis-Cache ab 100 KB (greift sonst nur fuer Core-Tools)
+        // optional: result cache from 100 KB (otherwise only applies to core tools)
         ->call('setToolResultCache', [service(ToolResultCacheStorage::class), service('request_stack'), service('logger')])
         ->tag('shopware.mcp.tool');
 
@@ -238,49 +238,49 @@ return static function (ContainerConfigurator $container): void {
 };
 ```
 
-Die Tag-Mappings `shopware.mcp.prompt|resource` auf `mcp.prompt|resource` stehen in `McpToolDiscoveryCompilerPass::process()` (verifiziert).
+The tag mappings `shopware.mcp.prompt|resource` to `mcp.prompt|resource` are in `McpToolDiscoveryCompilerPass::process()` (verified).
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- **Attributort:** `#[McpTool]` funktioniert an der Klasse und an `__invoke()` (`McpToolAttributeReader::resolveInfo/resolveAttribute`: erst Klasse, dann `__invoke`). `#[McpToolRequires]` und `#[McpToolDependsOn]` sind dagegen nur an der Klasse zulässig (`TARGET_CLASS`).
-- **Falsches Tag** `mcp.tool` im Plugin: Klasse wird keinem Server zugewiesen und fehlt still; `debug:mcp` zeigt es in der Fußzeile.
-- **Ungültige Namen / Doppelnamen:** nur `a-zA-Z0-9_-`; doppelte Namen pro Server brechen den Build (`detectToolNameConflicts`); `shopware-`-Präfix für App-Tools wird übersprungen.
-- **Änderungen an Name/Beschreibung greifen nicht:** Attribute stecken im Container-Cache, `cache:clear`.
-- **`McpToolRequires` ist nur informativ:** ohne `requirePrivilege()` und DAL-ACL ist das Tool für jeden erlaubten Aufrufer offen.
-- **Unbehandelte Exceptions** ergeben einen undurchsichtigen JSON-RPC-Fehler `-32603`; erwartbare Fehler mit `$this->error()` zurückgeben. Schreibende Tools mit `executeWithDryRun()` und `bool $dryRun = true` bauen (`Tool/AGENTS.md`).
-- **Viele Pflichtparameter:** Parameter ohne PHP-Default werden `required` im JSON-Schema; manche Modelle rufen das Tool dann nicht auf.
-- **Große Antworten:** ab 100 KB (`MAX_RESPONSE_SIZE = 100_000` Bytes) legt `success()` sie in `mcp_tool_result_cache` ab und liefert die Resource `shopware://tool-result/{uuid}`, aber nur, wenn `setToolResultCache()` aufgerufen wurde und eine Session-ID (`Mcp-Session-Id`) vorliegt, sonst kommt die volle Antwort inline. Den Setter ruft der Core per `$services->instanceof(McpToolResponse::class)` in `core/Framework/DependencyInjection/mcp.php` auf; `instanceof` gilt in Symfony nur für Services derselben Konfigurationsdatei. Für Plugin-Tools greift der Cache daher nicht automatisch: im Plugin `->call('setToolResultCache', [service(ToolResultCacheStorage::class), service('request_stack'), service('logger')])` ergänzen (`Shopware\Core\Framework\Mcp\ToolResultCacheStorage`) oder die Antwortgröße selbst begrenzen (`limit`/`includes`).
-- **Clients ohne `tools/listChanged`** (z. B. claude.ai): `?toolsets=` in der URL nutzen.
-- **Rate Limit:** Admin-Server 300/60 s und 1000/10 min pro OAuth-Token, Store-API-Server 120/60 s und 600/10 min (`shopware.yaml`); Überschreitung gibt HTTP 429.
-- **Admin-Flag und Allow-List:** `AGENTS.md` sagt, `admin = true` umgehe die Allow-List nicht; `docs/gaps-user-allowlist.md` sagt das Gegenteil. ⚠ LÜCKE: `McpAllowlistProvider` nicht abschließend geprüft.
+- **Attribute location:** `#[McpTool]` works on the class and on `__invoke()` (`McpToolAttributeReader::resolveInfo/resolveAttribute`: first class, then `__invoke`). `#[McpToolRequires]` and `#[McpToolDependsOn]`, in contrast, are only allowed on the class (`TARGET_CLASS`).
+- **Wrong tag** `mcp.tool` in the plugin: the class is not assigned to any server and is silently missing; `debug:mcp` shows it in the footer.
+- **Invalid names / duplicate names:** only `a-zA-Z0-9_-`; duplicate names per server break the build (`detectToolNameConflicts`); the `shopware-` prefix is skipped for app tools.
+- **Changes to name/description do not take effect:** attributes sit in the container cache, `cache:clear`.
+- **`McpToolRequires` is informational only:** without `requirePrivilege()` and DAL ACL the tool is open to every allowed caller.
+- **Unhandled exceptions** produce an opaque JSON-RPC error `-32603`; return expected errors with `$this->error()`. Build writing tools with `executeWithDryRun()` and `bool $dryRun = true` (`Tool/AGENTS.md`).
+- **Many required parameters:** parameters without a PHP default become `required` in the JSON schema; some models then do not call the tool.
+- **Large responses:** from 100 KB (`MAX_RESPONSE_SIZE = 100_000` bytes) `success()` stores them in `mcp_tool_result_cache` and returns the resource `shopware://tool-result/{uuid}`, but only if `setToolResultCache()` was called and a session ID (`Mcp-Session-Id`) is present; otherwise the full response comes inline. The core calls the setter via `$services->instanceof(McpToolResponse::class)` in `core/Framework/DependencyInjection/mcp.php`; in Symfony `instanceof` only applies to services of the same configuration file. For plugin tools the cache therefore does not take effect automatically: add `->call('setToolResultCache', [service(ToolResultCacheStorage::class), service('request_stack'), service('logger')])` in the plugin (`Shopware\Core\Framework\Mcp\ToolResultCacheStorage`) or limit the response size yourself (`limit`/`includes`).
+- **Clients without `tools/listChanged`** (e.g. claude.ai): use `?toolsets=` in the URL.
+- **Rate limit:** admin server 300/60 s and 1000/10 min per OAuth token, Store API server 120/60 s and 600/10 min (`shopware.yaml`); exceeding it returns HTTP 429.
+- **Admin flag and allow list:** `AGENTS.md` says `admin = true` does not bypass the allow list; `docs/gaps-user-allowlist.md` says the opposite. ⚠ GAP: `McpAllowlistProvider` not conclusively checked.
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-- 6.5/6.6: keine MCP-Unterstützung im Core belegt (nur 6.7.15.1 lokal geprüft).
-- 6.7.x: MCP neu, experimentell, **kein** Feature-Flag (frühere Doku nannte `MCP_SERVER`, existiert nicht mehr). Innerhalb 6.7 entwickelt: Toolsets, Store-API-Server, Per-User-Allow-List, Tool-Result-Cache; `scan_dirs` entfällt (mcp-bundle 0.12), Registrierung nur über DI-Tags.
-- Geplant 6.8.0: Stabilisierung. Keine `@deprecated` in `core/Framework/Mcp/` gefunden (nicht vollständig per grep belegt). Allgemein deprecated: XML-Service-Definitionen (`@deprecated tag:v6.8.0`).
+- 6.5/6.6: no MCP support in the core confirmed (only 6.7.15.1 checked locally).
+- 6.7.x: MCP new, experimental, **no** feature flag (earlier docs mentioned `MCP_SERVER`, which no longer exists). Developed within 6.7: toolsets, Store API server, per-user allow list, tool result cache; `scan_dirs` dropped (mcp-bundle 0.12), registration only via DI tags.
+- Planned 6.8.0: stabilization. No `@deprecated` found in `core/Framework/Mcp/` (not fully confirmed via grep). Generally deprecated: XML service definitions (`@deprecated tag:v6.8.0`).
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] Nötigkeit geklärt (Randthema, experimentell, API kann bis 6.8.0 brechen)
-- [ ] `#[McpTool]` an der Klasse (oder an `__invoke()`), Name `{vendor}-{plugin}-{name}` ohne Punkte, kein `shopware-`-Präfix
-- [ ] `extends McpToolResponse`, Rückgabe über `success()`/`error()`
-- [ ] Kontext über `McpContextProvider`, `requirePrivilege()` aufgerufen
-- [ ] `#[McpToolGroup]` gesetzt, Toolset im Client aktiviert (`?toolsets=`)
-- [ ] Tag `shopware.mcp.tool|prompt|resource` (nicht `mcp.tool`) in `services.php`
-- [ ] Schreibende Tools mit `dryRun`-Default
-- [ ] `cache:clear` und `bin/console debug:mcp` geprüft
-- [ ] Allow-List (Integration/Benutzer/global) und Rechte der Integration abgestimmt
+- [ ] Necessity clarified (fringe topic, experimental, API may break until 6.8.0)
+- [ ] `#[McpTool]` on the class (or on `__invoke()`), name `{vendor}-{plugin}-{name}` without dots, no `shopware-` prefix
+- [ ] `extends McpToolResponse`, return via `success()`/`error()`
+- [ ] Context via `McpContextProvider`, `requirePrivilege()` called
+- [ ] `#[McpToolGroup]` set, toolset enabled in the client (`?toolsets=`)
+- [ ] Tag `shopware.mcp.tool|prompt|resource` (not `mcp.tool`) in `services.php`
+- [ ] Writing tools with `dryRun` default
+- [ ] `cache:clear` and `bin/console debug:mcp` checked
+- [ ] Allow list (integration/user/global) and integration permissions aligned
 
-## 7. Quellen
+## 7. Sources
 
-Doku: https://developer.shopware.com/docs/guides/plugins/plugins/mcp-server.html (existiert); https://developer.shopware.com/docs/guides/plugins/apps/mcp-server.html (App-Variante); https://developer.shopware.com/docs/products/tools/mcp-server/ (Übersicht; Unterseiten `configuration`, `extending`, `mcp-concepts`, `best-practices`); Beispiel-Plugin https://github.com/shopwareLabs/SwagMcpAdminUsers. `/docs/concepts/framework/mcp.html` liefert 404.
+Docs: https://developer.shopware.com/docs/guides/plugins/plugins/mcp-server.html (exists); https://developer.shopware.com/docs/guides/plugins/apps/mcp-server.html (app variant); https://developer.shopware.com/docs/products/tools/mcp-server/ (overview; subpages `configuration`, `extending`, `mcp-concepts`, `best-practices`); example plugin https://github.com/shopwareLabs/SwagMcpAdminUsers. `/docs/concepts/framework/mcp.html` returns 404.
 
-Quellcode (unter `vendor/shopware/`): `core/Framework/Mcp/AGENTS.md` (+ Unterordner-`AGENTS.md`), `Tool/McpToolResponse.php` (`success`, `error`, `requirePrivilege`, `executeWithDryRun`, `decodeJsonOrError`), `Tool/SystemConfigReadTool.php`, `Attribute/McpToolGroup|McpToolRequires|McpToolDependsOn.php`, `McpToolsetRegistry.php`, `AllowList/McpAllowlistProvider.php`, `Authentication/McpAuthenticationListener.php`, `Context/McpContextProvider.php`, `Controller/McpServerController.php`, `Command/DebugMcpCommand.php`, `core/Framework/DependencyInjection/CompilerPass/McpToolDiscoveryCompilerPass.php`, `McpToolAnalysisCompilerPass.php`, `core/Framework/DependencyInjection/Configuration.php` (`createMcpSection`), `core/Framework/Resources/config/packages/mcp.php`, `storefront/Mcp/Tool/ThemeConfigTool.php`, Migrationen `core/Migration/V6_7/Migration1772626151AppMcpTool.php` u. a.
+Source code (under `vendor/shopware/`): `core/Framework/Mcp/AGENTS.md` (+ subfolder `AGENTS.md`), `Tool/McpToolResponse.php` (`success`, `error`, `requirePrivilege`, `executeWithDryRun`, `decodeJsonOrError`), `Tool/SystemConfigReadTool.php`, `Attribute/McpToolGroup|McpToolRequires|McpToolDependsOn.php`, `McpToolsetRegistry.php`, `AllowList/McpAllowlistProvider.php`, `Authentication/McpAuthenticationListener.php`, `Context/McpContextProvider.php`, `Controller/McpServerController.php`, `Command/DebugMcpCommand.php`, `core/Framework/DependencyInjection/CompilerPass/McpToolDiscoveryCompilerPass.php`, `McpToolAnalysisCompilerPass.php`, `core/Framework/DependencyInjection/Configuration.php` (`createMcpSection`), `core/Framework/Resources/config/packages/mcp.php`, `storefront/Mcp/Tool/ThemeConfigTool.php`, migrations `core/Migration/V6_7/Migration1772626151AppMcpTool.php` among others.
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ LÜCKE: Einführungsversion nicht belegt; nur "vorhanden in 6.7.15.1, experimentell" aussagen (V6_7-Migrationen deuten auf Einführung innerhalb 6.7).
-- ⚠ UNGEPRÜFT: Beispiele nicht ausgeführt; `orderCustomer.email`/`OrderCollection` nicht gegen die Definition geprüft.
-- ⚠ LÜCKE: Widersprüche in `AGENTS.md` (Code gilt): "kein Store-API-MCP-Endpoint" ist veraltet; Header-Pflicht nennt Bearer-JWT nicht; `custom/bundles/SwagMcpExampleBundle` existiert nicht; SDK-Versionsangaben veraltet; Fallback "unbeschränkt" bei `client_id = administration` evtl. älter als Per-User-Allow-List.
-- ⚠ UNGEPRÜFT: Doku-Unterseiten `extending`/`configuration`/`mcp-concepts`, Beispiel-Plugin `SwagMcpAdminUsers`, Admin-UI der Allow-List, `McpToolsetSessionStorage`.
+- ⚠ GAP: Introduction version not confirmed; only state "present in 6.7.15.1, experimental" (V6_7 migrations suggest introduction within 6.7).
+- ⚠ UNVERIFIED: Examples not executed; `orderCustomer.email`/`OrderCollection` not checked against the definition.
+- ⚠ GAP: Contradictions in `AGENTS.md` (the code is authoritative): "no Store API MCP endpoint" is outdated; the header requirement does not mention Bearer JWT; `custom/bundles/SwagMcpExampleBundle` does not exist; SDK version information outdated; fallback "unrestricted" for `client_id = administration` possibly older than the per-user allow list.
+- ⚠ UNVERIFIED: Docs subpages `extending`/`configuration`/`mcp-concepts`, example plugin `SwagMcpAdminUsers`, admin UI of the allow list, `McpToolsetSessionStorage`.

@@ -4,7 +4,7 @@ namespace SwagExample\Service;
 
 class GreetingServiceDecorator extends AbstractGreetingService
 {
-    // Immer die ABSTRAKTE Klasse typisieren, nie die konkrete.
+    // Always type against the ABSTRACT class, never the concrete one.
     public function __construct(private readonly AbstractGreetingService $inner)
     {
     }
@@ -16,7 +16,7 @@ class GreetingServiceDecorator extends AbstractGreetingService
 
     public function greet(string $name): string
     {
-        // Den inneren Service aufrufen, sonst bricht die Kette fuer andere Plugins.
+        // Call the inner service, otherwise the chain breaks for other plugins.
         return $this->inner->greet($name) . '!';
     }
 }

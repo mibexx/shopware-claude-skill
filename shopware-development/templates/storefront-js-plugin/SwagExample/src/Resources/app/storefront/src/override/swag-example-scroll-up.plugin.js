@@ -1,15 +1,15 @@
 import ScrollUpPlugin from 'src/plugin/scroll-up/scroll-up.plugin';
 
-// Erweitert das Core-Plugin "ScrollUp". Ohne "extends" wuerde der Core-Code komplett ersetzt.
+// Extends the core plugin "ScrollUp". Without "extends" the core code would be replaced completely.
 export default class SwagExampleScrollUpPlugin extends ScrollUpPlugin {
     init() {
         super.init();
 
-        // eigene Logik
+        // custom logic
     }
 
     destroy() {
-        // eigene Listener entfernen, dann Core-Aufraeumen (falls vorhanden)
+        // remove own listeners, then core cleanup (if present)
         super.destroy();
     }
 }

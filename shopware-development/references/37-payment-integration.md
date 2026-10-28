@@ -1,27 +1,27 @@
-# Zahlungsintegration (Referenz, Shopware 6.7.15.1)
+# Payment integration (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn ein Plugin eine eigene Zahlungsart mit Handler anbindet (synchron oder per Redirect), Zahlungsstatus über die State Machine setzt oder Refund/Recurring anbietet.
+This reference applies when a plugin connects a custom payment method with a handler (synchronous or via redirect), sets payment status via the state machine, or offers refund/recurring.
 
-Abgrenzung: Bestell-State-Machines und Dokumente in [T-38](./38-order-statemachine-dokumente.md); Warenkorb in [T-36](./36-warenkorb.md); Plugin-Lifecycle in [T-03](./03-plugin-lifecycle.md); Services/Tags in [T-05](./05-services-registrieren.md); Webhook-Controller in [T-16](./16-storefront-controller-pages.md) bzw. [T-31](./31-admin-api-routen.md); DAL-Schreiben in [T-28](./28-dal-lesen-schreiben.md); App-basierte Zahlungsarten nur in [T-10](./10-app-system-abgrenzung.md).
+Scope: order state machines and documents in [T-38](./38-order-statemachine-documents.md); cart in [T-36](./36-cart.md); plugin lifecycle in [T-03](./03-plugin-lifecycle.md); services/tags in [T-05](./05-registering-services.md); webhook controllers in [T-16](./16-storefront-controller-pages.md) or [T-31](./31-admin-api-routes.md); DAL writing in [T-28](./28-dal-reading-writing.md); app-based payment methods only in [T-10](./10-app-system-scope.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-- Seit 6.7 gibt es **genau eine** Basisklasse: `Shopware\Core\Checkout\Payment\Cart\PaymentHandler\AbstractPaymentHandler`. Die alten Interfaces (`SynchronousPaymentHandlerInterface`, `AsynchronousPaymentHandlerInterface`, `PreparedPaymentHandlerInterface`, `RefundPaymentHandlerInterface`, `RecurringPaymentHandlerInterface`) existieren in 6.7.15.1 **nicht mehr**.
-- Methoden:
-  - `supports(PaymentHandlerType $type, string $paymentMethodId, Context $context): bool` (abstrakt). Enum `PaymentHandlerType`: `RECURRING`, `REFUND`.
-  - `pay(Request, PaymentTransactionStruct, Context, ?Struct $validateStruct): ?RedirectResponse` (abstrakt). `null` = synchron, `RedirectResponse` = asynchron.
-  - `validate(Cart, RequestDataBag, SalesChannelContext): ?Struct` (optional, vor Persistieren der Bestellung).
-  - `finalize(Request, PaymentTransactionStruct, Context): void` (optional; nur nach Redirect aus `pay()`).
-  - `refund(RefundPaymentTransactionStruct, Context): void` (nur wenn `supports(REFUND)` true).
-  - `recurring(PaymentTransactionStruct, Context): void` (nur wenn `supports(RECURRING)` true).
-- **Registrierung**: Tag `shopware.payment.method`. `AutoconfigureCompilerPass` setzt ihn für Klassen, die `AbstractPaymentHandler` erweitern, nur bei aktivem Autoconfigure; im Plugin explizit taggen. Service-ID muss der FQCN sein: `PaymentHandlerRegistry` sucht den Handler über `payment_method.handler_identifier`.
-- **Zahlart anlegen** im Plugin-Lifecycle per `payment_method.repository`: `handlerIdentifier` = FQCN, `technicalName` (Pflicht), `pluginId`, Name (übersetzt). Beim Deaktivieren `active=false`, nie löschen.
-- **Statuswechsel** nur über `OrderTransactionStateHandler` (Refunds: `OrderTransactionCaptureRefundStateHandler`), nicht durch Schreiben von `stateId`.
-- `PaymentTransactionStruct` enthält nur `orderTransactionId`, `returnUrl`, `recurring`; die Bestellung lädt der Handler selbst über `order_transaction.repository`.
+- Since 6.7 there is **exactly one** base class: `Shopware\Core\Checkout\Payment\Cart\PaymentHandler\AbstractPaymentHandler`. The old interfaces (`SynchronousPaymentHandlerInterface`, `AsynchronousPaymentHandlerInterface`, `PreparedPaymentHandlerInterface`, `RefundPaymentHandlerInterface`, `RecurringPaymentHandlerInterface`) **no longer exist** in 6.7.15.1.
+- Methods:
+  - `supports(PaymentHandlerType $type, string $paymentMethodId, Context $context): bool` (abstract). Enum `PaymentHandlerType`: `RECURRING`, `REFUND`.
+  - `pay(Request, PaymentTransactionStruct, Context, ?Struct $validateStruct): ?RedirectResponse` (abstract). `null` = synchronous, `RedirectResponse` = asynchronous.
+  - `validate(Cart, RequestDataBag, SalesChannelContext): ?Struct` (optional, before the order is persisted).
+  - `finalize(Request, PaymentTransactionStruct, Context): void` (optional; only after a redirect from `pay()`).
+  - `refund(RefundPaymentTransactionStruct, Context): void` (only if `supports(REFUND)` is true).
+  - `recurring(PaymentTransactionStruct, Context): void` (only if `supports(RECURRING)` is true).
+- **Registration**: tag `shopware.payment.method`. `AutoconfigureCompilerPass` sets it for classes extending `AbstractPaymentHandler`, but only when autoconfigure is active; tag explicitly in the plugin. The service ID must be the FQCN: `PaymentHandlerRegistry` looks up the handler via `payment_method.handler_identifier`.
+- **Create the payment method** in the plugin lifecycle via `payment_method.repository`: `handlerIdentifier` = FQCN, `technicalName` (required), `pluginId`, name (translated). On deactivation set `active=false`, never delete.
+- **Status changes** only via `OrderTransactionStateHandler` (refunds: `OrderTransactionCaptureRefundStateHandler`), not by writing `stateId`.
+- `PaymentTransactionStruct` only contains `orderTransactionId`, `returnUrl`, `recurring`; the handler loads the order itself via `order_transaction.repository`.
 
-Verzeichnisbaum Plugin-relativ:
+Directory tree relative to the plugin:
 
 ```
 SwagExample/
@@ -32,35 +32,35 @@ SwagExample/
     └── Service/ExamplePayment.php      # extends AbstractPaymentHandler
 ```
 
-Optional: eigene Zahlungsformulare ([T-14](./14-storefront-twig-templates.md), [T-15](./15-storefront-js-plugins.md)), Webhook-Controller ([T-16](./16-storefront-controller-pages.md)).
+Optional: custom payment forms ([T-14](./14-storefront-twig-templates.md), [T-15](./15-storefront-js-plugins.md)), webhook controller ([T-16](./16-storefront-controller-pages.md)).
 
-## 3. Anleitung
+## 3. Instructions
 
-1. Plugin anlegen: `bin/console plugin:create SwagExample` ([T-02](./02-plugin-aufbau.md)).
-2. Handler schreiben (`extends AbstractPaymentHandler`), Services per Konstruktor injizieren.
-3. Handler mit Tag `shopware.payment.method` registrieren.
-4. Zahlart in `install()` anlegen (Pflicht: `handlerIdentifier`, `technicalName`, Name).
-5. Aktivieren: `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample && bin/console cache:clear`.
-6. In der Administration (Einstellungen -> Shop -> Zahlungsarten) prüfen, den Verkaufskanälen zuweisen (`sales_channel_payment_method`) und aktivieren.
-7. **Ablauf bei einer Bestellung** (`core/Checkout/Payment/PaymentProcessor.php`):
-   1. `PaymentProcessor::validate()` ruft `handler->validate()` vor dem Anlegen der Bestellung; Ergebnis wird als `validationData` an der Transaktion gespeichert. Fehler: `PaymentException::validatePreparedPaymentInterrupted()`.
-   2. `PaymentProcessor::pay()` lädt die jüngste Transaktion im Status `open`, erzeugt einen `PaymentToken` (JWT), baut die `returnUrl` (Route `payment.finalize.transaction`, `/payment/finalize-transaction`, Query `_sw_payment_token`) und ruft `handler->pay(...)`.
-   3. `RedirectResponse` aus `pay()`: Token bleibt gültig. Bei `null`: Token wird invalidiert (`finally`).
-   4. Exception in `pay()`: geloggt, Transaktion per `fail()` auf `failed`. Mit `errorUrl` Redirect auf `errorUrl?error-code=...`, sonst wird die Exception weitergeworfen.
-   5. Rückkehr: `PaymentController::finalizeTransaction()` dekodiert den Token und ruft `PaymentProcessor::finalize()` -> `handler->finalize()`. `PaymentException::customerCanceled` (Code `CHECKOUT__CUSTOMER_CANCELED_EXTERNAL_PAYMENT`) löst `cancel()` aus, jede andere Exception `fail()`.
-8. **Refund**: `PaymentRefundProcessor::processRefund($refundId, $context)`; Refund muss `open` sein; `supports(REFUND, ...)` muss bejaht werden, sonst `PaymentException::unknownRefundHandler`. Wirft `refund()`, setzt `OrderTransactionCaptureRefundStateHandler::fail` den Refund auf failed. **Erfolgspfad**: Der `PaymentRefundProcessor` ruft nach einem erfolgreichen `refund()` selbst keinen Übergang auf (Quelle: `core/Checkout/Payment/Cart/PaymentRefundProcessor.php`); der Handler muss den Refund selbst abschließen: `OrderTransactionCaptureRefundStateHandler::complete($refundId, $context)` (weitere Aktionen: `process`, `cancel`, `fail`, `reopen`; Service-ID = Klasse, Konstruktor `@internal`). Ob `complete` direkt aus `open` zulässig ist, hängt von der State-Machine-Definition ab; die Übergänge sind in den Migrationen im Vendor-Code nicht belegt, ggf. zuerst `process()` aufrufen. Laut Docblock nur über die API, nicht im Frontend.
-9. **Recurring**: `PaymentRecurringProcessor::processRecurring($orderId, $context)` -> `handler->recurring()`; Voraussetzung `supports(RECURRING, ...)`. `RecurringDataStruct` ist **experimentell**; `getSubscriptionId()`/`getNextSchedule()` sind `@deprecated tag:v6.8.0` ohne Ersatz. Nicht darauf bauen.
+1. Create the plugin: `bin/console plugin:create SwagExample` ([T-02](./02-plugin-structure.md)).
+2. Write the handler (`extends AbstractPaymentHandler`), inject services via the constructor.
+3. Register the handler with tag `shopware.payment.method`.
+4. Create the payment method in `install()` (required: `handlerIdentifier`, `technicalName`, name).
+5. Activate: `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample && bin/console cache:clear`.
+6. Check it in the Administration (Settings -> Shop -> Payment methods), assign it to the sales channels (`sales_channel_payment_method`) and activate it.
+7. **Flow for an order** (`core/Checkout/Payment/PaymentProcessor.php`):
+   1. `PaymentProcessor::validate()` calls `handler->validate()` before the order is created; the result is stored on the transaction as `validationData`. Error: `PaymentException::validatePreparedPaymentInterrupted()`.
+   2. `PaymentProcessor::pay()` loads the most recent transaction in status `open`, creates a `PaymentToken` (JWT), builds the `returnUrl` (route `payment.finalize.transaction`, `/payment/finalize-transaction`, query `_sw_payment_token`) and calls `handler->pay(...)`.
+   3. `RedirectResponse` from `pay()`: the token stays valid. With `null`: the token is invalidated (`finally`).
+   4. Exception in `pay()`: logged, transaction set to `failed` via `fail()`. With `errorUrl`, redirect to `errorUrl?error-code=...`, otherwise the exception is rethrown.
+   5. Return: `PaymentController::finalizeTransaction()` decodes the token and calls `PaymentProcessor::finalize()` -> `handler->finalize()`. `PaymentException::customerCanceled` (code `CHECKOUT__CUSTOMER_CANCELED_EXTERNAL_PAYMENT`) triggers `cancel()`, any other exception `fail()`.
+8. **Refund**: `PaymentRefundProcessor::processRefund($refundId, $context)`; the refund must be `open`; `supports(REFUND, ...)` must return true, otherwise `PaymentException::unknownRefundHandler`. If `refund()` throws, `OrderTransactionCaptureRefundStateHandler::fail` sets the refund to failed. **Success path**: after a successful `refund()`, the `PaymentRefundProcessor` itself does not trigger any transition (source: `core/Checkout/Payment/Cart/PaymentRefundProcessor.php`); the handler must complete the refund itself: `OrderTransactionCaptureRefundStateHandler::complete($refundId, $context)` (other actions: `process`, `cancel`, `fail`, `reopen`; service ID = class, constructor `@internal`). Whether `complete` is allowed directly from `open` depends on the state machine definition; the transitions are not documented in the migrations in the vendor code, call `process()` first if needed. According to the docblock, only via the API, not in the frontend.
+9. **Recurring**: `PaymentRecurringProcessor::processRecurring($orderId, $context)` -> `handler->recurring()`; prerequisite `supports(RECURRING, ...)`. `RecurringDataStruct` is **experimental**; `getSubscriptionId()`/`getNextSchedule()` are `@deprecated tag:v6.8.0` without replacement. Do not rely on it.
 
-### Statusübergänge der Zahlungstransaktion
+### Status transitions of the payment transaction
 
-State Machine `order_transaction.state` (`OrderTransactionStates::STATE_MACHINE`). Zustände: `open`, `in_progress`, `authorized`, `paid`, `paid_partially`, `reminded`, `unconfirmed`, `failed`, `cancelled`, `refunded`, `refunded_partially`, `chargeback`.
+State machine `order_transaction.state` (`OrderTransactionStates::STATE_MACHINE`). States: `open`, `in_progress`, `authorized`, `paid`, `paid_partially`, `reminded`, `unconfirmed`, `failed`, `cancelled`, `refunded`, `refunded_partially`, `chargeback`.
 
-| Methode (`OrderTransactionStateHandler`) | Aktion | Typische Verwendung |
+| Method (`OrderTransactionStateHandler`) | Action | Typical use |
 |---|---|---|
 | `process()` | `process` | open/reminded/failed/paid_partially -> `in_progress` |
 | `processUnconfirmed()` | `process_unconfirmed` | -> `unconfirmed` |
 | `authorize()` | `authorize` | open/in_progress/reminded -> `authorized` |
-| `paid()` | `paid` | u. a. open/in_progress/failed/cancelled -> `paid` |
+| `paid()` | `paid` | among others open/in_progress/failed/cancelled -> `paid` |
 | `paidPartially()` | `paid_partially` | -> `paid_partially` |
 | `fail()` | `fail` | open/in_progress/failed -> `failed` |
 | `cancel()` | `cancel` | -> `cancelled` |
@@ -69,11 +69,11 @@ State Machine `order_transaction.state` (`OrderTransactionStates::STATE_MACHINE`
 | `refund()` / `refundPartially()` | `refund` / `refund_partially` | -> `refunded` / `refunded_partially` |
 | `chargeback()` | `chargeback` | paid/paid_partially -> `chargeback` |
 
-Belegte Transitionen in Migrationen: open->paid/paid_partially (`V6_3/Migration1587461582`), in_progress->paid/paid_partially/failed/cancelled/open und failed->open/in_progress/paid/failed (`V6_3/Migration1580746806`), cancelled->paid (`V6_3/Migration1600769357`), authorize aus open/in_progress/reminded und chargeback aus paid/paid_partially (`V6_3/Migration1591361320`), Umbenennung `pay`->`paid`, `pay_partially`->`paid_partially`, `do_pay`->`process` (`V6_7/Migration1742302302RenamePaidTransitionActions`). Ein unzulässiger Übergang wirft `IllegalTransitionException`. Pro Zustand löst Shopware einen Flow-Trigger `state_enter.order_transaction.state.<name>` aus ([T-09](./09-flow-builder.md), [T-38](./38-order-statemachine-dokumente.md)).
+Transitions documented in migrations: open->paid/paid_partially (`V6_3/Migration1587461582`), in_progress->paid/paid_partially/failed/cancelled/open and failed->open/in_progress/paid/failed (`V6_3/Migration1580746806`), cancelled->paid (`V6_3/Migration1600769357`), authorize from open/in_progress/reminded and chargeback from paid/paid_partially (`V6_3/Migration1591361320`), renaming `pay`->`paid`, `pay_partially`->`paid_partially`, `do_pay`->`process` (`V6_7/Migration1742302302RenamePaidTransitionActions`). An illegal transition throws `IllegalTransitionException`. For each state, Shopware fires a flow trigger `state_enter.order_transaction.state.<name>` ([T-09](./09-flow-builder.md), [T-38](./38-order-statemachine-documents.md)).
 
-## 4. Beispiele
+## 4. Examples
 
-`composer.json` (Auszug, Details [T-02](./02-plugin-aufbau.md))
+`composer.json` (excerpt, details in [T-02](./02-plugin-structure.md))
 
 ```json
 {
@@ -116,7 +116,7 @@ class ExamplePayment extends AbstractPaymentHandler
 
     public function supports(PaymentHandlerType $type, string $paymentMethodId, Context $context): bool
     {
-        // nur die tatsaechlich implementierten Typen bejahen
+        // only return true for the types that are actually implemented
         return $type === PaymentHandlerType::REFUND;
     }
 
@@ -131,8 +131,8 @@ class ExamplePayment extends AbstractPaymentHandler
         // open -> in_progress
         $this->transactionStateHandler->process($transactionId, $context);
 
-        // Hier den externen Zahlungsanbieter aufrufen (HTTP-Client, SDK ...).
-        // Redirect-Flow: returnUrl enthaelt den signierten Token (_sw_payment_token)
+        // Call the external payment provider here (HTTP client, SDK ...).
+        // Redirect flow: returnUrl contains the signed token (_sw_payment_token)
         $providerUrl = 'https://payment-provider.example/pay?return=' . \urlencode((string) $transaction->getReturnUrl());
 
         return new RedirectResponse($providerUrl);
@@ -146,20 +146,20 @@ class ExamplePayment extends AbstractPaymentHandler
         $transactionId = $transaction->getOrderTransactionId();
 
         if ($request->query->getBoolean('cancel')) {
-            // loest in PaymentProcessor::finalize() den Uebergang "cancel" aus
+            // triggers the "cancel" transition in PaymentProcessor::finalize()
             throw PaymentException::customerCanceled($transactionId, 'Customer canceled the payment');
         }
 
-        // Status beim Anbieter pruefen, danach:
+        // Check the status with the provider, then:
         $this->transactionStateHandler->paid($transactionId, $context);
     }
 
     public function refund(RefundPaymentTransactionStruct $transaction, Context $context): void
     {
         // $transaction->getRefundId(), $transaction->getOrderTransactionId()
-        // Rueckerstattung beim Anbieter anstossen; bei Fehler Exception werfen,
-        // PaymentRefundProcessor setzt den Refund-Status dann auf "failed".
-        // Erfolg: der Processor setzt KEINEN Status, daher selbst abschliessen:
+        // Trigger the refund with the provider; throw an exception on error,
+        // PaymentRefundProcessor then sets the refund status to "failed".
+        // Success: the processor sets NO status, so complete it yourself:
         $this->refundStateHandler->complete($transaction->getRefundId(), $context);
     }
 }
@@ -218,7 +218,7 @@ class SwagExample extends Plugin
 
     public function uninstall(UninstallContext $uninstallContext): void
     {
-        // Zahlart nicht loeschen (Bestellungen referenzieren sie), nur deaktivieren
+        // Do not delete the payment method (orders reference it), only deactivate it
         $this->setPaymentMethodIsActive(false, $uninstallContext->getContext());
     }
 
@@ -283,50 +283,50 @@ class SwagExample extends Plugin
 }
 ```
 
-Die Doku zeigt `name` direkt am Payload; `translations` mit Sprachcodes folgt dem DAL-Muster ([T-28](./28-dal-lesen-schreiben.md)). Plugin-Gerüst: [../templates/plugin/README.md](../templates/plugin/README.md).
+The docs show `name` directly on the payload; `translations` with language codes follows the DAL pattern ([T-28](./28-dal-reading-writing.md)). Plugin scaffold: [../templates/plugin/README.md](../templates/plugin/README.md).
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- **Alte Interfaces/Tags** (`SynchronousPaymentHandlerInterface`, Tags `shopware.payment.method.sync`/`.async`): existieren nicht mehr; `AbstractPaymentHandler` + Tag `shopware.payment.method`.
-- **`technicalName` fehlt**: `payment_method.technical_name` ist seit 6.7 `NOT NULL` (`Migration1697112044PaymentAndShippingTechnicalNameRequired`), `Required` in `PaymentMethodDefinition`; Anlegen schlägt sonst fehl.
-- **`supports()` gibt immer `true`**: Handler wird auch für Refund/Recurring angenommen, `refund()` läuft in die Default-Exception. Nur implementierte Typen bejahen (`DefaultPayment` gibt `false` zurück).
-- **`finalize()` erwartet, obwohl `pay()` `null` liefert**: `finalize` wird nur nach einer `RedirectResponse` aufgerufen.
-- **Status direkt per Repository setzen**: umgeht State Machine, Events und Flows.
-- **Zahlart beim Deinstallieren löschen**: `PaymentMethodValidator` verhindert das Löschen von Plugin-Zahlarten (`PaymentException::pluginPaymentMethodDeleteRestriction`), zusätzlich `RestrictDelete` bei Bestellungen. Nur deaktivieren.
-- **`handlerIdentifier` != Service-ID**: Registry findet den Handler nicht; Service-ID = FQCN (`::class`).
-- **Exceptions in `pay()` schlucken**: nur geworfene Exceptions führen zu `failed`/Fehlerseite. Kundenabbruch in `finalize()` mit `PaymentException::customerCanceled()`, sonst `fail` statt `cancel`.
-- **Handler-Zustand speichern**: Handler sind Singletons im Service-Locator; keine request-spezifischen Daten in Properties.
-- **Beträge aus dem Request lesen** statt aus `order_transaction` (`amount`): Best Practice, Annahme.
+- **Old interfaces/tags** (`SynchronousPaymentHandlerInterface`, tags `shopware.payment.method.sync`/`.async`): no longer exist; use `AbstractPaymentHandler` + tag `shopware.payment.method`.
+- **`technicalName` missing**: `payment_method.technical_name` has been `NOT NULL` since 6.7 (`Migration1697112044PaymentAndShippingTechnicalNameRequired`), `Required` in `PaymentMethodDefinition`; creation fails otherwise.
+- **`supports()` always returns `true`**: the handler is also assumed for refund/recurring, `refund()` runs into the default exception. Only return true for implemented types (`DefaultPayment` returns `false`).
+- **Expecting `finalize()` although `pay()` returns `null`**: `finalize` is only called after a `RedirectResponse`.
+- **Setting the status directly via the repository**: bypasses the state machine, events and flows.
+- **Deleting the payment method on uninstall**: `PaymentMethodValidator` prevents deletion of plugin payment methods (`PaymentException::pluginPaymentMethodDeleteRestriction`), additionally `RestrictDelete` for orders. Only deactivate.
+- **`handlerIdentifier` != service ID**: the registry does not find the handler; service ID = FQCN (`::class`).
+- **Swallowing exceptions in `pay()`**: only thrown exceptions lead to `failed`/error page. Customer cancellation in `finalize()` with `PaymentException::customerCanceled()`, otherwise `fail` instead of `cancel`.
+- **Storing handler state**: handlers are singletons in the service locator; no request-specific data in properties.
+- **Reading amounts from the request** instead of from `order_transaction` (`amount`): best practice, assumption.
 
-### Deprecations und Versionshinweise (6.5/6.6 -> 6.7)
+### Deprecations and version notes (6.5/6.6 -> 6.7)
 
-- **Interfaces -> Abstract Class**: 6.5/6.6 hatten `SynchronousPaymentHandlerInterface::pay(SyncPaymentTransaction, RequestDataBag, SalesChannelContext)`, `AsynchronousPaymentHandlerInterface::pay(AsyncPaymentTransactionStruct, ...)` + `finalize(...)`, `PreparedPaymentHandlerInterface::validate/capture`, `RefundPaymentHandlerInterface`, `RecurringPaymentHandlerInterface`. In 6.7: ein `AbstractPaymentHandler` mit `Request`, `PaymentTransactionStruct`, `Context` statt `SalesChannelContext`.
-- **Tags**: `.sync`, `.async`, `.prepared`, `.refund`, `.recurring` -> ein Tag `shopware.payment.method` (`tagged-service-contracts.php`).
-- **Capture-Konzept**: `capture()` entfällt; stattdessen `validate()` und `pay()` mit `$validateStruct`.
-- **`technicalName`** Pflicht (Migrationen `V6_7/Migration1697112043...`/`...44...`).
-- **Aktionen umbenannt**: `pay`->`paid`, `pay_partially`->`paid_partially`, `do_pay`->`process`. `StateMachineTransitionActions::ACTION_DO_PAY` ist `@deprecated tag:v6.8.0` (-> `ACTION_PROCESS`); `OrderTransactionStateHandler::payPartially()` ist `@deprecated tag:v6.8.0` (-> `paidPartially()`).
-- **Token**: `TokenStruct`/`JWTFactoryV2` (`TokenFactoryInterfaceV2`) `@deprecated tag:v6.8.0` zugunsten `PaymentToken`, `PaymentTokenGenerator`, `PaymentTokenLifecycle`; je nach Feature-Flag `v6.8.0.0` neues oder altes Verfahren; `REPEATED_PAYMENT_FINALIZE` ist ein weiteres Flag im Controller. Für Handler-Autoren transparent.
-- **6.8 angekündigt**: `PaymentProcessor::finalize(PaymentToken $token, Request $request, SalesChannelContext $context): void` (Docblock). Klasse nicht direkt aufrufen (`@internal`-Konstruktor, `#[BecomesFinal]`).
-- **Refund/Recurring**: `RefundPaymentTransactionStruct` und `PaymentHandlerType::REFUND` sind 6.7-API; `RecurringDataStruct` experimentell, Getter in 6.8 entfernt.
+- **Interfaces -> abstract class**: 6.5/6.6 had `SynchronousPaymentHandlerInterface::pay(SyncPaymentTransaction, RequestDataBag, SalesChannelContext)`, `AsynchronousPaymentHandlerInterface::pay(AsyncPaymentTransactionStruct, ...)` + `finalize(...)`, `PreparedPaymentHandlerInterface::validate/capture`, `RefundPaymentHandlerInterface`, `RecurringPaymentHandlerInterface`. In 6.7: one `AbstractPaymentHandler` with `Request`, `PaymentTransactionStruct`, `Context` instead of `SalesChannelContext`.
+- **Tags**: `.sync`, `.async`, `.prepared`, `.refund`, `.recurring` -> one tag `shopware.payment.method` (`tagged-service-contracts.php`).
+- **Capture concept**: `capture()` is dropped; instead `validate()` and `pay()` with `$validateStruct`.
+- **`technicalName`** required (migrations `V6_7/Migration1697112043...`/`...44...`).
+- **Actions renamed**: `pay`->`paid`, `pay_partially`->`paid_partially`, `do_pay`->`process`. `StateMachineTransitionActions::ACTION_DO_PAY` is `@deprecated tag:v6.8.0` (-> `ACTION_PROCESS`); `OrderTransactionStateHandler::payPartially()` is `@deprecated tag:v6.8.0` (-> `paidPartially()`).
+- **Token**: `TokenStruct`/`JWTFactoryV2` (`TokenFactoryInterfaceV2`) `@deprecated tag:v6.8.0` in favor of `PaymentToken`, `PaymentTokenGenerator`, `PaymentTokenLifecycle`; depending on feature flag `v6.8.0.0`, new or old mechanism; `REPEATED_PAYMENT_FINALIZE` is another flag in the controller. Transparent for handler authors.
+- **Announced for 6.8**: `PaymentProcessor::finalize(PaymentToken $token, Request $request, SalesChannelContext $context): void` (docblock). Do not call the class directly (`@internal` constructor, `#[BecomesFinal]`).
+- **Refund/recurring**: `RefundPaymentTransactionStruct` and `PaymentHandlerType::REFUND` are 6.7 API; `RecurringDataStruct` experimental, getters removed in 6.8.
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] Handler erweitert `AbstractPaymentHandler`, `supports()` bejaht nur implementierte Typen
-- [ ] Service-ID = FQCN, Tag `shopware.payment.method` gesetzt
-- [ ] Zahlart mit `handlerIdentifier`, `technicalName`, `pluginId` und Übersetzungen angelegt
-- [ ] Deaktivieren/Deinstallieren setzt `active=false`, löscht nicht
-- [ ] Statuswechsel nur über `OrderTransactionStateHandler`
-- [ ] Kundenabbruch über `PaymentException::customerCanceled()`
-- [ ] Zahlart in der Administration den Verkaufskanälen zugewiesen und aktiviert
-- [ ] Beträge/Bestelldaten aus `order_transaction`/Bestellung geladen, nicht aus dem Request
-- [ ] Keine request-spezifischen Daten in Handler-Properties
+- [ ] Handler extends `AbstractPaymentHandler`, `supports()` only returns true for implemented types
+- [ ] Service ID = FQCN, tag `shopware.payment.method` set
+- [ ] Payment method created with `handlerIdentifier`, `technicalName`, `pluginId` and translations
+- [ ] Deactivate/uninstall sets `active=false`, does not delete
+- [ ] Status changes only via `OrderTransactionStateHandler`
+- [ ] Customer cancellation via `PaymentException::customerCanceled()`
+- [ ] Payment method assigned to the sales channels in the Administration and activated
+- [ ] Amounts/order data loaded from `order_transaction`/order, not from the request
+- [ ] No request-specific data in handler properties
 
-## 7. Quellen
+## 7. Sources
 
-Doku:
+Docs:
 - https://developer.shopware.com/docs/guides/plugins/plugins/checkout/payment/add-payment-plugin.html
 
-Quellcode (`core/`):
+Source code (`core/`):
 - `Checkout/Payment/Cart/PaymentHandler/{AbstractPaymentHandler,PaymentHandlerType,PaymentHandlerRegistry,DefaultPayment,PrePayment,InvoicePayment,CashPayment,DebitPayment}.php`
 - `Checkout/Payment/Cart/{PaymentTransactionStruct,RefundPaymentTransactionStruct,PaymentTransactionStructFactory,AbstractPaymentTransactionStructFactory,PaymentRefundProcessor,PaymentRecurringProcessor}.php`, `Cart/Recurring/RecurringDataStruct.php`
 - `Checkout/Payment/{PaymentProcessor,PaymentException,PaymentMethodDefinition}.php`, `Controller/PaymentController.php`, `SalesChannel/HandlePaymentMethodRoute.php`, `DataAbstractionLayer/PaymentMethodValidator.php`
@@ -335,11 +335,11 @@ Quellcode (`core/`):
 - `Framework/Plugin/Util/PluginIdProvider.php`, `Framework/App/Lifecycle/Handler/PaymentMethodLifecycleHandler.php`
 - `Migration/V6_3/*`, `Migration/V6_7/{Migration1742302302RenamePaidTransitionActions,Migration1697112044PaymentAndShippingTechnicalNameRequired}.php`, `Test/Integration/PaymentHandler/TestPaymentHandler.php`
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ UNGEPRÜFT: Beispiele nicht ausgeführt (Container lief nicht); gegen Signaturen im Quellcode geschrieben (Methoden von `OrderTransactionStateHandler`, `customerCanceled`, `AbstractPaymentHandler` per Stichprobe bestätigt).
-- ⚠ LÜCKE: Vollständige Transitionsmatrix nicht belegt, insbesondere Übergänge von/nach `unconfirmed` und die Tabellenzeilen zu `paid`/`refund`. Verbindliche Quelle: Tabelle `state_machine_transition` der Installation bzw. Admin-API `_action/state-machine/order_transaction/{id}/state`.
-- ⚠ UNGEPRÜFT: Alt-Signaturen 6.5/6.6 stammen aus Gedächtnis und Doku-Migrationsnotiz, im 6.7-Code nicht mehr vorhanden; genaue Version der Entfernung der Interfaces nicht geprüft.
-- ⚠ LÜCKE: Doku-Beispiel-`technicalName` lautet `swag_example-example_payment`; erzwungen sind nur `Required`/`NOT NULL` und Eindeutigkeit (`PaymentException::duplicateTechnicalName` existiert, Prüfstelle nicht untersucht).
-- ⚠ UNGEPRÜFT: `translations` mit Sprachcodes im `create()`-Payload an `payment_method` nicht getestet. Autoconfigure greift in Plugin-`services.php` (live bestätigt) nur mit `->defaults()->autoconfigure()`; daher explizites Tag.
-- ⚠ LÜCKE: Nicht untersucht: Storefront-Zahlungsformulare, Webhooks/Notifications des Anbieters, Capture-Entitäten (`order_transaction_capture`), Admin-Komponenten für Zahlarten, Handler-Auflösung für App-Zahlarten, `OrderTransactionCaptureRefundStateHandler`-Übergangsdefinitionen (Methoden `complete/process/cancel/fail/reopen` und Aufrufer `PaymentRefundProcessor` sind belegt; erlaubte Übergänge nicht). Weitere Doku-Seiten (Refund/Recurring) nicht abgerufen.
+- ⚠ UNVERIFIED: Examples not executed (container was not running); written against signatures in the source code (methods of `OrderTransactionStateHandler`, `customerCanceled`, `AbstractPaymentHandler` confirmed by spot check).
+- ⚠ GAP: Complete transition matrix not documented, in particular transitions from/to `unconfirmed` and the table rows for `paid`/`refund`. Authoritative source: table `state_machine_transition` of the installation or Admin API `_action/state-machine/order_transaction/{id}/state`.
+- ⚠ UNVERIFIED: Old 6.5/6.6 signatures come from memory and a docs migration note, no longer present in the 6.7 code; exact version in which the interfaces were removed not checked.
+- ⚠ GAP: The docs example `technicalName` is `swag_example-example_payment`; only `Required`/`NOT NULL` and uniqueness are enforced (`PaymentException::duplicateTechnicalName` exists, the location of the check was not examined).
+- ⚠ UNVERIFIED: `translations` with language codes in the `create()` payload for `payment_method` not tested. Autoconfigure applies in plugin `services.php` (verified live) only with `->defaults()->autoconfigure()`; hence the explicit tag.
+- ⚠ GAP: Not examined: storefront payment forms, provider webhooks/notifications, capture entities (`order_transaction_capture`), admin components for payment methods, handler resolution for app payment methods, `OrderTransactionCaptureRefundStateHandler` transition definitions (methods `complete/process/cancel/fail/reopen` and caller `PaymentRefundProcessor` are documented; allowed transitions are not). Further docs pages (refund/recurring) not retrieved.

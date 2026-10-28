@@ -63,7 +63,7 @@ export default {
     },
 
     methods: {
-        // Wird vom Mixin "listing" aufgerufen (Seitenwechsel, Sortierung, Route-Aenderung)
+        // Called by the "listing" mixin (page change, sorting, route change)
         async getList() {
             this.isLoading = true;
 

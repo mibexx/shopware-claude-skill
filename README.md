@@ -1,80 +1,80 @@
 # Shopware 6 Development – Claude Skill
 
-Ein [Agent Skill](https://docs.claude.com/en/docs/claude-code/skills) für **Claude Code** (und andere Claude-Clients mit Skill-Unterstützung), der Claude zu einem sachkundigen Partner für die **Plugin- und Theme-Entwicklung mit Shopware 6.7** macht.
+An [Agent Skill](https://docs.claude.com/en/docs/claude-code/skills) for **Claude Code** (and other Claude clients with skill support) that turns Claude into a knowledgeable partner for **plugin and theme development with Shopware 6.7**.
 
-Der Skill bündelt geprüftes Wissen zu 49 Themen, einsatzbereite Code-Gerüste und Review-/Release-Checklisten. Claude lädt ihn automatisch, sobald eine Aufgabe Shopware betrifft, und liest dann gezielt nur die Referenz, die zur Aufgabe passt.
+The skill bundles verified knowledge on 49 topics, ready-to-use code scaffolds, and review/release checklists. Claude loads it automatically as soon as a task involves Shopware, and then reads only the reference that matches the task.
 
-> **Versionsstand:** Shopware **6.7.15.1** (Core, Storefront, Administration, Elasticsearch).
-> Alle Aussagen wurden gegen den Quellcode dieser Version geprüft. Weicht die offizielle Doku vom Code ab, gilt der Code – solche Stellen sind im Skill explizit markiert.
+> **Version:** Shopware **6.7.15.1** (Core, Storefront, Administration, Elasticsearch).
+> All statements were verified against the source code of this version. Where the official docs deviate from the code, the code wins – such places are explicitly marked in the skill.
 
 ---
 
-## Inhalt
+## Contents
 
-- [Was der Skill kann](#was-der-skill-kann)
-- [Aufbau des Repositorys](#aufbau-des-repositorys)
+- [What the skill does](#what-the-skill-does)
+- [Repository structure](#repository-structure)
 - [Installation](#installation)
-- [Nutzung](#nutzung)
-- [Themenübersicht](#themenübersicht)
+- [Usage](#usage)
+- [Topic overview](#topic-overview)
 - [Templates](#templates)
-- [Checklisten](#checklisten)
-- [Qualitätsanspruch und bekannte Lücken](#qualitätsanspruch-und-bekannte-lücken)
-- [Anpassen und Weiterentwickeln](#anpassen-und-weiterentwickeln)
+- [Checklists](#checklists)
+- [Quality standard and known gaps](#quality-standard-and-known-gaps)
+- [Customizing and extending](#customizing-and-extending)
 
 ---
 
-## Was der Skill kann
+## What the skill does
 
-**Grundprinzipien, die Claude mit dem Skill einhält**
+**Core principles Claude follows with this skill**
 
-1. **Keine Core-Änderungen** – nie `vendor/shopware/**` anfassen, Erweiterung nur über Plugin, Theme oder App.
-2. **Event/Subscriber → Extension Point → Service-Dekoration → Template-Override** als Reihenfolge der Mittel.
-3. **BC-Vertrag** – kein `@internal`, kein Erweitern von `@final`, keine neuen Deprecations.
-4. **Shopware-6.7-Konventionen** – `declare(strict_types=1)`, Konstruktor-Injection mit `private readonly`, `services.php` statt (deprecated) XML, eigener Namespace, Domain-Exceptions.
-5. **Sauberer Lifecycle** – idempotente Install/Update/Uninstall-Hooks, `keepUserData`, Schema nur über Migrationen.
-6. **Nichts erfinden** – Unbelegtes wird mit `⚠ LÜCKE` bzw. `⚠ UNGEPRÜFT` gekennzeichnet.
+1. **No core changes** – never touch `vendor/shopware/**`; extend only via plugin, theme, or app.
+2. **Event/subscriber → extension point → service decoration → template override** as the order of preference.
+3. **BC contract** – no `@internal`, no extending `@final`, no new deprecations.
+4. **Shopware 6.7 conventions** – `declare(strict_types=1)`, constructor injection with `private readonly`, `services.php` instead of (deprecated) XML, own namespace, domain exceptions.
+5. **Clean lifecycle** – idempotent install/update/uninstall hooks, `keepUserData`, schema only via migrations.
+6. **Invent nothing** – unverified content is marked with `⚠ GAP` or `⚠ UNVERIFIED`.
 
-**Typische Aufgaben**
+**Typical tasks**
 
-- Plugins und Themes anlegen, installieren, bauen und ausliefern
-- Storefront erweitern: Twig-Templates, SCSS, `theme.json`, JS-Plugins, Controller und Pages
-- Administration erweitern: Module, Komponenten, Datenhandling, ACL-Rechte
-- CMS-Elemente und -Blöcke (Shopping Experiences) bauen
-- DAL: Entities, Associations, EntityExtensions, Custom Fields, Migrationen
-- Store-API- und Admin-API-Routen erstellen oder dekorieren
-- Rule Builder, Flow Builder, Scheduled Tasks, Message Queue, Mail-Templates, Warenkorb, Payment
-- Tests (PHPUnit, Jest), PHPStan, php-cs-fixer, Build und Deployment
-- Entscheidungen treffen: Plugin vs. App, Event vs. Decorator vs. Extension Point, EntityExtension vs. Custom Field, Theme vs. Plugin
+- Create, install, build, and ship plugins and themes
+- Extend the Storefront: Twig templates, SCSS, `theme.json`, JS plugins, controllers and pages
+- Extend the Administration: modules, components, data handling, ACL permissions
+- Build CMS elements and blocks (Shopping Experiences)
+- DAL: entities, associations, EntityExtensions, custom fields, migrations
+- Create or decorate Store API and Admin API routes
+- Rule Builder, Flow Builder, scheduled tasks, message queue, mail templates, cart, payment
+- Tests (PHPUnit, Jest), PHPStan, php-cs-fixer, build and deployment
+- Make decisions: plugin vs. app, event vs. decorator vs. extension point, EntityExtension vs. custom field, theme vs. plugin
 
 ---
 
-## Aufbau des Repositorys
+## Repository structure
 
 ```
 shopware-claude-skill/
 ├── README.md
-└── shopware-development/          ← der eigentliche Skill (dieser Ordner wird installiert)
-    ├── SKILL.md                   ← Einstieg: Prinzipien, Ablauf, Entscheidungshilfen, Inhaltsverzeichnis
-    ├── references/                ← 49 Themenreferenzen (T-01 … T-49)
-    ├── templates/                 ← 14 lauffähige Gerüste mit Platzhalter „SwagExample“
-    └── checklists/                ← Review- und Release-Checkliste
+└── shopware-development/          ← the actual skill (this folder gets installed)
+    ├── SKILL.md                   ← entry point: principles, workflow, decision guide, table of contents
+    ├── references/                ← 49 topic references (T-01 … T-49)
+    ├── templates/                 ← 14 working scaffolds with the placeholder "SwagExample"
+    └── checklists/                ← review and release checklist
 ```
 
-`SKILL.md` ist bewusst kompakt gehalten. Details stehen in `references/`, sodass Claude nur das in den Kontext lädt, was für die aktuelle Aufgabe nötig ist (Progressive Disclosure).
+`SKILL.md` is intentionally kept compact. Details live in `references/`, so Claude only loads into context what the current task needs (progressive disclosure).
 
 ---
 
 ## Installation
 
-### Voraussetzungen
+### Prerequisites
 
-- [Claude Code](https://docs.claude.com/en/docs/claude-code) (CLI, Desktop-App oder IDE-Erweiterung)
+- [Claude Code](https://docs.claude.com/en/docs/claude-code) (CLI, desktop app, or IDE extension)
 - Git
-- Für die Arbeit mit dem Skill: ein Shopware-6.7-Projekt (empfohlen: 6.7.15.1), z. B. per `composer create-project shopware/production`
+- To work with the skill: a Shopware 6.7 project (recommended: 6.7.15.1), e.g. via `composer create-project shopware/production`
 
-### Variante A – global für alle Projekte (empfohlen)
+### Option A – globally for all projects (recommended)
 
-Der Skill steht danach in jedem Projekt zur Verfügung.
+The skill is then available in every project.
 
 ```bash
 git clone git@github.com:mibexx/shopware-claude-skill.git
@@ -82,7 +82,7 @@ mkdir -p ~/.claude/skills
 cp -R shopware-claude-skill/shopware-development ~/.claude/skills/
 ```
 
-Alternativ per Symlink, damit ein `git pull` den Skill direkt aktualisiert:
+Alternatively via symlink, so that a `git pull` updates the skill directly:
 
 ```bash
 git clone git@github.com:mibexx/shopware-claude-skill.git ~/src/shopware-claude-skill
@@ -90,178 +90,178 @@ mkdir -p ~/.claude/skills
 ln -s ~/src/shopware-claude-skill/shopware-development ~/.claude/skills/shopware-development
 ```
 
-### Variante B – nur für ein Projekt (im Team teilbar)
+### Option B – for a single project only (shareable with the team)
 
-Der Skill liegt im Projekt-Repository und wird mit eingecheckt, sodass alle im Team ihn automatisch nutzen.
+The skill lives in the project repository and is committed along with it, so everyone on the team uses it automatically.
 
 ```bash
-cd /pfad/zum/shopware-projekt
+cd /path/to/shopware-project
 mkdir -p .claude/skills
 git clone git@github.com:mibexx/shopware-claude-skill.git /tmp/shopware-claude-skill
 cp -R /tmp/shopware-claude-skill/shopware-development .claude/skills/
 ```
 
-Oder als Git-Submodule:
+Or as a Git submodule:
 
 ```bash
 git submodule add git@github.com:mibexx/shopware-claude-skill.git .claude/vendor/shopware-claude-skill
 ln -s ../vendor/shopware-claude-skill/shopware-development .claude/skills/shopware-development
 ```
 
-### Variante C – claude.ai / Claude Desktop
+### Option C – claude.ai / Claude Desktop
 
-1. Den Ordner `shopware-development` als ZIP packen:
+1. Pack the `shopware-development` folder as a ZIP:
    ```bash
    cd shopware-claude-skill && zip -r shopware-development.zip shopware-development
    ```
-2. In claude.ai unter **Settings → Capabilities → Skills** die ZIP-Datei hochladen.
+2. Upload the ZIP file in claude.ai under **Settings → Capabilities → Skills**.
 
-### Installation prüfen
+### Verifying the installation
 
-Claude Code neu starten (bzw. eine neue Session öffnen) und fragen:
+Restart Claude Code (or open a new session) and ask:
 
 ```
-Welche Skills stehen dir zur Verfügung?
+Which skills are available to you?
 ```
 
-`shopware-development` sollte in der Liste erscheinen.
+`shopware-development` should appear in the list.
 
-### Aktualisieren
+### Updating
 
 ```bash
-cd ~/src/shopware-claude-skill && git pull      # bei Symlink-Installation
-# bei Kopie: erneut klonen und den Ordner überschreiben
+cd ~/src/shopware-claude-skill && git pull      # for the symlink installation
+# for a copy: clone again and overwrite the folder
 ```
 
 ---
 
-## Nutzung
+## Usage
 
-### Automatisch
+### Automatic
 
-Der Skill wird automatisch aktiv, sobald eine Aufgabe Shopware betrifft – auch wenn nur Begriffe wie „Shopware“, `bin/console`, `custom/plugins` oder `services.php` fallen. Arbeite einfach im Shopware-Projekt und beschreibe die Aufgabe:
-
-```
-Lege ein Plugin SwagCustomerBonus an, das Kunden nach der Bestellung
-Bonuspunkte gutschreibt und diese im Kundenkonto der Storefront anzeigt.
-```
+The skill activates automatically as soon as a task involves Shopware – even if only terms like "Shopware", `bin/console`, `custom/plugins`, or `services.php` come up. Just work in your Shopware project and describe the task:
 
 ```
-Ich brauche ein CMS-Element „Countdown“ mit Zieldatum und Text,
-konfigurierbar in den Shopping Experiences.
+Create a plugin SwagCustomerBonus that credits customers with bonus points
+after an order and shows them in the customer account in the Storefront.
 ```
 
 ```
-Wie unterscheide ich in einem Subscriber zwischen zwei Sales Channels
-und lese dafür eine Plugin-Konfiguration pro Sales Channel?
+I need a CMS element "Countdown" with a target date and text,
+configurable in the Shopping Experiences.
 ```
 
 ```
-Dekoriere die ProductListingRoute, sodass ausverkaufte Produkte
-am Ende der Liste stehen.
+How do I distinguish between two sales channels in a subscriber
+and read a plugin configuration per sales channel for it?
 ```
 
 ```
-Richte PHPUnit, PHPStan und php-cs-fixer für custom/plugins/SwagExample ein
-und schreibe einen Integrationstest für die Store-API-Route.
+Decorate the ProductListingRoute so that sold-out products
+appear at the end of the list.
 ```
 
-### Explizit
+```
+Set up PHPUnit, PHPStan, and php-cs-fixer for custom/plugins/SwagExample
+and write an integration test for the Store API route.
+```
 
-Du kannst den Skill auch direkt ansprechen:
+### Explicit
+
+You can also invoke the skill directly:
 
 ```
 /shopware-development
 ```
 
-oder im Prompt: *„Nutze den Skill shopware-development und …“*
+or in the prompt: *"Use the shopware-development skill and …"*
 
-### Was Claude dabei macht
+### What Claude does
 
-Claude folgt dem im Skill hinterlegten Standardablauf:
+Claude follows the standard workflow defined in the skill:
 
-1. **Einordnen** – Plugin, Theme oder App? Welches Erweiterungsmittel? Passende Referenz laden.
-2. **Gerüst anlegen** – `bin/console plugin:create` / `theme:create` oder Template aus `templates/` kopieren.
-3. **Schema und Daten** – Migration, Entity-Definition, Lifecycle-Hooks.
-4. **Backend-Logik** – Services in `services.php`, Subscriber, Decorator, Routen, Commands, Tasks.
-5. **Frontend** – Storefront (Twig, SCSS, JS-Plugin) bzw. Administration (Modul, Komponenten, Snippets, ACL).
-6. **Installieren und bauen** – `plugin:refresh`, `plugin:install --activate`, `cache:clear`, Storefront-/Admin-Build.
-7. **Prüfen** – Tests, statische Analyse, Review-Checkliste, Release-Checkliste.
+1. **Classify** – plugin, theme, or app? Which extension mechanism? Load the matching reference.
+2. **Create the scaffold** – `bin/console plugin:create` / `theme:create` or copy a template from `templates/`.
+3. **Schema and data** – migration, entity definition, lifecycle hooks.
+4. **Backend logic** – services in `services.php`, subscribers, decorators, routes, commands, tasks.
+5. **Frontend** – Storefront (Twig, SCSS, JS plugin) or Administration (module, components, snippets, ACL).
+6. **Install and build** – `plugin:refresh`, `plugin:install --activate`, `cache:clear`, Storefront/Admin build.
+7. **Verify** – tests, static analysis, review checklist, release checklist.
 
-### Hinweise zur Umgebung
+### Notes on the environment
 
-Die Befehle im Skill sind für ein Docker-Compose-Setup auf Basis von `shopware/production` formuliert (Container `web`, Arbeitsverzeichnis `/var/www/html`), z. B.:
+The commands in the skill are written for a Docker Compose setup based on `shopware/production` (container `web`, working directory `/var/www/html`), e.g.:
 
 ```bash
 docker compose exec web php bin/console plugin:refresh
 docker compose exec web vendor/bin/phpstan analyse -c custom/plugins/SwagExample/phpstan.neon.dist
 ```
 
-Einige Werte stammen aus dem Referenz-Setup, mit dem der Skill erstellt wurde (z. B. Storefront-Port `8100`, MariaDB-Port `3307`) und sind in der Referenz als projektspezifisch gekennzeichnet. Wer ein anderes Setup nutzt (DDEV, Dockware, native Installation), sagt Claude das einfach im Prompt – die Shopware-Inhalte gelten unabhängig davon.
+Some values come from the reference setup the skill was created with (e.g. Storefront port `8100`, MariaDB port `3307`) and are marked as project-specific in the reference. If you use a different setup (DDEV, Dockware, native installation), just tell Claude in the prompt – the Shopware content applies regardless.
 
 ---
 
-## Themenübersicht
+## Topic overview
 
-| Bereich | Referenzen |
+| Area | References |
 |---|---|
-| **Grundlagen** | T-01 Projektstruktur & Dev-Umgebung · T-02 Plugin-Aufbau · T-03 Lifecycle · T-04 Migrationen · T-05 Services registrieren · T-06 Service-Dekoration · T-07 Events & Subscriber · T-08 Extension Points · T-09 Flow Builder · T-10 App-System & Script-Hooks |
-| **Theme & Storefront** | T-11 Theme-Grundlagen · T-12 Theme-Konfiguration & SCSS-Variablen · T-13 Styling, Assets & Icons · T-14 Twig-Templates · T-15 JS-Plugins · T-16 Controller, Pages & Pagelets · T-17 Listing, Suche & Elasticsearch · T-18 Snippets & Übersetzungen |
-| **Konfiguration, Sales Channel, CMS, Rechte** | T-19 Plugin-Konfiguration · T-20 Sales-Channel-Unterscheidung · T-21 CMS-Elemente · T-22 CMS-Blöcke & Sichtbarkeit · T-23 ACL |
-| **Administration** | T-24 Admin-Module, Routen & Menü · T-25 Komponenten & Styles · T-26 Datenhandling, Services & State |
-| **Daten & APIs** | T-27 DAL-Entities · T-28 DAL lesen/schreiben, Indexer · T-29 EntityExtensions & Custom Fields · T-30 Store-API-Routen · T-31 Admin-API, Integrationen, Sync-API |
-| **Fachliche Erweiterungen** | T-32 Rule Builder · T-33 Scheduled Tasks · T-34 Message Queue · T-35 Mail-Templates · T-36 Warenkorb · T-37 Payment · T-38 Bestellungen, State Machine, Dokumente · T-39 Media & Filesystem · T-40 SEO-URLs & Sitemap · T-41 Caching · T-42 Cookies & Consent |
-| **Werkzeuge, Qualität, Betrieb** | T-43 CLI, Logging, System-Checks · T-44 MCP-Server · T-45 Coding-Guidelines · T-46 PHPUnit · T-47 Jest · T-48 Statische Analyse · T-49 Build & Deployment |
+| **Fundamentals** | T-01 Project structure & dev environment · T-02 Plugin structure · T-03 Lifecycle · T-04 Migrations · T-05 Registering services · T-06 Service decoration · T-07 Events & subscribers · T-08 Extension points · T-09 Flow Builder · T-10 App system & script hooks |
+| **Theme & Storefront** | T-11 Theme basics · T-12 Theme configuration & SCSS variables · T-13 Styling, assets & icons · T-14 Twig templates · T-15 JS plugins · T-16 Controllers, pages & pagelets · T-17 Listing, search & Elasticsearch · T-18 Snippets & translations |
+| **Configuration, sales channel, CMS, permissions** | T-19 Plugin configuration · T-20 Sales channel distinction · T-21 CMS elements · T-22 CMS blocks & visibility · T-23 ACL |
+| **Administration** | T-24 Admin modules, routes & menu · T-25 Components & styles · T-26 Data handling, services & state |
+| **Data & APIs** | T-27 DAL entities · T-28 DAL reading/writing, indexers · T-29 EntityExtensions & custom fields · T-30 Store API routes · T-31 Admin API, integrations, Sync API |
+| **Business extensions** | T-32 Rule Builder · T-33 Scheduled tasks · T-34 Message queue · T-35 Mail templates · T-36 Cart · T-37 Payment · T-38 Orders, state machine, documents · T-39 Media & filesystem · T-40 SEO URLs & sitemap · T-41 Caching · T-42 Cookies & consent |
+| **Tools, quality, operations** | T-43 CLI, logging, system checks · T-44 MCP server · T-45 Coding guidelines · T-46 PHPUnit · T-47 Jest · T-48 Static analysis · T-49 Build & deployment |
 
-Jede Referenz endet mit einem Abschnitt **„Quellen → Lücken und Unsicherheiten“**.
+Each reference ends with a section **"Sources → Gaps and uncertainties"**.
 
 ---
 
 ## Templates
 
-Alle Gerüste verwenden den Platzhalter `SwagExample` (bzw. `SwagExampleTheme`). Jedes Template hat eine eigene `README.md` mit Ersetzungsregeln und Installationsschritten.
+All scaffolds use the placeholder `SwagExample` (or `SwagExampleTheme`). Each template has its own `README.md` with replacement rules and installation steps.
 
-| Template | Inhalt |
+| Template | Contents |
 |---|---|
-| `plugin` | `composer.json`, Plugin-Klasse, `services.php` (+ `services.xml.dist` als Legacy-Beispiel) |
-| `theme` | `theme.json`, Theme-Klasse, SCSS- und JS-Einstieg, Snippets, Twig-Override |
-| `cms-element` | Admin-Komponente, Config, Preview, Storefront-Template, Data-Resolver, Struct |
-| `cms-block` | Admin-Block, Preview, Storefront-Template |
-| `admin-module` | Modul mit Liste/Detail, Routen, Snippets, ACL-Privilegien |
-| `config` | `config.xml` mit gängigen Feldtypen |
-| `migration` | Migration mit Tabellenanlage |
-| `entity` | Definition, Entity, Collection, Übersetzungs-Aggregat, EntityExtension |
-| `event-subscriber` | Subscriber für Entity-Loaded/-Written und Page-Events, eigenes Event |
-| `decorator` | Dekoration eines eigenen Abstract-Service und der `ProductListingRoute` |
-| `storefront-js-plugin` | Eigenes JS-Plugin und Override eines Core-Plugins |
-| `testing` | `phpunit.xml.dist`, `TestBootstrap.php`, Unit- und Integrationstests |
-| `testing-js` | Jest-Setup für Administration und Storefront |
+| `plugin` | `composer.json`, plugin class, `services.php` (+ `services.xml.dist` as a legacy example) |
+| `theme` | `theme.json`, theme class, SCSS and JS entry points, snippets, Twig override |
+| `cms-element` | Admin component, config, preview, Storefront template, data resolver, struct |
+| `cms-block` | Admin block, preview, Storefront template |
+| `admin-module` | Module with list/detail, routes, snippets, ACL privileges |
+| `config` | `config.xml` with common field types |
+| `migration` | Migration creating a table |
+| `entity` | Definition, entity, collection, translation aggregate, EntityExtension |
+| `event-subscriber` | Subscribers for entity loaded/written and page events, custom event |
+| `decorator` | Decoration of a custom abstract service and of the `ProductListingRoute` |
+| `storefront-js-plugin` | Custom JS plugin and override of a core plugin |
+| `testing` | `phpunit.xml.dist`, `TestBootstrap.php`, unit and integration tests |
+| `testing-js` | Jest setup for Administration and Storefront |
 | `quality` | `phpstan.neon.dist`, `.php-cs-fixer.dist.php`, `shopware-extension.yml` |
 
 ---
 
-## Checklisten
+## Checklists
 
-- **`checklists/review-checklist.md`** – Code-Review: Grundprinzipien, Struktur & Lifecycle, DAL, Services/Events/Routen, Konfiguration & Rechte, Storefront, Administration, Fachlogik, Tests & statische Analyse.
-- **`checklists/release-checklist.md`** – vor der Auslieferung: Version & Kompatibilität (inkl. Deprecation-Lauf mit `V6_8_0_0=1`), Qualität, Build & Artefakte, Betrieb & Deployment, Dokumentation.
-
----
-
-## Qualitätsanspruch und bekannte Lücken
-
-- Inhalte sind gegen den **Quellcode von Shopware 6.7.15.1** geprüft; JSON/XML/JS der Templates wurden syntaktisch validiert.
-- Teile (u. a. Tests und statische Analyse) wurden live in einem Docker-Setup ausgeführt; viele Beispiele aber **nicht** in einer laufenden Installation.
-- Widersprüche zwischen Doku und Code sind dokumentiert – **der Code gilt**.
-- Offene Punkte sind im Text mit `⚠ LÜCKE` / `⚠ UNGEPRÜFT` markiert und in `SKILL.md` unter **„Bekannte Lücken“** zusammengefasst. Diese Stellen vor einem Produktiveinsatz am Quellcode oder in einer Instanz klären.
-
-Bei neueren Shopware-Versionen bleibt der Großteil gültig; Claude ist angewiesen, Signaturen im Zweifel am installierten Code unter `vendor/shopware/` zu prüfen.
+- **`checklists/review-checklist.md`** – code review: core principles, structure & lifecycle, DAL, services/events/routes, configuration & permissions, Storefront, Administration, business logic, tests & static analysis.
+- **`checklists/release-checklist.md`** – before shipping: version & compatibility (incl. deprecation run with `V6_8_0_0=1`), quality, build & artifacts, operations & deployment, documentation.
 
 ---
 
-## Anpassen und Weiterentwickeln
+## Quality standard and known gaps
 
-- **Eigene Konventionen** (Namespace-Präfix, Agentur-Standards, CI-Setup) lassen sich in `SKILL.md` unter „Grundprinzipien“ ergänzen.
-- **Neue Themen** als `references/NN-thema.md` anlegen und in `SKILL.md` im Inhaltsverzeichnis verlinken.
-- Die `description` im Frontmatter von `SKILL.md` steuert, wann Claude den Skill automatisch lädt – neue Schlagwörter dort ergänzen.
+- Content is verified against the **source code of Shopware 6.7.15.1**; the JSON/XML/JS of the templates was syntax-validated.
+- Parts (among others tests and static analysis) were executed live in a Docker setup; many examples, however, were **not** run in a live installation.
+- Contradictions between docs and code are documented – **the code wins**.
+- Open points are marked in the text with `⚠ GAP` / `⚠ UNVERIFIED` and summarized in `SKILL.md` under **"Known gaps"**. Clarify these places against the source code or in an instance before production use.
 
-Issues und Pull Requests sind willkommen.
+For newer Shopware versions most of the content remains valid; Claude is instructed to check signatures against the installed code under `vendor/shopware/` when in doubt.
+
+---
+
+## Customizing and extending
+
+- **Your own conventions** (namespace prefix, agency standards, CI setup) can be added to `SKILL.md` under "Core principles".
+- **New topics**: create them as `references/NN-topic.md` and link them in the table of contents in `SKILL.md`.
+- The `description` in the frontmatter of `SKILL.md` controls when Claude loads the skill automatically – add new keywords there.
+
+Issues and pull requests are welcome.

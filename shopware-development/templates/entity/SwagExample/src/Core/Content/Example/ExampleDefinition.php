@@ -14,7 +14,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Field\TranslationsAssociationFi
 use Shopware\Core\Framework\DataAbstractionLayer\FieldCollection;
 use SwagExample\Core\Content\Example\Aggregate\ExampleTranslation\ExampleTranslationDefinition;
 
-// Kein Konstruktor: der EntityCompilerPass instanziiert die Definition ohne Argumente.
+// No constructor: the EntityCompilerPass instantiates the definition without arguments.
 class ExampleDefinition extends EntityDefinition
 {
     final public const ENTITY_NAME = 'swag_example';
@@ -41,7 +41,7 @@ class ExampleDefinition extends EntityDefinition
 
     protected function defineFields(): FieldCollection
     {
-        // created_at / updated_at kommen aus defaultFields(), die Spalten muessen in der Migration existieren.
+        // created_at / updated_at come from defaultFields(); the columns must exist in the migration.
         return new FieldCollection([
             (new IdField('id', 'id'))->addFlags(new ApiAware(), new PrimaryKey(), new Required()),
             (new StringField('technical_name', 'technicalName'))->addFlags(new ApiAware(), new Required()),

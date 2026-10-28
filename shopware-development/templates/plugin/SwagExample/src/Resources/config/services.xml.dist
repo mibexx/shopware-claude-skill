@@ -1,8 +1,8 @@
 <?xml version="1.0" ?>
 <!--
-    ALTERNATIVE ZU services.php (in 6.7 deprecated, wird ab 6.8.0.0 NICHT mehr geladen).
-    Zum Nutzen in services.xml umbenennen und services.php dann LOESCHEN:
-    Bundle::registerContainerFile() laedt alle Dateien per Glob "services.*".
+    ALTERNATIVE TO services.php (deprecated in 6.7, NO longer loaded as of 6.8.0.0).
+    To use it, rename it to services.xml and then DELETE services.php:
+    Bundle::registerContainerFile() loads all files via the glob "services.*".
 -->
 <container xmlns="http://symfony.com/schema/dic/services"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

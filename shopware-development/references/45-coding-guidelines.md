@@ -1,69 +1,69 @@
-# Coding-Guidelines und Konventionen (Referenz, Shopware 6.7.15.1)
+# Coding guidelines and conventions (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift bei Fragen zu Rückwärtskompatibilität, `@internal`/`@final`, Domain-Exceptions, Feature-Flags, Deprecations, Extendability, Namensgebung im Plugin und zu den `AGENTS.md`-Dateien im Quellcode. Sie ist die Entscheidungsgrundlage, welche Core-Klassen ein Plugin gefahrlos nutzen darf.
+This reference applies to questions about backward compatibility, `@internal`/`@final`, domain exceptions, feature flags, deprecations, extendability, naming in the plugin, and the `AGENTS.md` files in the source code. It is the basis for deciding which core classes a plugin may safely use.
 
-Abgrenzung: Decorator-Mechanik in [T-06 Service-Dekoration](./06-service-dekoration.md); Events in [T-07](./07-events-subscriber.md) und [T-08 Extension Points](./08-extension-points.md); statische Analyse in [T-48](./48-statische-analyse.md); Tests in [T-46](./46-tests-phpunit.md); MCP in [T-44](./44-mcp-server.md); Plugin-Struktur in [T-02](./02-plugin-aufbau.md).
+Scope: decorator mechanics in [T-06 Service decoration](./06-service-decoration.md); events in [T-07](./07-events-subscriber.md) and [T-08 Extension points](./08-extension-points.md); static analysis in [T-48](./48-static-analysis.md); tests in [T-46](./46-tests-phpunit.md); MCP in [T-44](./44-mcp-server.md); plugin structure in [T-02](./02-plugin-structure.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-- **BC-Versprechen** gilt für alles ohne `@internal`: PHP-Klassen/Interfaces/öffentliche und protected Member, DI-Service-IDs/Tags, Events, Store-/Admin-API, Twig-Blöcke, JS-Plugins, Admin-Komponenten, Snippet-Keys, `shopware.yaml`-Keys, CLI-Commands. Breaking Changes nur im Major (6.8) nach Deprecation in der Minor. Konstruktoren DI-erzeugter Services sind **nicht** öffentlich; Konstruktoren selbst instanziierter DTOs (z. B. `CalculatedPrice`) schon.
-- **`@internal`:** keine BC-Garantie, nicht nutzen, nicht dekorieren. **`@final`:** nutzen, nicht erweitern (Erweiterung über Events/Dekoration auf Container-Ebene). **Dekorierbar:** abstrakte Basisklasse mit `getDecorated()`, weder `@internal` noch `@final`.
-- **Erweiterungs-Reihenfolge für Plugins:** Event > Extension ([T-08](./08-extension-points.md)) > Dekoration > Service-Replacement (vermeiden). Muster laut Doku: Decoration (Store-API-Routen, `Abstract*`), Factory, Visitor (Cart-Processor/Collector), Mediator/Events (bei asynchroner Nutzung IDs statt Objekte), Adapter.
-- **Domain-Exceptions:** pro Domäne eine `FooException extends Shopware\Core\Framework\HttpException`, statische Factory-Methoden, Error-Codes `DOMAIN__SCREAMING_SNAKE`, Platzhalter `{{ name }}`. Kette: `HttpException` (Shopware) > `ShopwareHttpException` > Symfony `HttpException`.
-- **Feature-Flags:** Flag vierteilig `v6.8.0.0` (Env `V6_8_0_0=1`), Deprecation-Tag dreiteilig `tag:v6.8.0`.
-- **BC-Change-Attribute** (`core/Framework/Deprecation/BCChange/`, `@internal`) ersetzen in 6.7 die `reason:*`-Deprecations: `BecomesAbstract`, `BecomesFinal`, `BecomesInternal`, `BecomesReadonly`, `NewOptionalParameter`, `NewRequiredParameter`, `ReturnTypeNarrowing`, `ParameterTypeNarrowing` u. a., je `public readonly string $version`. Warnsignal: Wer z. B. `Feature` (`#[BecomesFinal(version: 'v6.8.0')]`) erweitert, muss vor 6.8 umbauen.
-- **Plugin-Konventionen:** `declare(strict_types=1)`, Konstruktor-Promotion `private readonly`, Services als `services.php` (XML in 6.7 deprecated), eigener Namespace (`SwagExample\…`, nie `Shopware\…`), Suffixe nach Core-Muster (`…Subscriber`, `…Route`/`Abstract…Route`, `…Controller`, `…Definition`/`…Entity`/`…Collection`, `…Exception`, `…Command`, `…Handler`, `…Struct`, `…Event`), Tabellennamen `snake_case` mit Vendor-Präfix (`swag_…`), `ENTITY_NAME`-Konstante in Definitionen. `Abstract*` nur für bewusst dekorierbare Services.
-- **Plattform:** PHP `~8.2 – ~8.5`, Symfony `~7.4.0` (`core/composer.json`).
+- **BC promise** applies to everything without `@internal`: PHP classes/interfaces/public and protected members, DI service IDs/tags, events, Store/Admin API, Twig blocks, JS plugins, admin components, snippet keys, `shopware.yaml` keys, CLI commands. Breaking changes only in the major (6.8) after deprecation in the minor. Constructors of DI-created services are **not** public; constructors of self-instantiated DTOs (e.g. `CalculatedPrice`) are.
+- **`@internal`:** no BC guarantee, do not use, do not decorate. **`@final`:** use, do not extend (extension via events/decoration at container level). **Decoratable:** abstract base class with `getDecorated()`, neither `@internal` nor `@final`.
+- **Extension order for plugins:** event > extension ([T-08](./08-extension-points.md)) > decoration > service replacement (avoid). Patterns according to the docs: decoration (Store API routes, `Abstract*`), factory, visitor (cart processor/collector), mediator/events (with asynchronous use, IDs instead of objects), adapter.
+- **Domain exceptions:** one `FooException extends Shopware\Core\Framework\HttpException` per domain, static factory methods, error codes `DOMAIN__SCREAMING_SNAKE`, placeholders `{{ name }}`. Chain: `HttpException` (Shopware) > `ShopwareHttpException` > Symfony `HttpException`.
+- **Feature flags:** flag with four parts `v6.8.0.0` (env `V6_8_0_0=1`), deprecation tag with three parts `tag:v6.8.0`.
+- **BC change attributes** (`core/Framework/Deprecation/BCChange/`, `@internal`) replace the `reason:*` deprecations in 6.7: `BecomesAbstract`, `BecomesFinal`, `BecomesInternal`, `BecomesReadonly`, `NewOptionalParameter`, `NewRequiredParameter`, `ReturnTypeNarrowing`, `ParameterTypeNarrowing` among others, each with `public readonly string $version`. Warning sign: anyone who extends e.g. `Feature` (`#[BecomesFinal(version: 'v6.8.0')]`) must refactor before 6.8.
+- **Plugin conventions:** `declare(strict_types=1)`, constructor promotion `private readonly`, services as `services.php` (XML deprecated in 6.7), own namespace (`SwagExample\…`, never `Shopware\…`), suffixes following the core pattern (`…Subscriber`, `…Route`/`Abstract…Route`, `…Controller`, `…Definition`/`…Entity`/`…Collection`, `…Exception`, `…Command`, `…Handler`, `…Struct`, `…Event`), table names `snake_case` with vendor prefix (`swag_…`), `ENTITY_NAME` constant in definitions. `Abstract*` only for deliberately decoratable services.
+- **Platform:** PHP `~8.2 – ~8.5`, Symfony `~7.4.0` (`core/composer.json`).
 
-Plugin-Struktur, die die Konventionen zeigt:
+Plugin structure illustrating the conventions:
 
 ```
 custom/plugins/SwagExample/
 ├── composer.json
 ├── src/
 │   ├── SwagExample.php
-│   ├── ExampleException.php            # Domain-Exception (Top-Level)
-│   ├── Exception/                      # nur Unterklassen, die gefangen werden müssen
+│   ├── ExampleException.php            # domain exception (top level)
+│   ├── Exception/                      # only subclasses that must be caught
 │   ├── Service/{AbstractGreetingService,GreetingService,LoudGreetingService}.php
 │   └── Resources/config/services.php
 └── tests/Unit/Service/
 ```
 
-## 3. Anleitung
+## 3. Instructions
 
-### 3.1 Deprecation und BC
-1. Als Plugin-Autor nur Nicht-`@internal`-API nutzen; Core-Deprecations in CI mit `V6_8_0_0=1` prüfen (`V6_8_0_0=1 vendor/bin/phpunit`).
-2. Eigene Deprecations (falls Plugin selbst API anbietet): `@deprecated tag:v6.8.0 - Begründung/Ersatz` plus `Feature::triggerDeprecationOrThrow('v6.8.0.0', Feature::deprecatedMethodMessage(self::class, __METHOD__, 'v6.8.0.0', 'Neu::methode'))` (`core/Framework/Feature.php`; Core-Beispiel `AppException`: Versionsargument ebenfalls `'v6.8.0.0'`). Der Trigger wirft `FeatureException`, sobald das Major-Flag aktiv ist.
-3. In Minor erlaubt (Core): neue Klassen/Konstanten/Events, neue public Methoden an `@final`-Klassen, neue nicht-abstrakte Methoden an Decorator-Basisklassen, neue optionale Parameter; nicht erlaubt: Entfernen/Umbenennen öffentlicher Member, Typ-/Sichtbarkeitsänderung, neue Interface-Methoden, Entfernen von Events/Twig-Blöcken/Tabellen/Routen.
+### 3.1 Deprecation and BC
+1. As a plugin author, only use non-`@internal` API; check core deprecations in CI with `V6_8_0_0=1` (`V6_8_0_0=1 vendor/bin/phpunit`).
+2. Own deprecations (if the plugin itself offers an API): `@deprecated tag:v6.8.0 - reason/replacement` plus `Feature::triggerDeprecationOrThrow('v6.8.0.0', Feature::deprecatedMethodMessage(self::class, __METHOD__, 'v6.8.0.0', 'New::method'))` (`core/Framework/Feature.php`; core example `AppException`: version argument also `'v6.8.0.0'`). The trigger throws `FeatureException` as soon as the major flag is active.
+3. Allowed in a minor (core): new classes/constants/events, new public methods on `@final` classes, new non-abstract methods on decorator base classes, new optional parameters; not allowed: removing/renaming public members, type/visibility changes, new interface methods, removing events/Twig blocks/tables/routes.
 
-### 3.2 Domain-Exception
-Basis-Konstruktor `HttpException(int $statusCode, string $errorCode, string $message, array $parameters = [], ?\Throwable $previous = null)`; Methoden `getErrorCode()`, `getStatusCode()`, `is(string ...$code)`. Statuscodes aus `Response::HTTP_*`. Vorbild: `core/Content/Product/ProductException.php`. Keine `\RuntimeException`/`\InvalidArgumentException` im Domänencode (Core-PHPStan-Regeln `DomainExceptionRule`, `NoRuntimeExceptionInDomainExceptionsRule`).
+### 3.2 Domain exception
+Base constructor `HttpException(int $statusCode, string $errorCode, string $message, array $parameters = [], ?\Throwable $previous = null)`; methods `getErrorCode()`, `getStatusCode()`, `is(string ...$code)`. Status codes from `Response::HTTP_*`. Model: `core/Content/Product/ProductException.php`. No `\RuntimeException`/`\InvalidArgumentException` in domain code (core PHPStan rules `DomainExceptionRule`, `NoRuntimeExceptionInDomainExceptionsRule`).
 
-### 3.3 Feature-Flags
-- Registrierung im Core: `core/Framework/Resources/config/packages/feature.yaml` (`shopware.feature.flags`: `name`, `default`, `major`, `toggleable`, `description`). 6.7.15.1: `v6.5.0.0`, `v6.6.0.0`, `v6.7.0.0` (`default: true`), `v6.8.0.0` (`default: false`, `major: true`), außerdem u. a. `DISABLE_VUE_COMPAT`, `ACCESSIBILITY_TWEAKS`, `TELEMETRY_METRICS`, `FLOW_EXECUTION_AFTER_BUSINESS_PROCESS`, `DOCUMENT_GENERATION_REWORK`, `PERFORMANCE_TWEAKS`, `TWIG_COMPILE_TIME_OPTIMIZATION`.
-- Aktivierung: `.env` `V6_8_0_0=1`, `FEATURE_ALL=1` (alle Minor-Flags) bzw. `FEATURE_ALL=major` / `v6.8` (nur Major-Flags). Priorität: konkrete Env > `FEATURE_ALL` > Registry-Default.
-- Zugriff: PHP `Feature::isActive()`, Twig `{% if feature('v6.8.0.0') %}`, Admin `inject: ['feature']` + `feature.isActive(...)`, Storefront-JS `import Feature from 'src/helper/feature.helper'`.
-- CLI: `bin/console feature:list`, `feature:enable`, `feature:disable`, `feature:dump` (Namen im Quellcode verifiziert).
-- Plugins: Core-Flags lesen, eigene Schalter über Plugin-Konfiguration ([T-19](./19-plugin-konfiguration.md)).
+### 3.3 Feature flags
+- Registration in the core: `core/Framework/Resources/config/packages/feature.yaml` (`shopware.feature.flags`: `name`, `default`, `major`, `toggleable`, `description`). 6.7.15.1: `v6.5.0.0`, `v6.6.0.0`, `v6.7.0.0` (`default: true`), `v6.8.0.0` (`default: false`, `major: true`), plus among others `DISABLE_VUE_COMPAT`, `ACCESSIBILITY_TWEAKS`, `TELEMETRY_METRICS`, `FLOW_EXECUTION_AFTER_BUSINESS_PROCESS`, `DOCUMENT_GENERATION_REWORK`, `PERFORMANCE_TWEAKS`, `TWIG_COMPILE_TIME_OPTIMIZATION`.
+- Activation: `.env` `V6_8_0_0=1`, `FEATURE_ALL=1` (all minor flags) or `FEATURE_ALL=major` / `v6.8` (major flags only). Priority: specific env > `FEATURE_ALL` > registry default.
+- Access: PHP `Feature::isActive()`, Twig `{% if feature('v6.8.0.0') %}`, Admin `inject: ['feature']` + `feature.isActive(...)`, Storefront JS `import Feature from 'src/helper/feature.helper'`.
+- CLI: `bin/console feature:list`, `feature:enable`, `feature:disable`, `feature:dump` (names verified in the source code).
+- Plugins: read core flags; own switches via plugin configuration ([T-19](./19-plugin-configuration.md)).
 
-### 3.4 AGENTS.md / CLAUDE.md im Quellcode
-Vorhanden in `administration/Resources/app/administration/` (Root, `src/core/`, `src/app/`, `src/module/`), `core/Framework/Mcp/` (+ Unterordner) und `storefront/Mcp/`. Jede `CLAUDE.md` besteht nur aus `@AGENTS.md`.
-- **Admin-Root:** Vue 3, Twig.JS, Pinia, **Vite**, **Jest**; Komponenten per Component-Factory (keine SFCs, damit Plugins per Twig-Block überschreiben können); Jest-Test pro Feature (`.spec.ts` neben dem Code; ab 500 Zeilen `.spec/`-Ordner); TypeScript für neuen Code. Skripte (Platform-Repo): `composer eslint:admin[:fix]`, `stylelint:admin[:fix]`, `format:admin[:fix]`, `admin:unit`, `build:js:admin`.
-- **`src/app/AGENTS.md`:** Boot `init-pre/ > init/ > init-post/`; Abhängigkeiten per `inject`, nicht per Import; Komponenten nur global via `Shopware.Component.register`; Pinia über `Shopware.Store.register`; BEM + Meteor-Tokens; Anti-Patterns: lokale Komponenten-Imports, DOM-Manipulation, Props mutieren, Logik im Template, Inline-Styles, Mixins in neuem Code (Composables nutzen). Details [T-24](./24-admin-module.md), [T-25](./25-admin-komponenten.md).
-- **`core/Framework/Mcp/AGENTS.md`:** siehe [T-44](./44-mcp-server.md).
-- Die Admin-Regeln gelten nur für JS/Vue, nicht pauschal für PHP-Plugins.
+### 3.4 AGENTS.md / CLAUDE.md in the source code
+Present in `administration/Resources/app/administration/` (root, `src/core/`, `src/app/`, `src/module/`), `core/Framework/Mcp/` (+ subfolders) and `storefront/Mcp/`. Each `CLAUDE.md` consists only of `@AGENTS.md`.
+- **Admin root:** Vue 3, Twig.JS, Pinia, **Vite**, **Jest**; components via component factory (no SFCs, so that plugins can override via Twig block); one Jest test per feature (`.spec.ts` next to the code; from 500 lines a `.spec/` folder); TypeScript for new code. Scripts (platform repo): `composer eslint:admin[:fix]`, `stylelint:admin[:fix]`, `format:admin[:fix]`, `admin:unit`, `build:js:admin`.
+- **`src/app/AGENTS.md`:** boot `init-pre/ > init/ > init-post/`; dependencies via `inject`, not via import; components only globally via `Shopware.Component.register`; Pinia via `Shopware.Store.register`; BEM + Meteor tokens; anti-patterns: local component imports, DOM manipulation, mutating props, logic in the template, inline styles, mixins in new code (use composables). Details [T-24](./24-admin-modules.md), [T-25](./25-admin-components.md).
+- **`core/Framework/Mcp/AGENTS.md`:** see [T-44](./44-mcp-server.md).
+- The admin rules apply only to JS/Vue, not across the board to PHP plugins.
 
-### 3.5 PHP-8.x-/Symfony-7-Konventionen
-`strict_types` überall; native Property-/Parametertypen, generische Typen per PHPDoc (`list<string>`); Enums statt String-Konstanten (wo kein BC-Zwang); native Attribute (`#[Route]`, `#[AsEventListener]`); Routen/Services als PHP (`routes.php`, `services.php`). Storefront-Routennamen beginnen mit `frontend.`. Im Core: keine native Zeit-API (`ClockInterface`), kein `unserialize`, kein `file_exists`, kein Session-Zugriff in Core/Store-API; Namespace-Schichten Core <- Administration/Elasticsearch/Storefront (PHPat `RestrictNamespacesRule`).
+### 3.5 PHP 8.x / Symfony 7 conventions
+`strict_types` everywhere; native property/parameter types, generic types via PHPDoc (`list<string>`); enums instead of string constants (where there is no BC constraint); native attributes (`#[Route]`, `#[AsEventListener]`); routes/services as PHP (`routes.php`, `services.php`). Storefront route names start with `frontend.`. In the core: no native time API (`ClockInterface`), no `unserialize`, no `file_exists`, no session access in Core/Store API; namespace layers Core <- Administration/Elasticsearch/Storefront (PHPat `RestrictNamespacesRule`).
 
 ### 3.6 ADRs
-Core-ADRs liegen im Repo-Ordner `adr/` (`YYYY-MM-DD-titel.md`); in `vendor/` nicht enthalten. Für Plugins als Empfehlung: `docs/adr/YYYY-MM-DD-titel.md` (nicht von Shopware verlangt).
+Core ADRs live in the repo folder `adr/` (`YYYY-MM-DD-title.md`); not included in `vendor/`. Recommended for plugins: `docs/adr/YYYY-MM-DD-title.md` (not required by Shopware).
 
-## 4. Beispiele
+## 4. Examples
 
-Gerüst-Verweise: [Plugin-Gerüst](../templates/plugin/README.md), [Decorator-Gerüst](../templates/decorator/README.md).
+Scaffold references: [Plugin scaffold](../templates/plugin/README.md), [Decorator scaffold](../templates/decorator/README.md).
 
 `src/ExampleException.php`
 
@@ -133,7 +133,7 @@ final class GreetingService extends AbstractGreetingService
 }
 ```
 
-`src/Service/LoudGreetingService.php` (Dekorator-Muster)
+`src/Service/LoudGreetingService.php` (decorator pattern)
 
 ```php
 <?php declare(strict_types=1);
@@ -183,56 +183,56 @@ return static function (ContainerConfigurator $container): void {
 };
 ```
 
-Feature-Flag-Muster (Core nutzt es z. B. in `OrderConverter`): `if (Feature::isActive('v6.8.0.0')) { /* neu */ } else { /* alt */ }`.
+Feature flag pattern (the core uses it e.g. in `OrderConverter`): `if (Feature::isActive('v6.8.0.0')) { /* new */ } else { /* old */ }`.
 
-⚠ UNGEPRÜFT: Beispiel-Plugin nicht installiert/ausgeführt.
+⚠ UNVERIFIED: Example plugin not installed/executed.
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-1. `@internal`-Klasse erweitert/dekoriert: bricht bei Minor-Update ohne Ankündigung.
-2. `@final`-Klasse mit `extends` erweitert statt Event/Decorator.
-3. Dekorator implementiert `EventSubscriberInterface` (nicht erlaubt laut Doku/Regel).
-4. Dekorierte Abstract-Klasse um eigene public-Methoden ergänzt (Verstoß gegen `DecorationPatternRule`, die nur in `core-rules.neon` steht, nicht in `rules.neon`; siehe [T-48](./48-statische-analyse.md)); Dekoratoren dürfen keine `#[Route]` definieren.
-5. `\RuntimeException` statt Domain-Exception; Error-Code ohne Domänenpräfix.
-6. Flag/Tag verwechselt: Tag in `@deprecated tag:` dreiteilig (`v6.8.0`), Flag in `Feature::isActive()` vierteilig (`v6.8.0.0`).
-7. `Feature::isActive()` in `services.php`/Konfiguration verzweigen (laut Doku verboten).
-8. XML-Konfiguration (`services.xml`, `routes.xml`) in 6.7 deprecated (`Bundle.php` `triggerXmlConfigDeprecation`), entfällt in 6.8.
-9. Admin-JS: lokale Komponenten-Imports oder Mixins in neuem Code.
-10. Entities statt IDs in asynchron verarbeiteten Events.
-11. Doku-Regeln übernehmen, wo der Code abweicht (siehe Lücken).
+1. `@internal` class extended/decorated: breaks on a minor update without notice.
+2. `@final` class extended with `extends` instead of event/decorator.
+3. Decorator implements `EventSubscriberInterface` (not allowed according to the docs/rule).
+4. Decorated abstract class extended with own public methods (violation of `DecorationPatternRule`, which is only in `core-rules.neon`, not in `rules.neon`; see [T-48](./48-static-analysis.md)); decorators must not define `#[Route]`.
+5. `\RuntimeException` instead of a domain exception; error code without domain prefix.
+6. Flag/tag confused: tag in `@deprecated tag:` has three parts (`v6.8.0`), flag in `Feature::isActive()` has four parts (`v6.8.0.0`).
+7. Branching on `Feature::isActive()` in `services.php`/configuration (forbidden according to the docs).
+8. XML configuration (`services.xml`, `routes.xml`) deprecated in 6.7 (`Bundle.php` `triggerXmlConfigDeprecation`), dropped in 6.8.
+9. Admin JS: local component imports or mixins in new code.
+10. Entities instead of IDs in asynchronously processed events.
+11. Adopting docs rules where the code deviates (see gaps).
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-| Thema | 6.5/6.6 | 6.7.15.1 (Code) |
+| Topic | 6.5/6.6 | 6.7.15.1 (code) |
 |---|---|---|
-| PHP/Symfony | 6.5: PHP 8.1+, Symfony 6.x; 6.6: PHP 8.2, Symfony 6.4 (⚠ UNGEPRÜFT, nicht am Code belegt) | PHP `~8.2–8.5`, Symfony `~7.4.0` |
-| Flags `v6.5/6.6/6.7.0.0` | Major-Flag der Vorversion inaktiv bis Major | alle `default: true`, nicht toggelbar; nächstes Major `v6.8.0.0` (`default: false`) |
-| Deprecation-Marker | `@deprecated tag:v6.x.0` + `reason:*` | `reason:*` ersetzt durch BC-Change-Attribute |
-| XML-Konfiguration | Standard | deprecated (`tag:v6.8.0`) |
-| Admin-Build | Webpack | Vite (siehe [T-49](./49-build-deployment.md)) |
-| MCP | nicht vorhanden | experimentell, `stableVersion:v6.8.0` |
+| PHP/Symfony | 6.5: PHP 8.1+, Symfony 6.x; 6.6: PHP 8.2, Symfony 6.4 (⚠ UNVERIFIED, not confirmed in the code) | PHP `~8.2–8.5`, Symfony `~7.4.0` |
+| Flags `v6.5/6.6/6.7.0.0` | major flag of the previous version inactive until the major | all `default: true`, not toggleable; next major `v6.8.0.0` (`default: false`) |
+| Deprecation marker | `@deprecated tag:v6.x.0` + `reason:*` | `reason:*` replaced by BC change attributes |
+| XML configuration | standard | deprecated (`tag:v6.8.0`) |
+| Admin build | Webpack | Vite (see [T-49](./49-build-deployment.md)) |
+| MCP | not present | experimental, `stableVersion:v6.8.0` |
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] Nur Nicht-`@internal`-API genutzt, `@final`-Klassen nicht erweitert
-- [ ] Eigene dekorierbare Services: abstrakte Basis + `getDecorated()`, kein `@final`/`@internal`
-- [ ] Fehler als Domain-Exception mit Konstante `DOMAIN__CODE` und Factory-Methode
-- [ ] `declare(strict_types=1)`, native Typen, `private readonly` Promotion
-- [ ] Services/Routen als PHP, nicht XML
-- [ ] Eigener Namespace und `swag_`-Tabellenpräfix (Vendor-Präfix)
-- [ ] CI-Lauf mit `V6_8_0_0=1` gegen Core-Deprecations
-- [ ] Keine Branches auf `Feature::isActive()` in DI-Konfiguration
-- [ ] Admin-Code folgt `AGENTS.md` (global registrierte Komponenten, `inject`, keine Mixins neu)
+- [ ] Only non-`@internal` API used, `@final` classes not extended
+- [ ] Own decoratable services: abstract base + `getDecorated()`, no `@final`/`@internal`
+- [ ] Errors as domain exception with constant `DOMAIN__CODE` and factory method
+- [ ] `declare(strict_types=1)`, native types, `private readonly` promotion
+- [ ] Services/routes as PHP, not XML
+- [ ] Own namespace and `swag_` table prefix (vendor prefix)
+- [ ] CI run with `V6_8_0_0=1` against core deprecations
+- [ ] No branches on `Feature::isActive()` in DI configuration
+- [ ] Admin code follows `AGENTS.md` (globally registered components, `inject`, no new mixins)
 
-## 7. Quellen
+## 7. Sources
 
-Doku (https://developer.shopware.com/docs/resources/guidelines/code/): `core/` (Index), `core/backward-compatibility.html`, `core/final-and-internal.html`, `core/domain-exceptions.html`, `core/extendability.html`, `core/decorator-pattern.html`, `core/feature-flags.html`, `core/adr.html`, `core/6.5-new-php-language-features.html` (Titel "PHP 8.1 & Symfony 6.1", Seite nicht aktualisiert), `public-apis.html`, `routing.html`, `session-and-state.html`. Weitere existierende, nicht ausgewertete Seiten: `core/agent-skills.html`, `core/ci-workflows.html`, `core/unit-tests.html`, `core/writing-code-for-static-analysis.html`, `platform-domains.html`, `store-api.html`, `storefront-controller.html`. Die als "[ungeprüft]" geführten Pfade `extendability.html` und `domain-exceptions.html` sind gültig.
+Docs (https://developer.shopware.com/docs/resources/guidelines/code/): `core/` (index), `core/backward-compatibility.html`, `core/final-and-internal.html`, `core/domain-exceptions.html`, `core/extendability.html`, `core/decorator-pattern.html`, `core/feature-flags.html`, `core/adr.html`, `core/6.5-new-php-language-features.html` (title "PHP 8.1 & Symfony 6.1", page not updated), `public-apis.html`, `routing.html`, `session-and-state.html`. Other existing pages not evaluated: `core/agent-skills.html`, `core/ci-workflows.html`, `core/unit-tests.html`, `core/writing-code-for-static-analysis.html`, `platform-domains.html`, `store-api.html`, `storefront-controller.html`. The paths listed as "[unverified]", `extendability.html` and `domain-exceptions.html`, are valid.
 
-Quellcode (unter `vendor/shopware/`): `core/Framework/HttpException.php`, `ShopwareHttpException.php`, `ShopwareException.php`, `core/Framework/Feature.php`, `core/Framework/Feature/FeatureException.php`, `core/Framework/Feature/Command/Feature*Command.php`, `core/Framework/Resources/config/packages/feature.yaml`, `core/Framework/Deprecation/BCChange/*`, `core/Framework/Plugin/Exception/DecorationPatternException.php`, `core/Framework/Bundle.php`, `core/Content/Product/ProductException.php`, `core/DevOps/StaticAnalyze/PHPStan/Rules/*`, `administration/Resources/app/administration/AGENTS.md`, `…/src/app/AGENTS.md`, `core/Framework/Mcp/AGENTS.md`.
+Source code (under `vendor/shopware/`): `core/Framework/HttpException.php`, `ShopwareHttpException.php`, `ShopwareException.php`, `core/Framework/Feature.php`, `core/Framework/Feature/FeatureException.php`, `core/Framework/Feature/Command/Feature*Command.php`, `core/Framework/Resources/config/packages/feature.yaml`, `core/Framework/Deprecation/BCChange/*`, `core/Framework/Plugin/Exception/DecorationPatternException.php`, `core/Framework/Bundle.php`, `core/Content/Product/ProductException.php`, `core/DevOps/StaticAnalyze/PHPStan/Rules/*`, `administration/Resources/app/administration/AGENTS.md`, `…/src/app/AGENTS.md`, `core/Framework/Mcp/AGENTS.md`.
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ LÜCKE (Doku weicht vom Code ab, Code gilt): Doku `routing.html` fordert Annotation `Routing\Annotation\Since`, im Code nicht vorhanden (Routen nutzen `#[Route]`); Doku `backward-compatibility.html` nennt `#[ClassMoved]`, im Code nicht gefunden (nicht verwenden); Doku `feature-flags.html` nennt Tag `shopware.inactiveFeature`, im Vendor kein Treffer.
-- ⚠ UNGEPRÜFT: Doku-Aussage "Core triggert nie eigene Deprecations"; Doku-Inhalt stammt aus Abruf-Zusammenfassungen (Beispiele gegen Quellcode prüfen).
-- ⚠ UNGEPRÜFT (Annahmen/Empfehlungen, nicht belegt): `#[Package]`-Pflicht für Plugins, eigene Flags in `feature.yaml`, ADR-Ablage im Plugin, `ClockInterface`-Empfehlung.
-- ⚠ LÜCKE: ADRs (`adr/…`) und Skill `.agents/skills/shopware-admin-js` im Vendor nicht enthalten; 6.5/6.6-Spalte nicht am lokalen Code belegbar.
+- ⚠ GAP (docs deviate from the code, the code is authoritative): docs `routing.html` require the annotation `Routing\Annotation\Since`, not present in the code (routes use `#[Route]`); docs `backward-compatibility.html` mention `#[ClassMoved]`, not found in the code (do not use); docs `feature-flags.html` mention the tag `shopware.inactiveFeature`, no hit in vendor.
+- ⚠ UNVERIFIED: Docs statement "the core never triggers its own deprecations"; docs content comes from fetch summaries (check examples against the source code).
+- ⚠ UNVERIFIED (assumptions/recommendations, not confirmed): `#[Package]` requirement for plugins, own flags in `feature.yaml`, ADR storage in the plugin, `ClockInterface` recommendation.
+- ⚠ GAP: ADRs (`adr/…`) and skill `.agents/skills/shopware-admin-js` not included in vendor; 6.5/6.6 column cannot be confirmed against the local code.

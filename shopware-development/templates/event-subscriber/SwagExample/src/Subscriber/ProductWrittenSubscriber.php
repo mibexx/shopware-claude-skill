@@ -19,16 +19,16 @@ class ProductWrittenSubscriber implements EventSubscriberInterface
     public static function getSubscribedEvents(): array
     {
         return [
-            // 'product.written': erst NACH dem Schreiben
+            // 'product.written': only AFTER writing
             ProductEvents::PRODUCT_WRITTEN_EVENT => 'onProductWritten',
-            // klassenbasiertes Event (Namespace ...\Write\Validation): innerhalb der Transaktion, nur validieren
+            // class-based event (namespace ...\Write\Validation): inside the transaction, validate only
             PreWriteValidationEvent::class => 'onPreWrite',
         ];
     }
 
     public function onProductWritten(EntityWrittenEvent $event): void
     {
-        // Achtung Endlosschleife: nicht hier erneut 'product' schreiben ohne Guard.
+        // Beware of infinite loops: do not write 'product' again here without a guard.
         $this->logger->info('Products written', ['ids' => $event->getIds()]);
     }
 
@@ -36,8 +36,8 @@ class ProductWrittenSubscriber implements EventSubscriberInterface
     {
         foreach ($event->getCommandsForEntity(ProductDefinition::ENTITY_NAME) as $command) {
             if ($command instanceof InsertCommand) {
-                // $command->getPayload() pruefen; Fehler per $event->getExceptions()->add(\Throwable) anhaengen.
-                // Keine Repository-Schreibzugriffe hier (laufende Transaktion).
+                // check $command->getPayload(); attach errors via $event->getExceptions()->add(\Throwable).
+                // No repository writes here (transaction in progress).
             }
         }
     }

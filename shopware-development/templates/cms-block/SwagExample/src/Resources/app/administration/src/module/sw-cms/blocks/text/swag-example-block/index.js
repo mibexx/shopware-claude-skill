@@ -14,7 +14,7 @@ Shopware.Service('cmsService').registerCmsBlock({
         marginRight: null,
         sizingMode: 'boxed',
     },
-    // Slot-Namen muessen in <slot name>, hier und in block.slots.getSlot('<name>') (Storefront) identisch sein
+    // Slot names must be identical in <slot name>, here and in block.slots.getSlot('<name>') (storefront)
     slots: {
         left: 'text',
         right: {

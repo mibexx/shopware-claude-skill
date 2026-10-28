@@ -18,7 +18,7 @@ describe('SwagExamplePlugin', () => {
         plugin = undefined;
     });
 
-    test('toggelt Klasse und aria-expanded beim Klick', () => {
+    test('toggles class and aria-expanded on click', () => {
         const spy = jest.fn();
         plugin.$emitter.subscribe('swagExampleToggle', spy);
 

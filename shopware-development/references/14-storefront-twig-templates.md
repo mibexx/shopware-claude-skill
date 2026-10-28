@@ -1,22 +1,22 @@
-# Storefront-Twig-Templates überschreiben und erweitern (Referenz, Shopware 6.7.15.1)
+# Overriding and extending Storefront Twig templates (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn Storefront-Templates per Plugin oder Theme angepasst, neue Partials eingebunden, Icons/Thumbnails ausgegeben oder eigene Twig-Funktionen/-Filter ergänzt werden. Hier steht nur die Twig-Mechanik und die Blocksuche.
-Abgrenzung: Snippets und `|trans` siehe [T-18 Snippets](./18-snippets-uebersetzungen.md), SCSS/Assets siehe [T-13](./13-storefront-styling-assets.md), JS siehe [T-15](./15-storefront-js-plugins.md), CMS-Elemente/-Blöcke siehe [T-21](./21-cms-elemente.md) und [T-22](./22-cms-bloecke-sichtbarkeit.md), Seiten-Daten siehe [T-16 Controller und Pages](./16-storefront-controller-pages.md).
+This reference applies when Storefront templates are customized via a plugin or theme, new partials are included, icons/thumbnails are rendered, or custom Twig functions/filters are added. It covers only the Twig mechanics and finding blocks.
+Scope: snippets and `|trans` see [T-18 Snippets](./18-snippets-translations.md), SCSS/assets see [T-13](./13-storefront-styling-assets.md), JS see [T-15](./15-storefront-js-plugins.md), CMS elements/blocks see [T-21](./21-cms-elements.md) and [T-22](./22-cms-blocks-visibility.md), page data see [T-16 Controllers and pages](./16-storefront-controller-pages.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-- **`sw_extends` statt `extends`.** Ein Plugin legt eine Datei am gleichen relativen Pfad unter `src/Resources/views/storefront/...` ab und überschreibt nur die gewünschten `{% block %}`. Die erste Zeile ist `{% sw_extends '@Storefront/storefront/<pfad>.html.twig' %}`. Der `TemplateFinder` durchsucht die Namespace-Hierarchie (Core-Storefront, Plugins, Theme) und liefert das Template mit der höchsten Priorität. Mehrere Plugins können so dasselbe Template erweitern. `@Storefront` ist nur der Startpunkt.
-- **`sw_include` statt `include`** (Tag, ebenfalls über `TemplateFinder`), damit auch Partials überschreibbar bleiben. `with`, `only` und `ignore missing` werden unterstützt (`IncludeTokenParser`). `sw_icon` und `sw_thumbnails` sind Tags, die intern ein `SwInclude` auf `utilities/icon.html.twig` bzw. `utilities/thumbnail.html.twig` bauen.
-- **Hierarchie:** `base.html.twig` → Seiten-Template (`page/<bereich>/index.html.twig`) → Bausteine (`layout/`, `component/`, `section/`, `block/`, `element/`, `utilities/`).
-- **Bundle-Reihenfolge:** `BundleHierarchyBuilder` nimmt jedes Bundle mit Ordner `Resources/views`, sortiert nach `Bundle::getTemplatePriority()` (Standard `0`, `Framework` `-1`). Theme-Reihenfolge aus `theme.json` (Slots `@Storefront`, `@Plugins`, `@Theme`, `ThemeInheritanceBuilder`). Apps nutzen `template_load_priority`. Namespace in Twig = Bundle-Name (`@SwagExample`).
-- **Template-Scopes:** `ExtendsTokenParser` beachtet Request-Attribut `_templateScopes` (Standard `default`, `TemplateScopeDetector`). Ohne passenden Scope endet die Datei nach dem `extends`.
-- **Header/Footer seit 6.7 per ESI-Subrequest** (`frontend.header`, `frontend.footer`, `NavigationController::header()/footer()`): Dort ist `page` NICHT verfügbar, nur `header` bzw. `footer`. Daten nur als skalare `headerParameters`/`footerParameters`.
-- **`sw_block('name')`** rendert einen Block der Elternvererbung an anderer Stelle (z. B. `{{ sw_block('base_cookie_permission') }}` in `base.html.twig`). Weitere Mehrfachvererbungs-Tags: `sw_embed`, `sw_use`, `sw_import`, `sw_from`.
-- **Eigene Funktionen/Filter:** Klasse `extends Twig\Extension\AbstractExtension`, Service mit Tag `twig.extension`.
+- **`sw_extends` instead of `extends`.** A plugin places a file at the same relative path under `src/Resources/views/storefront/...` and overrides only the desired `{% block %}`. The first line is `{% sw_extends '@Storefront/storefront/<path>.html.twig' %}`. The `TemplateFinder` searches the namespace hierarchy (core Storefront, plugins, theme) and returns the template with the highest priority. This way, several plugins can extend the same template. `@Storefront` is only the starting point.
+- **`sw_include` instead of `include`** (tag, also via `TemplateFinder`), so that partials remain overridable as well. `with`, `only` and `ignore missing` are supported (`IncludeTokenParser`). `sw_icon` and `sw_thumbnails` are tags that internally build a `SwInclude` on `utilities/icon.html.twig` or `utilities/thumbnail.html.twig` respectively.
+- **Hierarchy:** `base.html.twig` → page template (`page/<area>/index.html.twig`) → building blocks (`layout/`, `component/`, `section/`, `block/`, `element/`, `utilities/`).
+- **Bundle order:** `BundleHierarchyBuilder` takes every bundle with a `Resources/views` folder, sorted by `Bundle::getTemplatePriority()` (default `0`, `Framework` `-1`). Theme order from `theme.json` (slots `@Storefront`, `@Plugins`, `@Theme`, `ThemeInheritanceBuilder`). Apps use `template_load_priority`. Namespace in Twig = bundle name (`@SwagExample`).
+- **Template scopes:** `ExtendsTokenParser` respects the request attribute `_templateScopes` (default `default`, `TemplateScopeDetector`). Without a matching scope, the file ends after the `extends`.
+- **Header/footer via ESI subrequest since 6.7** (`frontend.header`, `frontend.footer`, `NavigationController::header()/footer()`): `page` is NOT available there, only `header` or `footer` respectively. Data only as scalar `headerParameters`/`footerParameters`.
+- **`sw_block('name')`** renders a block of the parent inheritance at another place (e.g. `{{ sw_block('base_cookie_permission') }}` in `base.html.twig`). Further multi-inheritance tags: `sw_embed`, `sw_use`, `sw_import`, `sw_from`.
+- **Custom functions/filters:** class `extends Twig\Extension\AbstractExtension`, service with tag `twig.extension`.
 
-Verzeichnisbaum Plugin:
+Plugin directory tree:
 
 ```
 custom/plugins/SwagExample/
@@ -26,54 +26,54 @@ custom/plugins/SwagExample/
     ├── Twig/PriceLabelExtension.php
     └── Resources/
         ├── config/services.php
-        └── views/storefront/              # spiegelt storefront/ im Core 1:1
+        └── views/storefront/              # mirrors storefront/ in the core 1:1
             ├── layout/header/logo.html.twig
             ├── layout/footer/footer.html.twig
             └── page/product-detail/...
 ```
 
-Core-Orte: `vendor/shopware/storefront/Resources/views/storefront/` mit `base.html.twig`, `layout/` (header, footer, meta, breadcrumb, navbar, cookie, ...), `page/` (account, checkout, content, error, search, wishlist, ...), `component/`, `section/` (`cms-section-*`), `block/` (`cms-block-*`), `element/` (`cms-element-*`), `utilities/`. Daneben `views/components/` für Twig-UX-Komponenten (`<twig:Sw:Button>`, 6.7.11+ laut Doku).
+Core locations: `vendor/shopware/storefront/Resources/views/storefront/` with `base.html.twig`, `layout/` (header, footer, meta, breadcrumb, navbar, cookie, ...), `page/` (account, checkout, content, error, search, wishlist, ...), `component/`, `section/` (`cms-section-*`), `block/` (`cms-block-*`), `element/` (`cms-element-*`), `utilities/`. Alongside, `views/components/` for Twig UX components (`<twig:Sw:Button>`, 6.7.11+ according to the docs).
 
-Seiten → Standard-Templates: Kategorie/Landingpage `page/content/index.html.twig`, Produktdetail `page/content/product-detail.html.twig` (+ `page/product-detail/meta.html.twig`), Suche `page/search/index.html.twig`, Checkout `page/checkout/{cart,confirm/index,finish}`, Konto `page/account/index.html.twig`, Fehler `page/error/error-404.html.twig`, `error-std.html.twig`, `error-maintenance.html.twig`.
+Pages → default templates: category/landing page `page/content/index.html.twig`, product detail `page/content/product-detail.html.twig` (+ `page/product-detail/meta.html.twig`), search `page/search/index.html.twig`, checkout `page/checkout/{cart,confirm/index,finish}`, account `page/account/index.html.twig`, error `page/error/error-404.html.twig`, `error-std.html.twig`, `error-maintenance.html.twig`.
 
-Wichtige Shopware-Bausteine (Auswahl; vollständige Tabelle nicht belegt, siehe Lücken):
+Important Shopware building blocks (selection; full table not documented, see gaps):
 
-| Name | Art | Klasse |
+| Name | Kind | Class |
 |---|---|---|
-| `sw_extends`, `sw_include` | Tag | `NodeExtension` |
-| `sw_icon` / `sw_thumbnails` | Tag | `storefront/Framework/Twig/IconExtension` / `ThumbnailExtension` |
-| `config()` | Funktion | `ConfigExtension` |
-| `theme_config()`, `theme_scripts()`, `import_map()`, `theme_css_vars()` | Funktion | `storefront/Framework/Twig/Extension/ConfigExtension` |
-| `seoUrl()`, `rawUrl()`, `entitySeoUrl()`, `category_url()` | Funktion | `SeoUrlFunctionExtension` u. a. |
-| `feature()`, `searchMedia()`, `compare()` | Funktion | `FeatureFlagExtension`, `MediaExtension`, `ComparisonExtension` |
-| `sw_sanitize` | Filter | `SwSanitizeTwigFilter` |
-| `sw_encode_url`, `sw_encode_media_url`, `sw_icon_cache` | Filter | storefront Extensions |
-| `currency`, `sw_convert_unit` | Filter | `CurrencyFilter`, `MeasurementConvertUnitTwigFilter` |
-| `instanceof` | Test | `InstanceOfExtension` |
+| `sw_extends`, `sw_include` | tag | `NodeExtension` |
+| `sw_icon` / `sw_thumbnails` | tag | `storefront/Framework/Twig/IconExtension` / `ThumbnailExtension` |
+| `config()` | function | `ConfigExtension` |
+| `theme_config()`, `theme_scripts()`, `import_map()`, `theme_css_vars()` | function | `storefront/Framework/Twig/Extension/ConfigExtension` |
+| `seoUrl()`, `rawUrl()`, `entitySeoUrl()`, `category_url()` | function | `SeoUrlFunctionExtension` among others |
+| `feature()`, `searchMedia()`, `compare()` | function | `FeatureFlagExtension`, `MediaExtension`, `ComparisonExtension` |
+| `sw_sanitize` | filter | `SwSanitizeTwigFilter` |
+| `sw_encode_url`, `sw_encode_media_url`, `sw_icon_cache` | filter | storefront extensions |
+| `currency`, `sw_convert_unit` | filter | `CurrencyFilter`, `MeasurementConvertUnitTwigFilter` |
+| `instanceof` | test | `InstanceOfExtension` |
 
-Globale Variablen (`TemplateDataExtension::getGlobals`): `shopware.navigation`, `shopware.dateFormat`, `shopware.minSearchLength`, `shopware.showStagingBanner`, `context`, `activeRoute`, `formViolations`, `jsonLdFlags`, `themeId`.
+Global variables (`TemplateDataExtension::getGlobals`): `shopware.navigation`, `shopware.dateFormat`, `shopware.minSearchLength`, `shopware.showStagingBanner`, `context`, `activeRoute`, `formViolations`, `jsonLdFlags`, `themeId`.
 
-## 3. Anleitung
+## 3. Instructions
 
-1. **Core-Template finden:** unter `vendor/shopware/storefront/Resources/views/storefront/` suchen, z. B. `grep -rn "layout_header_logo_link" vendor/shopware/storefront/Resources/views`. Der Block-Name ist der Ankerpunkt.
-2. **Datei am gleichen Pfad** unter `src/Resources/views/storefront/...` anlegen.
-3. Erste Zeile `{% sw_extends '@Storefront/storefront/<pfad>.html.twig' %}`, nur gewünschte Blöcke überschreiben.
-4. `{{ parent() }}` aufrufen, wenn der Originalinhalt bleiben soll. Position vor/nach `parent()` bestimmt die Reihenfolge. Ohne `parent()` wird ersetzt.
-5. Neue Partials: `{% sw_include '@SwagExample/storefront/component/foo.html.twig' with { x: 1 } %}`. Mit `only` nur die übergebenen Variablen durchreichen.
-6. Icons: `{% sw_icon 'cart' style { size: 'sm', class: 'me-1' } %}` (Parameter siehe [T-13](./13-storefront-styling-assets.md)). Bilder: `{% sw_thumbnails 'my-thumbs' with { media: media } %}`.
-7. **Header/Footer (6.7):** Inhalt per Block in `layout/header/*.twig` bzw. `layout/footer/*.twig` überschreiben. Zusätzliche Daten: in `base.html.twig` den Block `base_esi_header` überschreiben und `headerParameters` erweitern, oder per `StorefrontRenderEvent`-Subscriber (Doku). Nur Skalare.
-8. Aktivieren und Cache:
+1. **Find the core template:** search under `vendor/shopware/storefront/Resources/views/storefront/`, e.g. `grep -rn "layout_header_logo_link" vendor/shopware/storefront/Resources/views`. The block name is the anchor point.
+2. Create the **file at the same path** under `src/Resources/views/storefront/...`.
+3. First line `{% sw_extends '@Storefront/storefront/<path>.html.twig' %}`, override only the desired blocks.
+4. Call `{{ parent() }}` if the original content should stay. The position before/after `parent()` determines the order. Without `parent()` the content is replaced.
+5. New partials: `{% sw_include '@SwagExample/storefront/component/foo.html.twig' with { x: 1 } %}`. With `only`, pass through only the given variables.
+6. Icons: `{% sw_icon 'cart' style { size: 'sm', class: 'me-1' } %}` (parameters see [T-13](./13-storefront-styling-assets.md)). Images: `{% sw_thumbnails 'my-thumbs' with { media: media } %}`.
+7. **Header/footer (6.7):** override content via block in `layout/header/*.twig` or `layout/footer/*.twig`. Additional data: override the block `base_esi_header` in `base.html.twig` and extend `headerParameters`, or via a `StorefrontRenderEvent` subscriber (docs). Scalars only.
+8. Activation and cache:
    ```bash
    bin/console plugin:refresh && bin/console plugin:install --activate SwagExample
    bin/console cache:clear
-   bin/console theme:compile        # nur nötig, wenn SCSS/JS betroffen
+   bin/console theme:compile        # only needed if SCSS/JS is affected
    ```
-   Der Twig-Cache wird nach Template-Hierarchie gehasht (`TemplateFinder::defineCache`). Bei Aktivierung/Prioritätsänderung entsteht ein neuer Cache.
-9. Syntax prüfen: `bin/console lint:twig custom/plugins/SwagExample/src/Resources/views`, Funktionen auflisten: `bin/console debug:twig` (Symfony-Kommandos, nicht ausgeführt).
+   The Twig cache is hashed by template hierarchy (`TemplateFinder::defineCache`). Activation/priority changes produce a new cache.
+9. Check syntax: `bin/console lint:twig custom/plugins/SwagExample/src/Resources/views`, list functions: `bin/console debug:twig` (Symfony commands, not executed).
 
-## 4. Beispiele
+## 4. Examples
 
-Logo-Block erweitern: `src/Resources/views/storefront/layout/header/logo.html.twig`
+Extending the logo block: `src/Resources/views/storefront/layout/header/logo.html.twig`
 ```twig
 {% sw_extends '@Storefront/storefront/layout/header/logo.html.twig' %}
 
@@ -82,9 +82,9 @@ Logo-Block erweitern: `src/Resources/views/storefront/layout/header/logo.html.tw
     <small class="header-claim">{{ 'swagExample.claim'|trans|sw_sanitize }}</small>
 {% endblock %}
 ```
-(Der Snippet-Schlüssel muss in den Snippet-Dateien existieren, siehe [T-18](./18-snippets-uebersetzungen.md). Block `layout_header_logo_link` ist in `layout/header/logo.html.twig` belegt.)
+(The snippet key must exist in the snippet files, see [T-18](./18-snippets-translations.md). Block `layout_header_logo_link` is confirmed in `layout/header/logo.html.twig`.)
 
-Eigene Twig-Funktion: `src/Twig/PriceLabelExtension.php`
+Custom Twig function: `src/Twig/PriceLabelExtension.php`
 ```php
 <?php declare(strict_types=1);
 
@@ -122,62 +122,62 @@ return static function (ContainerConfigurator $container): void {
         ->tag('twig.extension');
 };
 ```
-Verwendung: `{{ swagPriceLabel(page.product.calculatedPrice.unitPrice) }}`. Das Laden von `Resources/config/services.php` im Plugin ist in `core/Framework/Bundle.php` belegt (XML ist dort deprecated). Weitere Registrierungsdetails siehe [T-05 Services](./05-services-registrieren.md).
+Usage: `{{ swagPriceLabel(page.product.calculatedPrice.unitPrice) }}`. Loading of `Resources/config/services.php` in the plugin is confirmed in `core/Framework/Bundle.php` (XML is deprecated there). For further registration details see [T-05 Services](./05-registering-services.md).
 
-Weitere Gerüste: [../templates/theme/README.md](../templates/theme/README.md), [../templates/plugin/README.md](../templates/plugin/README.md).
+Further scaffolds: [../templates/theme/README.md](../templates/theme/README.md), [../templates/plugin/README.md](../templates/plugin/README.md).
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- `{% extends %}`/`{% include %}` statt `sw_extends`/`sw_include`: Überschreibungen anderer Plugins/Themes greifen nicht.
-- Datei am falschen Pfad (`Resources/views/layout/...` ohne `storefront/`): Pfad muss `views/storefront/...` spiegeln.
-- Ganze Core-Datei kopieren statt `sw_extends` + Block: Updates greifen nicht, Konflikte.
-- Block-Name falsch: Block wird still nicht verwendet (keine Fehlermeldung). Er muss im Eltern-Template existieren.
-- `parent()` vergessen: Inhalt (und Aufrufe anderer Plugins) fällt weg. Mehrere Plugins ohne `parent()` im selben Block: das letzte in der Hierarchie gewinnt (Reihenfolge über `getTemplatePriority()` steuerbar).
-- Eigene neue Blöcke ohne Plugin-Präfix kollidieren mit Core-Namen.
-- Header/Footer (6.7): `page` nicht verfügbar, keine komplexen Objekte in `headerParameters` (Query-Parameter). Die Routen sind HTTP-gecacht (`ATTRIBUTE_HTTP_CACHE`).
-- Plugin inaktiv oder ohne `Resources/views`: erscheint nicht in der Hierarchie (`BundleHierarchyBuilder` prüft `is_dir`).
-- Rohe Ausgabe mit `|raw` statt `|sw_sanitize`: XSS.
-- Twig-Funktion ohne Tag `twig.extension`: „Unknown function“.
-- Checkout-`_page`-Templates überschreiben `base_*`-Blöcke bewusst leer (z. B. `base_flashbags`).
-- `ExtendsTokenParser`, `IncludeTokenParser`, `TemplateFinder` sind `@internal`: nicht ableiten oder dekorieren.
+- `{% extends %}`/`{% include %}` instead of `sw_extends`/`sw_include`: overrides from other plugins/themes do not take effect.
+- File at the wrong path (`Resources/views/layout/...` without `storefront/`): the path must mirror `views/storefront/...`.
+- Copying the entire core file instead of `sw_extends` + block: updates do not take effect, conflicts.
+- Wrong block name: the block is silently not used (no error message). It must exist in the parent template.
+- Forgetting `parent()`: content (and calls from other plugins) is lost. Several plugins without `parent()` in the same block: the last one in the hierarchy wins (order controllable via `getTemplatePriority()`).
+- Your own new blocks without a plugin prefix collide with core names.
+- Header/footer (6.7): `page` not available, no complex objects in `headerParameters` (query parameters). The routes are HTTP-cached (`ATTRIBUTE_HTTP_CACHE`).
+- Plugin inactive or without `Resources/views`: does not appear in the hierarchy (`BundleHierarchyBuilder` checks `is_dir`).
+- Raw output with `|raw` instead of `|sw_sanitize`: XSS.
+- Twig function without tag `twig.extension`: "Unknown function".
+- Checkout `_page` templates deliberately override `base_*` blocks as empty (e.g. `base_flashbags`).
+- `ExtendsTokenParser`, `IncludeTokenParser`, `TemplateFinder` are `@internal`: do not extend or decorate them.
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-- **Header/Footer per ESI seit 6.7.0.0** (Blöcke `base_esi_header`/`base_esi_footer`). In 6.5/6.6 waren `layout_header`/`layout_footer` direkt in `base.html.twig` inkludiert und hatten Zugriff auf `page`. Header-Daten kommen jetzt über `header` (`HeaderPageletLoadedHook`), Footer über `footer`.
-- 6.8-Vorbereitung im Code: viele `{% if feature('v6.8.0.0') %}`-Zweige (27 Dateien), z. B. Breadcrumb-Rework, `base_cookie_permission` am Body-Anfang, JSON-LD statt Microdata. `isHMRMode` in `base.html.twig` ist deprecated.
-- `@deprecated tag:v6.8.0`: `controllerName`/`controllerAction` (→ `activeRoute`), CSS-Klassen `is-ctl-*`/`is-act-*` (→ `is-active-route-*`), `sw_breadcrumb_full*`, `format_currency`/`format_number` (BackwardCompatibleIntlExtension), Makros in App-Scripts (→ `sw_macro_function`), Block `base_navigation_styling`.
-- Neu: Twig-UX-Komponenten (`<twig:Sw:…>`, ab 6.7.11.0 laut Doku), `sw_convert_unit` (6.7.1.0 laut Doku), `import_map()`/`theme_css_vars()` (Vite), Agentic Files (`llms.txt`, `agents.md`, Erweiterungsblock `agentic_llms_extensions`).
-- Service-Konfiguration im Core ist PHP statt XML (XML-Routen/-Services deprecated, `Bundle::triggerXmlConfigDeprecation`).
+- **Header/footer via ESI since 6.7.0.0** (blocks `base_esi_header`/`base_esi_footer`). In 6.5/6.6, `layout_header`/`layout_footer` were included directly in `base.html.twig` and had access to `page`. Header data now comes via `header` (`HeaderPageletLoadedHook`), footer data via `footer`.
+- 6.8 preparation in the code: many `{% if feature('v6.8.0.0') %}` branches (27 files), e.g. breadcrumb rework, `base_cookie_permission` at the start of the body, JSON-LD instead of microdata. `isHMRMode` in `base.html.twig` is deprecated.
+- `@deprecated tag:v6.8.0`: `controllerName`/`controllerAction` (→ `activeRoute`), CSS classes `is-ctl-*`/`is-act-*` (→ `is-active-route-*`), `sw_breadcrumb_full*`, `format_currency`/`format_number` (BackwardCompatibleIntlExtension), macros in app scripts (→ `sw_macro_function`), block `base_navigation_styling`.
+- New: Twig UX components (`<twig:Sw:…>`, from 6.7.11.0 according to the docs), `sw_convert_unit` (6.7.1.0 according to the docs), `import_map()`/`theme_css_vars()` (Vite), agentic files (`llms.txt`, `agents.md`, extension block `agentic_llms_extensions`).
+- Service configuration in the core is PHP instead of XML (XML routes/services deprecated, `Bundle::triggerXmlConfigDeprecation`).
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] Datei liegt unter `src/Resources/views/storefront/...` und spiegelt den Core-Pfad.
-- [ ] Erste Zeile ist `sw_extends` mit `@Storefront/storefront/...`.
-- [ ] Block-Name gegen das Core-Template geprüft.
-- [ ] `{{ parent() }}` gesetzt, wo der Originalinhalt erhalten bleiben soll.
-- [ ] Partials per `sw_include`, nicht `include`.
-- [ ] Ausgaben mit `|sw_sanitize` statt `|raw`, Texte über Snippets (T-18).
-- [ ] Header/Footer-Anpassungen nutzen kein `page`.
-- [ ] Twig-Extension mit Tag `twig.extension` registriert.
-- [ ] `bin/console cache:clear` ausgeführt, Plugin aktiv.
+- [ ] File is located under `src/Resources/views/storefront/...` and mirrors the core path.
+- [ ] First line is `sw_extends` with `@Storefront/storefront/...`.
+- [ ] Block name checked against the core template.
+- [ ] `{{ parent() }}` set where the original content should be preserved.
+- [ ] Partials via `sw_include`, not `include`.
+- [ ] Output with `|sw_sanitize` instead of `|raw`, texts via snippets (T-18).
+- [ ] Header/footer customizations do not use `page`.
+- [ ] Twig extension registered with tag `twig.extension`.
+- [ ] `bin/console cache:clear` executed, plugin active.
 
-## 7. Quellen
+## 7. Sources
 
-Doku:
+Docs:
 - https://developer.shopware.com/docs/guides/plugins/plugins/storefront/templates/customize-templates.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/storefront/templates/twig-function-reference.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/storefront/templates/add-custom-twig-function.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/storefront/templates/customize-header-footer.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/storefront/templates/agentic-files.html
 
-Quellcode (relativ zu `vendor/shopware/`): `core/Framework/Adapter/Twig/TokenParser/{ExtendsTokenParser,IncludeTokenParser}.php`, `TemplateFinder.php`, `TemplateScopeDetector.php`, `NamespaceHierarchy/{NamespaceHierarchyBuilder,BundleHierarchyBuilder}.php`, `Extension/{NodeExtension,TwigFeaturesWithInheritanceExtension}.php`, `storefront/Theme/Twig/{ThemeNamespaceHierarchyBuilder,ThemeInheritanceBuilder}.php`, `core/Framework/Bundle.php` (`getTemplatePriority`), `storefront/Framework/Twig/{IconExtension,ThumbnailExtension,TemplateDataExtension}.php`, `storefront/Controller/NavigationController.php` (`header`, `footer`), `storefront/Resources/views/storefront/base.html.twig`, `layout/header/logo.html.twig`, `storefront/Resources/views/components/README.md`, `core/Framework/Plugin/Command/Scaffolding/Generator/StorefrontControllerGenerator.php`.
+Source code (relative to `vendor/shopware/`): `core/Framework/Adapter/Twig/TokenParser/{ExtendsTokenParser,IncludeTokenParser}.php`, `TemplateFinder.php`, `TemplateScopeDetector.php`, `NamespaceHierarchy/{NamespaceHierarchyBuilder,BundleHierarchyBuilder}.php`, `Extension/{NodeExtension,TwigFeaturesWithInheritanceExtension}.php`, `storefront/Theme/Twig/{ThemeNamespaceHierarchyBuilder,ThemeInheritanceBuilder}.php`, `core/Framework/Bundle.php` (`getTemplatePriority`), `storefront/Framework/Twig/{IconExtension,ThumbnailExtension,TemplateDataExtension}.php`, `storefront/Controller/NavigationController.php` (`header`, `footer`), `storefront/Resources/views/storefront/base.html.twig`, `layout/header/logo.html.twig`, `storefront/Resources/views/components/README.md`, `core/Framework/Plugin/Command/Scaffolding/Generator/StorefrontControllerGenerator.php`.
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ LÜCKE: Der Core hat keinen Block-Debugger. Die Doku nennt dafür das Drittplugin FroshDevelopmentHelper (nicht geprüft). Ob der Symfony-Profiler Block-Namen zeigt, ist nicht belegt.
-- ⚠ UNGEPRÜFT: `debug:twig`, `lint:twig`, `cache:clear` wurden nicht ausgeführt (Symfony/Doku-Wissen).
-- ⚠ UNGEPRÜFT: Ob 6.7.15.1 für Plugins zusätzlich `services.xml` lädt, ist nur über die XML-Deprecation in `Bundle` gestützt.
-- ⚠ UNGEPRÜFT: Namespace `@SwagExample` = `Bundle::getName()` nicht gesondert verifiziert.
-- ⚠ LÜCKE: Vorrang bei mehreren Plugins/Themes: Der Kommentar „Lower integer = higher precedence“ in `BundleHierarchyBuilder` widerspricht dem Verhalten laut `TemplateFinder`-Kommentar (letztes Element gewinnt). Reale Auflösung nicht per Test bestätigt.
-- ⚠ UNGEPRÜFT: Versionsangaben „Components ab 6.7.11.0“ und „`sw_convert_unit` ab 6.7.1.0“ stammen nur aus der Doku (Dateien existieren).
-- ⚠ LÜCKE: Die Tabelle der Twig-Bausteine ist aus einem Grep gewonnen. Erweiterungen aus Elasticsearch/Administration/Dokumenten sind nicht vollständig behandelt. `json_encode` ist Twig-Core, kein Shopware-Zusatz.
+- ⚠ GAP: the core has no block debugger. The docs name the third-party plugin FroshDevelopmentHelper for this (not checked). Whether the Symfony profiler shows block names is not documented.
+- ⚠ UNVERIFIED: `debug:twig`, `lint:twig`, `cache:clear` were not executed (Symfony/docs knowledge).
+- ⚠ UNVERIFIED: whether 6.7.15.1 additionally loads `services.xml` for plugins is only supported by the XML deprecation in `Bundle`.
+- ⚠ UNVERIFIED: namespace `@SwagExample` = `Bundle::getName()` not separately verified.
+- ⚠ GAP: precedence with several plugins/themes: the comment "Lower integer = higher precedence" in `BundleHierarchyBuilder` contradicts the behavior according to the `TemplateFinder` comment (last element wins). Actual resolution not confirmed by a test.
+- ⚠ UNVERIFIED: the version statements "components from 6.7.11.0" and "`sw_convert_unit` from 6.7.1.0" come only from the docs (the files exist).
+- ⚠ GAP: the table of Twig building blocks was obtained from a grep. Extensions from Elasticsearch/Administration/documents are not fully covered. `json_encode` is Twig core, not a Shopware addition.

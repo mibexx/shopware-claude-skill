@@ -1,22 +1,22 @@
-# Entity-Extensions und Custom Fields (Referenz, Shopware 6.7.15.1)
+# Entity extensions and custom fields (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn eine bestehende Core-Entity (z. B. `product`) um Felder, Assoziationen oder eigene Tabellen erweitert werden soll (`EntityExtension`, `BulkEntityExtension`, Runtime-Felder) oder wenn händlerkonfigurierbare Zusatzfelder (Custom Fields, Custom-Field-Sets) per Plugin bereitgestellt werden sollen.
+This reference applies when an existing core entity (e.g. `product`) is to be extended with fields, associations or custom tables (`EntityExtension`, `BulkEntityExtension`, runtime fields), or when merchant-configurable additional fields (custom fields, custom field sets) are to be provided via a plugin.
 
-Abgrenzung: Eigene, neue Entities → [T-27](./27-dal-entities.md). Lesen/Schreiben/Indexer → [T-28](./28-dal-lesen-schreiben.md). Subscriber/Events → [T-07](./07-events-subscriber.md). Migrationen → [T-04](./04-datenbank-migrationen.md). Storefront-Twig → [T-14](./14-storefront-twig-templates.md). Admin-Komponenten → [T-25](./25-admin-komponenten.md). Gerüste: [../templates/entity/README.md](../templates/entity/README.md), [../templates/migration/README.md](../templates/migration/README.md).
+Scope: custom, new entities → [T-27](./27-dal-entities.md). Reading/writing/indexers → [T-28](./28-dal-reading-writing.md). Subscribers/events → [T-07](./07-events-subscriber.md). Migrations → [T-04](./04-database-migrations.md). Storefront Twig → [T-14](./14-storefront-twig-templates.md). Admin components → [T-25](./25-admin-components.md). Scaffolds: [../templates/entity/README.md](../templates/entity/README.md), [../templates/migration/README.md](../templates/migration/README.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-- **EntityExtension** (`core/Framework/DataAbstractionLayer/EntityExtension.php`): abstrakt `getEntityName(): string`; optional `extendFields(FieldCollection)`, `modifyFields(FieldCollection)` (nur Flags/JsonField-Mappings ändern, nichts hinzufügen/entfernen), `extendProtections(EntityProtectionCollection)`. Tag `shopware.entity.extension` (Autoconfigure setzt ihn).
-- **Extension-Daten liegen in `Entity::$extensions`**, nicht in der Struct (Flag `Extension`, `EntityHydrator` Z. 224 ruft `addExtension()`). Zugriff `$product->getExtension('name')`, Twig `product.extensions.name`.
-- **Runtime-Felder** (Flag `Runtime`): nicht aus der DB gelesen, per Subscriber gefüllt (z. B. `product.loaded`).
-- **Persistierte Felder**: nur über Assoziationen auf eine eigene Tabelle (OneToOne/OneToMany/ManyToMany/ManyToOne; FK-Spalte in der eigenen Tabelle bzw. `FkField` mit passender ManyToOne-Assoziation, plus `ReferenceVersionField`). Reine Skalarfelder (`StringField`, `IntField` usw.) ohne `Runtime`-Flag lehnt `EntityDefinition::getFields()` mit `wrongFieldTypeForExtension` ab, eine eigene Spalte in der Core-Tabelle ist per Extension also nicht möglich (dafür Custom Fields). Migration nötig (DAL legt keine Tabellen an).
-- **BulkEntityExtension** (`BulkEntityExtension.php`): `collect(): \Generator` liefert `entityName => list<Field>`. Konstruktor `final`, parameterlos, keine Dependency Injection (Compiler-Pass instanziiert ohne Konstruktor und ruft `collect()` zur Compile-Zeit). Tag `shopware.bulk.entity.extension`. Doku: seit 6.6.10.
-- **Custom Fields**: vom Admin konfigurierbare Felder im JSON-Feld `customFields`; für skalare Werte/IDs. Deklarativ per `src/Resources/config/custom-fields.xml` (seit 6.7.13.0; `PluginLifecycleService::syncPluginCustomFields`) oder imperativ über `custom_field_set.repository`.
-- **Entscheidungshilfe**: Händler-konfigurierbar, skalar, kein Join → Custom Field. Assoziation, Struct-Typ, Index/FK, Runtime-Berechnung oder eigene Tabelle → EntityExtension. Nie Core-Definitionen dekorieren/überschreiben, um Felder hinzuzufügen.
+- **EntityExtension** (`core/Framework/DataAbstractionLayer/EntityExtension.php`): abstract `getEntityName(): string`; optional `extendFields(FieldCollection)`, `modifyFields(FieldCollection)` (only change flags/JsonField mappings, do not add/remove anything), `extendProtections(EntityProtectionCollection)`. Tag `shopware.entity.extension` (autoconfigure sets it).
+- **Extension data lives in `Entity::$extensions`**, not in the struct (flag `Extension`, `EntityHydrator` line 224 calls `addExtension()`). Access via `$product->getExtension('name')`, Twig `product.extensions.name`.
+- **Runtime fields** (flag `Runtime`): not read from the DB, populated by a subscriber (e.g. `product.loaded`).
+- **Persisted fields**: only via associations to a custom table (OneToOne/OneToMany/ManyToMany/ManyToOne; FK column in the custom table or `FkField` with a matching ManyToOne association, plus `ReferenceVersionField`). Plain scalar fields (`StringField`, `IntField` etc.) without the `Runtime` flag are rejected by `EntityDefinition::getFields()` with `wrongFieldTypeForExtension`, so a custom column in the core table is not possible via an extension (use custom fields for that). A migration is needed (the DAL does not create tables).
+- **BulkEntityExtension** (`BulkEntityExtension.php`): `collect(): \Generator` yields `entityName => list<Field>`. Constructor `final`, parameterless, no dependency injection (the compiler pass instantiates without the constructor and calls `collect()` at compile time). Tag `shopware.bulk.entity.extension`. Docs: since 6.6.10.
+- **Custom fields**: admin-configurable fields in the JSON field `customFields`; for scalar values/IDs. Declaratively via `src/Resources/config/custom-fields.xml` (since 6.7.13.0; `PluginLifecycleService::syncPluginCustomFields`) or imperatively via `custom_field_set.repository`.
+- **Decision guide**: merchant-configurable, scalar, no join → custom field. Association, struct type, index/FK, runtime computation or custom table → EntityExtension. Never decorate/override core definitions to add fields.
 
-Verzeichnisbaum (Plugin `SwagExample`):
+Directory tree (plugin `SwagExample`):
 
 ```
 custom/plugins/SwagExample/
@@ -30,22 +30,22 @@ custom/plugins/SwagExample/
     └── Resources/config/{services.php, custom-fields.xml}
 ```
 
-## 3. Anleitung
+## 3. Instructions
 
-**A. Custom Fields (Standardweg)**
-1. `src/Resources/config/custom-fields.xml` mit Vendor-Präfix in Set- und Feldnamen (`swag_`) anlegen.
-2. `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample` (Install synchronisiert mit `deleteMissingXml=false`, `PluginLifecycleService` Z. 163).
-3. Änderungen: Plugin-Version in `composer.json` erhöhen, `bin/console plugin:update SwagExample`. Update synchronisiert mit `deleteMissingXml=true` (Z. 325): in der XML fehlende Sets werden gelöscht; fehlt die Datei ganz, wird alles des Plugins gelöscht.
-4. Deinstallation: nur ohne `--keep-user-data` entfernt `removePluginCustomFields` die Sets (Z. 252).
-5. Prüfen: Admin → Einstellungen → Zusatzfelder bzw. Produkt → Zusatzfelder.
+**A. Custom fields (standard approach)**
+1. Create `src/Resources/config/custom-fields.xml` with a vendor prefix in set and field names (`swag_`).
+2. `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample` (install syncs with `deleteMissingXml=false`, `PluginLifecycleService` line 163).
+3. Changes: bump the plugin version in `composer.json`, `bin/console plugin:update SwagExample`. Update syncs with `deleteMissingXml=true` (line 325): sets missing from the XML are deleted; if the file is missing entirely, everything belonging to the plugin is deleted.
+4. Uninstall: only without `--keep-user-data` does `removePluginCustomFields` remove the sets (line 252).
+5. Check: Admin → Settings → Custom fields or Product → Custom fields.
 
-**B. Zugriff in der Storefront**: `translated.customFields` verwenden (Vererbung/Übersetzung, `TranslatedField('customFields')` in `ProductDefinition` Z. 224):
+**B. Access in the Storefront**: use `translated.customFields` (inheritance/translation, `TranslatedField('customFields')` in `ProductDefinition` line 224):
 
 ```twig
 {{ page.product.translated.customFields.swag_example_weight }}
 ```
 
-Medien-Feld (alle IDs in einem `searchMedia`-Aufruf holen, nie in Schleifen; `MediaExtension::searchMedia(array $ids, Context $context)`):
+Media field (fetch all IDs in one `searchMedia` call, never in loops; `MediaExtension::searchMedia(array $ids, Context $context)`):
 
 ```twig
 {% set mediaId = page.product.translated.customFields.swag_example_media %}
@@ -55,9 +55,9 @@ Medien-Feld (alle IDs in einem `searchMedia`-Aufruf holen, nie in Schleifen; `Me
 {% endif %}
 ```
 
-**C. Entity-Selection auflösen** (Doku-Muster): Subscriber auf `product.loaded`, IDs aus `getCustomFields()` sammeln, mit `new Criteria($ids)` in EINEM Query laden (bei leerer ID-Liste vorher abbrechen: `if ($ids === []) { return; }`, sonst lädt `new Criteria([])` ALLE Datensätze) und per `$entity->addExtension('name', $loaded)` anhängen. `EntityRepository` per Konstruktor injizieren.
+**C. Resolving an entity selection** (docs pattern): subscriber on `product.loaded`, collect IDs from `getCustomFields()`, load them with `new Criteria($ids)` in ONE query (abort beforehand if the ID list is empty: `if ($ids === []) { return; }`, otherwise `new Criteria([])` loads ALL records) and attach them via `$entity->addExtension('name', $loaded)`. Inject `EntityRepository` via the constructor.
 
-**D. Admin (eigene Komponente)**: Komponente `sw-custom-field-set-renderer` (Props u. a. `sets`, `entity`, `disabled`, `showCustomFieldSetSelection`):
+**D. Admin (custom component)**: component `sw-custom-field-set-renderer` (props among others `sets`, `entity`, `disabled`, `showCustomFieldSetSelection`):
 
 ```js
 const { Criteria } = Shopware.Data;
@@ -76,12 +76,12 @@ customFieldSetCriteria() {
 ```
 
 **E. EntityExtension**
-1. Migration schreiben (`bin/console database:create-migration -p SwagExample --name AddExampleTable`).
-2. Definition/Entity/Collection (T-27), Extension-Klasse, Services mit Tag.
+1. Write the migration (`bin/console database:create-migration -p SwagExample --name AddExampleTable`).
+2. Definition/entity/collection (T-27), extension class, services with tag.
 3. `bin/console database:migrate --all SwagExample && bin/console cache:clear`.
-4. `bin/console dal:validate` prüft Definitionen gegen das Schema.
+4. `bin/console dal:validate` checks definitions against the schema.
 
-## 4. Beispiele
+## 4. Examples
 
 `src/Extension/Content/Product/ProductExampleExtension.php`
 
@@ -120,7 +120,7 @@ class ProductExampleExtension extends EntityExtension
 }
 ```
 
-Konstruktor von `OneToOneAssociationField` wie im Core-Fixture `core/Framework/Test/DataAbstractionLayer/Field/TestDefinition/ProductExtension.php`.
+Constructor of `OneToOneAssociationField` as in the core fixture `core/Framework/Test/DataAbstractionLayer/Field/TestDefinition/ProductExtension.php`.
 
 `src/Core/Content/Example/ExampleExtensionDefinition.php`
 
@@ -176,7 +176,7 @@ class ExampleExtensionDefinition extends EntityDefinition
 }
 ```
 
-`src/Core/Content/Example/ExampleExtensionEntity.php` und `ExampleExtensionCollection.php`
+`src/Core/Content/Example/ExampleExtensionEntity.php` and `ExampleExtensionCollection.php`
 
 ```php
 <?php declare(strict_types=1);
@@ -271,7 +271,7 @@ class Migration1700000000AddExampleTable extends MigrationStep
 }
 ```
 
-`src/Extension/ExampleBulkExtension.php` (mehrere Entities, keine Services nutzbar)
+`src/Extension/ExampleBulkExtension.php` (multiple entities, no services usable)
 
 ```php
 <?php declare(strict_types=1);
@@ -293,20 +293,20 @@ class ExampleBulkExtension extends BulkEntityExtension
     public function collect(): \Generator
     {
         yield ProductDefinition::ENTITY_NAME => [
-            // Assoziation: persistiert in der eigenen Tabelle swag_example_extension (FK product_id)
+            // Association: persisted in the custom table swag_example_extension (FK product_id)
             (new OneToManyAssociationField('swagExampleNotes', ExampleExtensionDefinition::class, 'product_id'))
                 ->addFlags(new ApiAware(), new CascadeDelete()),
         ];
 
         yield TaxDefinition::ENTITY_NAME => [
-            // Skalarfeld nur als Runtime-Feld erlaubt (nicht persistiert, per Subscriber befüllt)
+            // Scalar field only allowed as a runtime field (not persisted, populated by a subscriber)
             (new StringField('swag_example_label', 'swagExampleLabel'))->addFlags(new ApiAware(), new Runtime()),
         ];
     }
 }
 ```
 
-`swagExampleNotes` nutzt die Tabelle `swag_example_extension` aus dem Migrationsbeispiel (FK `product_id`; bei OneToMany/CascadeDelete muss `product_version_id` passen). `swagExampleLabel` hat keine Spalte und wird per Subscriber befüllt. Ein `StringField` ohne `Runtime` an einer Core-Entity wirft `DataAbstractionLayerException::wrongFieldTypeForExtension` (`EntityDefinition::getFields()`). Unbekannter Entity-Name wirft `DependencyInjectionException::definitionNotFound` beim Container-Build.
+`swagExampleNotes` uses the table `swag_example_extension` from the migration example (FK `product_id`; with OneToMany/CascadeDelete, `product_version_id` must match). `swagExampleLabel` has no column and is populated by a subscriber. A `StringField` without `Runtime` on a core entity throws `DataAbstractionLayerException::wrongFieldTypeForExtension` (`EntityDefinition::getFields()`). An unknown entity name throws `DependencyInjectionException::definitionNotFound` during the container build.
 
 `src/Resources/config/services.php`
 
@@ -321,14 +321,14 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 return static function (ContainerConfigurator $configurator): void {
     $services = $configurator->services();
 
-    // Ohne ->defaults()->autoconfigure() müssen die Tags explizit gesetzt werden (siehe T-27).
+    // Without ->defaults()->autoconfigure() the tags must be set explicitly (see T-27).
     $services->set(ExampleExtensionDefinition::class)->tag('shopware.entity.definition');
     $services->set(ProductExampleExtension::class)->tag('shopware.entity.extension');
     $services->set(ExampleBulkExtension::class)->tag('shopware.bulk.entity.extension');
 };
 ```
 
-Runtime-Feld (in `extendFields()` der Extension, plus Subscriber):
+Runtime field (in the extension's `extendFields()`, plus subscriber):
 
 ```php
 $collection->add(
@@ -352,9 +352,9 @@ public function onProductLoaded(EntityLoadedEvent $event): void
 }
 ```
 
-Subscriber-Grundlagen und `use`-Statements siehe [T-07](./07-events-subscriber.md), Gerüst [../templates/event-subscriber/README.md](../templates/event-subscriber/README.md).
+For subscriber basics and `use` statements see [T-07](./07-events-subscriber.md), scaffold [../templates/event-subscriber/README.md](../templates/event-subscriber/README.md).
 
-`src/Resources/config/custom-fields.xml` (ab 6.7.13.0)
+`src/Resources/config/custom-fields.xml` (since 6.7.13.0)
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -373,11 +373,11 @@ Subscriber-Grundlagen und `use`-Statements siehe [T-07](./07-events-subscriber.m
                 <position>1</position>
             </int>
             <media-selection name="swag_example_media">
-                <label>Bild</label>
+                <label>Image</label>
                 <position>2</position>
             </media-selection>
             <single-entity-select name="swag_example_manufacturer">
-                <label>Hersteller</label>
+                <label>Manufacturer</label>
                 <position>3</position>
                 <entity>product_manufacturer</entity>
                 <label-property>name</label-property>
@@ -387,9 +387,9 @@ Subscriber-Grundlagen und `use`-Statements siehe [T-07](./07-events-subscriber.m
 </custom-fields>
 ```
 
-Feldtypen laut XSD (`core/System/CustomField/Schema/custom-fields-1.0.xsd`): `int, float, text, text-area, bool, datetime, single-select, multi-select, single-entity-select, multi-entity-select, color-picker, media-selection, price`. Gemeinsame Kindelemente: `label, help-text, required, position, allow-customer-write, allow-cart-expose, include-in-search`; `global` ist Attribut an `custom-field-set`. `related-entities` u. a. `product, order, category, customer, customer_address, media, product_manufacturer, sales_channel, landing_page, promotion, shipping_method, payment_method, newsletter_recipient` (vollständig im XSD).
+Field types according to the XSD (`core/System/CustomField/Schema/custom-fields-1.0.xsd`): `int, float, text, text-area, bool, datetime, single-select, multi-select, single-entity-select, multi-entity-select, color-picker, media-selection, price`. Common child elements: `label, help-text, required, position, allow-customer-write, allow-cart-expose, include-in-search`; `global` is an attribute on `custom-field-set`. `related-entities` among others `product, order, category, customer, customer_address, media, product_manufacturer, sales_channel, landing_page, promotion, shipping_method, payment_method, newsletter_recipient` (complete list in the XSD).
 
-Imperative Alternative (laut Doku), `src/SwagExample.php`:
+Imperative alternative (according to the docs), `src/SwagExample.php`:
 
 ```php
 use Shopware\Core\Framework\Plugin;
@@ -416,56 +416,56 @@ class SwagExample extends Plugin
 }
 ```
 
-Plugin-Lifecycle (insb. Deinstallation der Sets) siehe [T-03](./03-plugin-lifecycle.md).
+For the plugin lifecycle (in particular uninstalling the sets) see [T-03](./03-plugin-lifecycle.md).
 
-⚠ UNGEPRÜFT: Beispiele (inkl. Runtime-Beispiel und imperatives Anlegen) nicht in einer laufenden Installation ausgeführt.
+⚠ UNVERIFIED: examples (including the runtime example and imperative creation) not run in a live installation.
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- Kein Vendor-Präfix bei Set-/Feldnamen: Kollisionen. Feldnamen müssen `CUSTOM_FIELD_NAME_PATTERN = /^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$/` entsprechen (`CustomFieldService`), sonst `CustomFieldException::customFieldNameInvalid`.
-- Custom Field in der Storefront nicht sichtbar: Kunden-Schreibzugriff braucht `allow-customer-write`, Warenkorb-Zugriff `allow-cart-expose` (aus dem XSD abgeleitet).
-- Typ nach dem Anlegen ändern: Daten im JSON haben evtl. den alten Typ; neuen Feldnamen verwenden (Annahme).
-- XML löscht Sets beim Update (`deleteMissingXml=true`), ggf. auch vom Händler im Admin ergänzte Felder im selben Set.
-- `BulkEntityExtension` mit Konstruktor-Abhängigkeiten: nicht möglich (`final`, parameterlos), Services gehören in Subscriber.
-- `modifyFields` zum Hinzufügen nutzen: nicht möglich.
-- Extension-Felder mit Storage ohne Migration: SQL-Fehler beim Lesen.
-- `searchMedia` in Schleifen oder einzelne ID-Loads im Subscriber statt Batch.
-- Core-Definition überschreiben/dekorieren, um Felder hinzuzufügen (Anti-Pattern).
+- No vendor prefix in set/field names: collisions. Field names must match `CUSTOM_FIELD_NAME_PATTERN = /^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$/` (`CustomFieldService`), otherwise `CustomFieldException::customFieldNameInvalid`.
+- Custom field not visible in the Storefront: customer write access needs `allow-customer-write`, cart access `allow-cart-expose` (derived from the XSD).
+- Changing the type after creation: data in the JSON may have the old type; use a new field name (assumption).
+- The XML deletes sets on update (`deleteMissingXml=true`), possibly including fields that the merchant added in the Admin to the same set.
+- `BulkEntityExtension` with constructor dependencies: not possible (`final`, parameterless), services belong in subscribers.
+- Using `modifyFields` to add fields: not possible.
+- Extension fields with storage but without a migration: SQL error on read.
+- `searchMedia` in loops or single ID loads in the subscriber instead of a batch.
+- Overriding/decorating a core definition to add fields (anti-pattern).
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-- `custom-fields.xml` für Plugins: neu in 6.7.13.0 (Doku, im Code bestätigt). Vorher (6.5/6.6) nur imperativ in `install()/uninstall()`; Apps kannten die XML schon früher.
-- `BulkEntityExtension`: laut Doku ab 6.6.10; in 6.5 nicht vorhanden (Annahme aus Doku).
-- `modifyFields()` in 6.7.15.1 vorhanden; seit wann: nicht geprüft.
-- `EntityCustomFieldsTrait` (`getCustomFieldsValue`, `getCustomFieldsValues`, `changeCustomFields`, `getTranslatedCustomFieldsValue`) und `#[CustomFields]` (Property `$customFields`) sind für Attribut-Entities gedacht, der Trait wird aber auch von klassischen Core-Entities genutzt (z. B. `AppEntity`, `PluginEntity`, `WebhookEventLogEntity`; `EntityCollection` referenziert ihn ebenfalls). Siehe T-27.
+- `custom-fields.xml` for plugins: new in 6.7.13.0 (docs, confirmed in the code). Before (6.5/6.6) only imperatively in `install()/uninstall()`; apps already supported the XML earlier.
+- `BulkEntityExtension`: according to the docs since 6.6.10; not present in 6.5 (assumption based on the docs).
+- `modifyFields()` present in 6.7.15.1; since when: not checked.
+- `EntityCustomFieldsTrait` (`getCustomFieldsValue`, `getCustomFieldsValues`, `changeCustomFields`, `getTranslatedCustomFieldsValue`) and `#[CustomFields]` (property `$customFields`) are intended for attribute entities, but the trait is also used by classic core entities (e.g. `AppEntity`, `PluginEntity`, `WebhookEventLogEntity`; `EntityCollection` references it as well). See T-27.
 - `CustomFieldTypes`: `BOOL, CHECKBOX, COLORPICKER, DATE, DATETIME, ENTITY, FLOAT, INT, JSON, NUMBER, PRICE, HTML, MEDIA, SELECT, SWITCH, TEXT`.
-- Keine `@deprecated`-Markierungen in `EntityExtension`, `BulkEntityExtension`, `CustomFieldService` gefunden. Services: `services.php` bevorzugt (XML deprecated, siehe [T-05](./05-services-registrieren.md)).
+- No `@deprecated` markers found in `EntityExtension`, `BulkEntityExtension`, `CustomFieldService`. Services: `services.php` preferred (XML deprecated, see [T-05](./05-registering-services.md)).
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] Entscheidung dokumentiert: Custom Field oder EntityExtension
-- [ ] Vendor-Präfix in Set-/Feldnamen und Tabellen/Spalten
-- [ ] Migration für alle Extension-Felder/Tabellen vorhanden, `dal:validate` läuft sauber
-- [ ] Extension-/Definition-Services getaggt, Definition mit argumentlosem Konstruktor
-- [ ] `ApiAware` an Feldern, die in Store-/Admin-API sichtbar sein sollen
-- [ ] Runtime-Felder mit `Runtime`-Flag und Subscriber befüllt (Batch statt Einzel-Loads)
-- [ ] `custom-fields.xml`: Update-Verhalten (`deleteMissingXml`) bedacht
-- [ ] Storefront-Zugriff über `translated.customFields`
-- [ ] Deinstallation räumt Tabellen nur ohne `keepUserData()` ab
+- [ ] Decision documented: custom field or EntityExtension
+- [ ] Vendor prefix in set/field names and tables/columns
+- [ ] Migration present for all extension fields/tables, `dal:validate` runs clean
+- [ ] Extension/definition services tagged, definition with argument-less constructor
+- [ ] `ApiAware` on fields that should be visible in the Store/Admin API
+- [ ] Runtime fields with `Runtime` flag and populated by a subscriber (batch instead of single loads)
+- [ ] `custom-fields.xml`: update behavior (`deleteMissingXml`) considered
+- [ ] Storefront access via `translated.customFields`
+- [ ] Uninstall only drops tables without `keepUserData()`
 
-## 7. Quellen
+## 7. Sources
 
-Doku (https://developer.shopware.com/docs/guides/plugins/plugins/): `framework/data-handling/add-complex-data-to-existing-entities.html`, `framework/custom-field/add-custom-field.html`, `framework/custom-field/fetching-data-from-entity-selection.html`, `database/custom-fields-of-type-media.html`, `storefront/howto/using-custom-fields-storefront.html`, `administration/data-handling-processing/using-custom-fields.html`.
+Docs (https://developer.shopware.com/docs/guides/plugins/plugins/): `framework/data-handling/add-complex-data-to-existing-entities.html`, `framework/custom-field/add-custom-field.html`, `framework/custom-field/fetching-data-from-entity-selection.html`, `database/custom-fields-of-type-media.html`, `storefront/howto/using-custom-fields-storefront.html`, `administration/data-handling-processing/using-custom-fields.html`.
 
-Quellcode (`core/`): `Framework/DataAbstractionLayer/{EntityExtension,BulkEntityExtension,FilteredBulkEntityExtension,EntityDefinition,EntityCustomFieldsTrait}.php`, `Field/Flag/{Extension,Runtime}.php`, `Dbal/EntityHydrator.php` (Z. 224), `Framework/DependencyInjection/CompilerPass/AutoconfigureCompilerPass.php`, `System/DependencyInjection/CompilerPass/SalesChannelEntityCompilerPass.php` (Z. 255–300), `Framework/Notification/NotificationBulkEntityExtension.php` (einziges Core-Beispiel Bulk), `System/CustomField/{CustomFieldService,CustomFieldSetPersister,CustomFieldXmlLoader,CustomFieldTypes}.php`, `System/CustomField/Schema/custom-fields-1.0.xsd`, `Framework/Plugin/PluginLifecycleService.php` (Z. 163, 252, 325, 569–589), `Framework/Adapter/Twig/Extension/MediaExtension.php`, `Content/Product/ProductDefinition.php` (Z. 224). Admin: `administration/Resources/app/administration/src/app/component/form/sw-custom-field-set-renderer/index.js`.
+Source code (`core/`): `Framework/DataAbstractionLayer/{EntityExtension,BulkEntityExtension,FilteredBulkEntityExtension,EntityDefinition,EntityCustomFieldsTrait}.php`, `Field/Flag/{Extension,Runtime}.php`, `Dbal/EntityHydrator.php` (line 224), `Framework/DependencyInjection/CompilerPass/AutoconfigureCompilerPass.php`, `System/DependencyInjection/CompilerPass/SalesChannelEntityCompilerPass.php` (lines 255–300), `Framework/Notification/NotificationBulkEntityExtension.php` (only core example for bulk), `System/CustomField/{CustomFieldService,CustomFieldSetPersister,CustomFieldXmlLoader,CustomFieldTypes}.php`, `System/CustomField/Schema/custom-fields-1.0.xsd`, `Framework/Plugin/PluginLifecycleService.php` (lines 163, 252, 325, 569–589), `Framework/Adapter/Twig/Extension/MediaExtension.php`, `Content/Product/ProductDefinition.php` (line 224). Admin: `administration/Resources/app/administration/src/app/component/form/sw-custom-field-set-renderer/index.js`.
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ UNGEPRÜFT: Beispiele nicht ausgeführt (keine Test-Plugins vorhanden); Syntax an Doku und Core-Fixtures angelehnt.
-- ⚠ UNGEPRÜFT: Flags `ApiAware`/`CascadeDelete` an der OneToOne-Extension nicht gegen ein Core-Beispiel verifiziert.
-- ⚠ UNGEPRÜFT: Runtime-Beispiel mit `ObjectField` + `Runtime` abgeleitet, kein Core-Fixture geprüft.
-- ⚠ LÜCKE: `relations` vs. `global` beim imperativen Anlegen: Doku zeigt `global`, Code (`CustomFieldSetRelationDefinition`) liefert die Beziehung; Semantik von `global` nicht verifiziert.
-- ⚠ LÜCKE: Doku nutzt `services.php`; ob ein Plugin `services.xml` und `services.php` parallel lädt, nicht nachgewiesen.
-- ⚠ LÜCKE: Ob eine Feldtyp-Änderung in der XML beim Update migriert, nicht geprüft.
-- ⚠ UNGEPRÜFT: `allow-customer-write`/`allow-cart-expose` nur aus dem XSD abgeleitet.
-- ⚠ UNGEPRÜFT: Doku-Beispiele zu Admin-Custom-Fields in Options-API; Composition-API-Variante nicht geprüft.
+- ⚠ UNVERIFIED: examples not run (no test plugins available); syntax based on the docs and core fixtures.
+- ⚠ UNVERIFIED: flags `ApiAware`/`CascadeDelete` on the OneToOne extension not verified against a core example.
+- ⚠ UNVERIFIED: runtime example with `ObjectField` + `Runtime` derived, no core fixture checked.
+- ⚠ GAP: `relations` vs. `global` for imperative creation: the docs show `global`, the code (`CustomFieldSetRelationDefinition`) provides the relation; semantics of `global` not verified.
+- ⚠ GAP: the docs use `services.php`; whether a plugin loads `services.xml` and `services.php` in parallel has not been established.
+- ⚠ GAP: whether a field type change in the XML is migrated on update has not been checked.
+- ⚠ UNVERIFIED: `allow-customer-write`/`allow-cart-expose` only derived from the XSD.
+- ⚠ UNVERIFIED: docs examples for admin custom fields use the Options API; Composition API variant not checked.

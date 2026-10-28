@@ -1,7 +1,7 @@
-// Pflicht-Einstieg des Plugins. window.PluginManager ist durch das Core-Storefront-JS bereits gesetzt.
+// Mandatory entry point of the plugin. window.PluginManager is already set by the core storefront JS.
 const PluginManager = window.PluginManager;
 
-// Async-Registrierung (Lazy-Chunk). Name = Instanz-ID und bestimmt die data-Attribute:
+// Async registration (lazy chunk). Name = instance ID and determines the data attributes:
 // "SwagExample" -> data-swag-example / data-swag-example-options
 PluginManager.register(
     'SwagExample',
@@ -9,10 +9,10 @@ PluginManager.register(
     '[data-swag-example]',
 );
 
-// Core-Plugin ueberschreiben (optional). Selektor muss dem der Core-Registrierung entsprechen
+// Override a core plugin (optional). The selector must match that of the core registration
 // (storefront/Resources/app/storefront/src/main.js: '[data-scroll-up]').
 // import SwagExampleScrollUpPlugin from './override/swag-example-scroll-up.plugin';
 // PluginManager.override('ScrollUp', SwagExampleScrollUpPlugin, '[data-scroll-up]');
 
-// Core-Plugin entfernen (optional):
+// Remove a core plugin (optional):
 // PluginManager.deregister('ScrollUp', '[data-scroll-up]');

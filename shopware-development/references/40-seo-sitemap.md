@@ -1,53 +1,53 @@
-# SEO-URLs und Sitemap (Referenz, Shopware 6.7.15.1)
+# SEO URLs and sitemap (reference, Shopware 6.7.15.1)
 
-## 1. Zweck
+## 1. Purpose
 
-Diese Referenz greift, wenn eigene Entities/Seiten SEO-URLs bekommen (dynamisch per Template oder statisch), Canonical-/hreflang-Tags relevant sind oder die Sitemap um eigene URLs erweitert wird.
+This reference applies when custom entities/pages get SEO URLs (dynamically via template or statically), canonical/hreflang tags are relevant, or the sitemap is extended with custom URLs.
 
-Abgrenzung: Controller und Page-Loader in [T-16 Storefront-Controller](./16-storefront-controller-pages.md); Entity-Definitionen in [T-27 DAL-Entities](./27-dal-entities.md); Migrationen in [T-04](./04-datenbank-migrationen.md); Subscriber auf `<entity>.written` in [T-07](./07-events-subscriber.md); Scheduled Tasks in [T-33](./33-scheduled-tasks.md); HTTP-Cache-Invalidierung in [T-41 Caching](./41-caching.md).
+Scope: controllers and page loaders in [T-16 Storefront controllers](./16-storefront-controller-pages.md); entity definitions in [T-27 DAL entities](./27-dal-entities.md); migrations in [T-04](./04-database-migrations.md); subscribers on `<entity>.written` in [T-07](./07-events-subscriber.md); scheduled tasks in [T-33](./33-scheduled-tasks.md); HTTP cache invalidation in [T-41 Caching](./41-caching.md).
 
-## 2. Konzepte
+## 2. Concepts
 
-- **Dynamische SEO-URLs**: Klasse mit `SeoUrlRouteInterface` (`getConfig()`, `prepareCriteria()`, `getMapping()`), Tag `shopware.seo_url.route` (wird per Autoconfigure automatisch gesetzt, `AutoconfigureCompilerPass.php:178-179`). Eine Route pro Route-Name; `SeoUrlRouteRegistry` indiziert nach Route-Name und Entity-Name.
-- **Zusätzlich nötig**: (a) eine Zeile in `seo_url_template` (Migration, Default mit `sales_channel_id = NULL`), (b) ein Trigger, der `SeoUrlUpdater::update($routeName, $ids)` aufruft (z. B. Subscriber auf `<entity>.written`), (c) eine benannte Storefront-Route, denn `SeoUrlGenerator::generateUrls()` ruft `$router->generate($routeName, $infoPathContext)`.
-- **Template** = Twig-Snippet, gerendert mit Escaper `slugifyurlencode` (`SeoUrlGenerator::ESCAPE_SLUGIFY`), im strict-variables-Modus (`SeoUrlTwigFactory`). Kontext: `SeoUrlMapping::getSeoPathInfoContext()`.
-- **Statische SEO-URLs**: direkt in Tabelle `seo_url` (Migration) oder per `SeoUrlPersister::updateSeoUrls()`. Manuell gesetzte URLs (`is_modified = 1`) werden vom Generator nicht überschrieben.
-- **Canonical**: `storefront/layout/meta.html.twig` (Block `layout_head_canonical`) rendert `page.metaInformation.canonical`; gesetzt im Page-Loader (z. B. `NavigationPageLoader`). In `seo_url` markiert `is_canonical` die Haupt-URL.
-- **hreflang**: `HreflangLoader` baut eine `HreflangCollection` aus den Sales-Channel-Domains; setzt `hreflangActive` am Sales Channel voraus; `TemplateDataSubscriber::addHreflang()` (auf `StorefrontRenderEvent`) stellt sie bereit; Block `layout_head_meta_tags_hreflangs` in `meta.html.twig`. Mindestens zwei Links nötig, sonst bleibt die Collection leer.
-- **Sitemap**: eigene Provider erweitern `AbstractUrlProvider` (Tag `shopware.sitemap_url_provider`, Autoconfigure `AutoconfigureCompilerPass.php:162-163`). Statische Zusatz-URLs ohne PHP über `shopware.sitemap.custom_urls`.
+- **Dynamic SEO URLs**: class implementing `SeoUrlRouteInterface` (`getConfig()`, `prepareCriteria()`, `getMapping()`), tag `shopware.seo_url.route` (set automatically via autoconfigure, `AutoconfigureCompilerPass.php:178-179`). One route per route name; `SeoUrlRouteRegistry` indexes by route name and entity name.
+- **Additionally required**: (a) a row in `seo_url_template` (migration, default with `sales_channel_id = NULL`), (b) a trigger that calls `SeoUrlUpdater::update($routeName, $ids)` (e.g. a subscriber on `<entity>.written`), (c) a named storefront route, because `SeoUrlGenerator::generateUrls()` calls `$router->generate($routeName, $infoPathContext)`.
+- **Template** = Twig snippet, rendered with the escaper `slugifyurlencode` (`SeoUrlGenerator::ESCAPE_SLUGIFY`), in strict-variables mode (`SeoUrlTwigFactory`). Context: `SeoUrlMapping::getSeoPathInfoContext()`.
+- **Static SEO URLs**: directly in the table `seo_url` (migration) or via `SeoUrlPersister::updateSeoUrls()`. Manually set URLs (`is_modified = 1`) are not overwritten by the generator.
+- **Canonical**: `storefront/layout/meta.html.twig` (block `layout_head_canonical`) renders `page.metaInformation.canonical`; set in the page loader (e.g. `NavigationPageLoader`). In `seo_url`, `is_canonical` marks the main URL.
+- **hreflang**: `HreflangLoader` builds a `HreflangCollection` from the sales channel domains; requires `hreflangActive` on the sales channel; `TemplateDataSubscriber::addHreflang()` (on `StorefrontRenderEvent`) provides it; block `layout_head_meta_tags_hreflangs` in `meta.html.twig`. At least two links are required, otherwise the collection stays empty.
+- **Sitemap**: custom providers extend `AbstractUrlProvider` (tag `shopware.sitemap_url_provider`, autoconfigure `AutoconfigureCompilerPass.php:162-163`). Additional static URLs without PHP via `shopware.sitemap.custom_urls`.
 
-Plugin-Baum (Entity `swag_example`, Route `frontend.swag_example.detail`):
+Plugin tree (entity `swag_example`, route `frontend.swag_example.detail`):
 ```
 custom/plugins/SwagExample/
 └── src/
     ├── SwagExample.php
     ├── Controller/ExampleController.php             # Route frontend.swag_example.detail
     ├── Core/Content/Example/
-    │   ├── ExampleDefinition.php                    # siehe T-27
+    │   ├── ExampleDefinition.php                    # see T-27
     │   └── Seo/{ExampleSeoUrlRoute,ExampleSeoUrlSubscriber}.php
     ├── Sitemap/ExampleUrlProvider.php
     ├── Migration/Migration1760000000ExampleSeoUrlTemplate.php
     └── Resources/config/services.php
 ```
 
-## 3. Anleitung
+## 3. Instructions
 
-1. Controller mit benannter Route anlegen (`frontend.swag_example.detail`, Parameter `exampleId`, `StorefrontRouteScope`). Name abweichend vom Route-Namen führt zu `RouteNotFoundException`.
-2. `ExampleSeoUrlRoute` anlegen und registrieren (Beispiele).
-3. Migration mit Default-Template ausführen: `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample` (bzw. `bin/console database:migrate --all SwagExample`).
-4. URLs erzeugen: Subscriber auf `swag_example.written` (inkrementell). Initialbestand: `SeoUrlUpdater::update()` mit allen IDs aus eigenem Command oder `activate()`-Lifecycle ([T-03](./03-plugin-lifecycle.md)). Ein generischer CLI-Befehl nur für SEO-URLs wurde nicht gefunden.
-5. Prüfen: `SELECT route_name, path_info, seo_path_info, is_canonical, is_modified, is_deleted, error FROM seo_url WHERE route_name='frontend.swag_example.detail';` (`error` wird bei nicht renderbarem Template gesetzt).
-6. Template pro Sales Channel anpassen: Admin (Einstellungen, SEO) bzw. DAL-Entity `seo_url_template` (`salesChannelId` null = Default); Änderungen lösen `SeoUrlTemplateChangeSubscriber`/`SeoUrlTemplateIndexingHandler` aus.
-7. Link im Twig: `{{ seoUrl('frontend.swag_example.detail', { exampleId: example.id }) }}` (Muster `storefront/page/product-detail/meta.html.twig:13`). `SeoUrlPlaceholderHandler::replace()` ersetzt Platzhalter in der Antwort durch SEO-Pfade.
-8. Canonical für eigene Seiten: im Page-Loader `$page->getMetaInformation()->setCanonical($url)` (`MetaInformation.php:114`, Muster `NavigationPageLoader`, URL über `SeoUrlPlaceholderHandlerInterface::generate()`); die Basis-Vorlage rendert ihn.
-9. hreflang: im Admin am Sales Channel "Hreflang" aktivieren (`hreflangActive`), optional Default-Domain (`hreflangDefaultDomainId`) und je Domain `hreflang_use_only_locale`. `TemplateDataSubscriber::addHreflang()` überspringt ESI-Requests (`_esi`) und nutzt `HreflangLoaderParameter`.
-10. Statische SEO-URL: Zeile in `seo_url` mit `route_name`, `path_info` (interner Pfad), `seo_path_info`, `language_id`, `sales_channel_id` (oder NULL), `foreign_key` (stabile ID), `is_canonical = 1`. Alternativ `SeoUrlPersister::updateSeoUrls($context, $routeName, $foreignKeys, $urls, $salesChannel)`; Löschen mit leerem URL-Array (markiert `is_deleted`).
-11. Sitemap: `bin/console sitemap:generate` (Optionen `--salesChannelId/-i`, `--force/-f`). Dateien liegen im Filesystem `shopware.filesystem.sitemap` ([T-39](./39-media-filesystem.md)); Auslieferung über Store-API `SitemapRoute`/`SitemapFileRoute`. `shopware.sitemap.batchsize` (Default 100) bestimmt `$limit` in `getUrls()`. Scheduled Task `SitemapGenerateTask` abschaltbar über `shopware.sitemap.scheduled_task.enabled`.
-12. Bestehende Provider anpassen ohne eigenen Provider: Event `SitemapQueryEvent` (z. B. `sitemap.query.product`, `ProductUrlProvider::QUERY_EVENT_NAME`). Weitere Events in `core/Content/Sitemap/Event/`: `SitemapGeneratedEvent`, `SitemapGenerationStartEvent`, `SitemapFilterOpenTagEvent`.
+1. Create a controller with a named route (`frontend.swag_example.detail`, parameter `exampleId`, `StorefrontRouteScope`). A name that differs from the route name leads to `RouteNotFoundException`.
+2. Create and register `ExampleSeoUrlRoute` (examples).
+3. Run the migration with the default template: `bin/console plugin:refresh && bin/console plugin:install --activate SwagExample` (or `bin/console database:migrate --all SwagExample`).
+4. Generate URLs: subscriber on `swag_example.written` (incremental). Initial stock: `SeoUrlUpdater::update()` with all IDs from a custom command or the `activate()` lifecycle ([T-03](./03-plugin-lifecycle.md)). No generic CLI command just for SEO URLs was found.
+5. Check: `SELECT route_name, path_info, seo_path_info, is_canonical, is_modified, is_deleted, error FROM seo_url WHERE route_name='frontend.swag_example.detail';` (`error` is set if the template cannot be rendered).
+6. Adapt the template per sales channel: Admin (Settings, SEO) or DAL entity `seo_url_template` (`salesChannelId` null = default); changes trigger `SeoUrlTemplateChangeSubscriber`/`SeoUrlTemplateIndexingHandler`.
+7. Link in Twig: `{{ seoUrl('frontend.swag_example.detail', { exampleId: example.id }) }}` (pattern `storefront/page/product-detail/meta.html.twig:13`). `SeoUrlPlaceholderHandler::replace()` replaces placeholders in the response with SEO paths.
+8. Canonical for custom pages: in the page loader `$page->getMetaInformation()->setCanonical($url)` (`MetaInformation.php:114`, pattern `NavigationPageLoader`, URL via `SeoUrlPlaceholderHandlerInterface::generate()`); the base template renders it.
+9. hreflang: activate "Hreflang" on the sales channel in the Admin (`hreflangActive`), optionally a default domain (`hreflangDefaultDomainId`) and per domain `hreflang_use_only_locale`. `TemplateDataSubscriber::addHreflang()` skips ESI requests (`_esi`) and uses `HreflangLoaderParameter`.
+10. Static SEO URL: row in `seo_url` with `route_name`, `path_info` (internal path), `seo_path_info`, `language_id`, `sales_channel_id` (or NULL), `foreign_key` (stable ID), `is_canonical = 1`. Alternatively `SeoUrlPersister::updateSeoUrls($context, $routeName, $foreignKeys, $urls, $salesChannel)`; delete with an empty URL array (marks `is_deleted`).
+11. Sitemap: `bin/console sitemap:generate` (options `--salesChannelId/-i`, `--force/-f`). Files are stored in the filesystem `shopware.filesystem.sitemap` ([T-39](./39-media-filesystem.md)); delivered via Store API `SitemapRoute`/`SitemapFileRoute`. `shopware.sitemap.batchsize` (default 100) determines `$limit` in `getUrls()`. Scheduled task `SitemapGenerateTask` can be disabled via `shopware.sitemap.scheduled_task.enabled`.
+12. Adjust existing providers without a custom provider: event `SitemapQueryEvent` (e.g. `sitemap.query.product`, `ProductUrlProvider::QUERY_EVENT_NAME`). Further events in `core/Content/Sitemap/Event/`: `SitemapGeneratedEvent`, `SitemapGenerationStartEvent`, `SitemapFilterOpenTagEvent`.
 
-## 4. Beispiele
+## 4. Examples
 
-`src/Core/Content/Example/Seo/ExampleSeoUrlRoute.php` (Vorbild `ProductPageSeoUrlRoute`)
+`src/Core/Content/Example/Seo/ExampleSeoUrlRoute.php` (model: `ProductPageSeoUrlRoute`)
 ```php
 <?php declare(strict_types=1);
 
@@ -77,8 +77,8 @@ class ExampleSeoUrlRoute implements SeoUrlRouteInterface
             $this->definition,
             self::ROUTE_NAME,
             self::DEFAULT_TEMPLATE,
-            true,        // skipInvalid: fehlerhafte Templates überspringen statt Exception
-            'exampleId'  // Name des Route-Parameters für die ID
+            true,        // skipInvalid: skip faulty templates instead of throwing an exception
+            'exampleId'  // name of the route parameter for the ID
         );
     }
 
@@ -91,8 +91,8 @@ class ExampleSeoUrlRoute implements SeoUrlRouteInterface
     {
         return new SeoUrlMapping(
             $entity,
-            ['exampleId' => $entity->getUniqueIdentifier()],  // infoPathContext: Router-Parameter
-            ['example' => $entity->jsonSerialize()]           // seoPathInfoContext: Twig-Variablen
+            ['exampleId' => $entity->getUniqueIdentifier()],  // infoPathContext: router parameters
+            ['example' => $entity->jsonSerialize()]           // seoPathInfoContext: Twig variables
         );
     }
 }
@@ -159,9 +159,9 @@ class Migration1760000000ExampleSeoUrlTemplate extends MigrationStep
     }
 }
 ```
-`is_valid` hat den DB-Default 1 (`Migration1595492053SeoUrlTemplate`), `is_headless` seit `Migration1784801407AddHeadlessSeoUrlTemplate` den Default 0; beide müssen nicht gesetzt werden. Migrations-Gerüst: [../templates/migration/README.md](../templates/migration/README.md).
+`is_valid` has the DB default 1 (`Migration1595492053SeoUrlTemplate`), `is_headless` has the default 0 since `Migration1784801407AddHeadlessSeoUrlTemplate`; neither needs to be set. Migration scaffold: [../templates/migration/README.md](../templates/migration/README.md).
 
-`src/Sitemap/ExampleUrlProvider.php` (liest SEO-URLs über die geschützte Hilfsmethode `getSeoUrls()`, die `is_canonical = 1`, `is_deleted = 0` filtert)
+`src/Sitemap/ExampleUrlProvider.php` (reads SEO URLs via the protected helper method `getSeoUrls()`, which filters `is_canonical = 1`, `is_deleted = 0`)
 ```php
 <?php declare(strict_types=1);
 
@@ -214,7 +214,7 @@ class ExampleUrlProvider extends AbstractUrlProvider
         $urls = [];
         foreach ($rows as $row) {
             if (!isset($seoUrls[$row['id']])) {
-                continue; // ohne SEO-URL nicht in die Sitemap
+                continue; // no SEO URL, not in the sitemap
             }
             $url = new Url();
             $url->setLoc($seoUrls[$row['id']]);
@@ -232,9 +232,9 @@ class ExampleUrlProvider extends AbstractUrlProvider
     }
 }
 ```
-Die Kernklassen nutzen Entity-Iteratoren mit ID-basiertem Offset (`ProductUrlProvider`); der numerische Offset ist eine Vereinfachung.
+The core classes use entity iterators with an ID-based offset (`ProductUrlProvider`); the numeric offset is a simplification.
 
-`src/Resources/config/services.php` (explizite Tags, auch wenn Autoconfigure sie setzt)
+`src/Resources/config/services.php` (explicit tags, even though autoconfigure sets them)
 ```php
 <?php declare(strict_types=1);
 
@@ -264,9 +264,9 @@ return static function (ContainerConfigurator $container): void {
         ->tag('shopware.sitemap_url_provider');
 };
 ```
-(`ExampleDefinition` muss selbst als Service mit Tag `shopware.entity.definition` registriert sein, siehe [T-27](./27-dal-entities.md).) Das Entity-Gerüst: [../templates/entity/README.md](../templates/entity/README.md).
+(`ExampleDefinition` itself must be registered as a service with tag `shopware.entity.definition`, see [T-27](./27-dal-entities.md).) The entity scaffold: [../templates/entity/README.md](../templates/entity/README.md).
 
-Statische Zusatz-URLs (Projekt `config/packages/shopware.yaml`, Schlüssel laut `core/Framework/DependencyInjection/Configuration.php` um Z. 300):
+Additional static URLs (project `config/packages/shopware.yaml`, keys according to `core/Framework/DependencyInjection/Configuration.php` around line 300):
 ```yaml
 shopware:
     sitemap:
@@ -277,9 +277,9 @@ shopware:
               priority: 0.5
               lastMod: '2026-01-01 00:00:00'
 ```
-`changeFreq` ist ein Enum: `always, hourly, daily, weekly, monthly, yearly` (am Quellcode verifiziert). `never` aus der Doku steht NICHT im Enum.
+`changeFreq` is an enum: `always, hourly, daily, weekly, monthly, yearly` (verified against the source code). `never` from the docs is NOT in the enum.
 
-Einzelne Ressourcen aus der Sitemap ausschließen (`excluded_urls` mit `resource`, `identifier`, `salesChannelId`; `Configuration::createSitemapSection`, ausgewertet über `ConfigHandler::EXCLUDED_URLS_KEY` in `ProductUrlProvider`, `CategoryUrlProvider`, `LandingPageUrlProvider`). `resource` ist die Entity-Klasse (`ProductEntity::class`, `CategoryEntity::class`, `LandingPageEntity::class`), `identifier` die Entity-ID; nur Einträge mit passender `salesChannelId` greifen:
+Exclude individual resources from the sitemap (`excluded_urls` with `resource`, `identifier`, `salesChannelId`; `Configuration::createSitemapSection`, evaluated via `ConfigHandler::EXCLUDED_URLS_KEY` in `ProductUrlProvider`, `CategoryUrlProvider`, `LandingPageUrlProvider`). `resource` is the entity class (`ProductEntity::class`, `CategoryEntity::class`, `LandingPageEntity::class`), `identifier` the entity ID; only entries with a matching `salesChannelId` take effect:
 ```yaml
 shopware:
     sitemap:
@@ -289,47 +289,47 @@ shopware:
               salesChannelId: '98432def39fc4624b33213a56b8c944d'
 ```
 
-## 5. Fallstricke
+## 5. Pitfalls
 
-- **Default-Template fehlt**: `SeoException::invalidTemplate('Default templates not configured')` im `SeoUrlUpdater`; Default (`sales_channel_id = NULL`) per Migration anlegen.
-- **Route-Name passt nicht zur Controller-Route**: `RouteNotFoundException`.
-- **Strict Variables**: undefinierte Variable im Template ist ein Fehler. Bei `skipInvalid = true` wird die URL übersprungen/mit `error` markiert und gewarnt, bei `false` kommt eine Exception.
-- **Leerer Pfad**: `SeoUrlGenerator` liefert bewusst eine URL mit `error` und leerem `seoPathInfo`, damit die bestehende URL nicht als gelöscht markiert wird.
-- **Assoziationen/Übersetzungen**: Variablen wie `example.translated.name` lädt `getAssociations()` automatisch über `TwigVariableParser`; für eigene `jsonSerialize()`-Daten Associations über `prepareCriteria()` ergänzen.
-- **Doku-Fehler Sitemap**: Setter heißen `setLoc()`, `setLastmod()`, `setChangefreq()`, `setPriority()`, `setResource()`, `setIdentifier()` (`Struct/Url.php`), nicht wie in der Doku. Der Code gilt.
-- **`getDecorated()` vergessen**: abstrakte Methode; Provider ohne sie laufen nicht (Core-Provider werfen `DecorationPatternException`).
-- **`is_modified = 1`**: manuell bearbeitete URLs werden bei Template-Änderungen nicht überschrieben; Zurücksetzen muss explizit geschehen.
-- **`limit`/`offset`** im Provider respektieren; `nextOffset = null` beendet den Provider, sonst Endlosschleife oder fehlende URLs. Sitemap nur für aktive Sales Channels mit Domain.
-- **`@internal`-Hinweis**: `SeoUrlRouteInterface` erweitert das `@internal` markierte `EntitySeoUrlRouteInterface`, ist aber selbst nicht `@internal` und der dokumentierte Erweiterungspunkt.
+- **Default template missing**: `SeoException::invalidTemplate('Default templates not configured')` in `SeoUrlUpdater`; create the default (`sales_channel_id = NULL`) via migration.
+- **Route name does not match the controller route**: `RouteNotFoundException`.
+- **Strict variables**: an undefined variable in the template is an error. With `skipInvalid = true`, the URL is skipped/marked with `error` and a warning is logged; with `false`, an exception is thrown.
+- **Empty path**: `SeoUrlGenerator` deliberately returns a URL with `error` and an empty `seoPathInfo`, so that the existing URL is not marked as deleted.
+- **Associations/translations**: `getAssociations()` loads variables such as `example.translated.name` automatically via `TwigVariableParser`; for custom `jsonSerialize()` data, add associations via `prepareCriteria()`.
+- **Docs error sitemap**: the setters are named `setLoc()`, `setLastmod()`, `setChangefreq()`, `setPriority()`, `setResource()`, `setIdentifier()` (`Struct/Url.php`), not as in the docs. The code is authoritative.
+- **Forgetting `getDecorated()`**: abstract method; providers without it do not run (core providers throw `DecorationPatternException`).
+- **`is_modified = 1`**: manually edited URLs are not overwritten on template changes; resetting must be done explicitly.
+- **Respect `limit`/`offset`** in the provider; `nextOffset = null` ends the provider, otherwise an endless loop or missing URLs. Sitemap only for active sales channels with a domain.
+- **`@internal` note**: `SeoUrlRouteInterface` extends the `@internal`-marked `EntitySeoUrlRouteInterface`, but is itself not `@internal` and is the documented extension point.
 
-### Deprecations und Versionshinweise (6.5/6.6 → 6.7)
+### Deprecations and version notes (6.5/6.6 → 6.7)
 
-- Neu in 6.7: Headless-SEO-URLs (Migration `V6_7/Migration1784801407AddHeadlessSeoUrlTemplate`, Spalte `seo_url_template.is_headless`). `ProductStoreApiUrlRoute`, `CategoryStoreApiUrlRoute`, `LandingPageStoreApiUrlRoute` laufen über `EntitySeoUrlRouteInterface` und `SeoUrlUpdater::findEntitySeoUrlRoute()`; für API-Sales-Channels wird nur mit Domain `is_external_storefront = 1` generiert.
-- `@deprecated tag:v6.8.0`: `SeoResolver::resolve()`/`AbstractSeoResolver`/`EmptyPathInfoResolver` (Ersatz `resolveUrl()`), `SeoResolverData::getAll()`-Vorgänger, `TemplateGroup`, `SeoUrlRouteNotFoundException`, `SeoUrlUpdateEvent` (Context künftig Pflicht im Konstruktor), Collection-Fallback in `StoreApiSeoResolver`.
-- `SeoUrlUpdater` wird in 6.7 durch `SeoUrlUpdateListener` (`storefront/Framework/Seo/SeoUrlRoute/`) auf Indexer-Events angestoßen; über `$event->getSkip()` (`product.seo-url`, `category.seo-url`, `landing_page.seo-url`) überspringbar.
-- Sitemap-Provider-Vertrag (`AbstractUrlProvider`, Decoration-Pattern) unverändert.
-- XML-Service-Konfiguration ist in 6.7 deprecated, daher `services.php`.
+- New in 6.7: headless SEO URLs (migration `V6_7/Migration1784801407AddHeadlessSeoUrlTemplate`, column `seo_url_template.is_headless`). `ProductStoreApiUrlRoute`, `CategoryStoreApiUrlRoute`, `LandingPageStoreApiUrlRoute` run via `EntitySeoUrlRouteInterface` and `SeoUrlUpdater::findEntitySeoUrlRoute()`; for API sales channels, generation only happens with a domain with `is_external_storefront = 1`.
+- `@deprecated tag:v6.8.0`: `SeoResolver::resolve()`/`AbstractSeoResolver`/`EmptyPathInfoResolver` (replacement `resolveUrl()`), `SeoResolverData::getAll()` predecessor, `TemplateGroup`, `SeoUrlRouteNotFoundException`, `SeoUrlUpdateEvent` (context will be mandatory in the constructor), collection fallback in `StoreApiSeoResolver`.
+- In 6.7, `SeoUrlUpdater` is triggered by `SeoUrlUpdateListener` (`storefront/Framework/Seo/SeoUrlRoute/`) on indexer events; can be skipped via `$event->getSkip()` (`product.seo-url`, `category.seo-url`, `landing_page.seo-url`).
+- Sitemap provider contract (`AbstractUrlProvider`, decoration pattern) unchanged.
+- XML service configuration is deprecated in 6.7, hence `services.php`.
 
-## 6. Checkliste
+## 6. Checklist
 
-- [ ] Benannte Storefront-Route existiert und Name entspricht `ROUTE_NAME`
-- [ ] `SeoUrlRouteInterface`-Implementierung registriert (Tag `shopware.seo_url.route`)
-- [ ] Migration legt Default-Template in `seo_url_template` (`sales_channel_id = NULL`) an
-- [ ] Subscriber ruft `SeoUrlUpdater::update()` bei `<entity>.written`; Initialbestand abgedeckt
-- [ ] Template-Variablen und Associations in `prepareCriteria()`/`getMapping()` vollständig
-- [ ] `seo_url` per SQL geprüft (`error`, `is_canonical`)
-- [ ] Canonical über `MetaInformation::setCanonical()` bei eigenen Seiten
-- [ ] hreflang am Sales Channel aktiviert (mindestens zwei Domains/Sprachen)
-- [ ] Sitemap-Provider: `getDecorated()`, `limit`/`offset`, Tag `shopware.sitemap_url_provider`; `sitemap:generate` getestet
-- [ ] `changeFreq`-Werte aus dem Enum
+- [ ] Named storefront route exists and its name matches `ROUTE_NAME`
+- [ ] `SeoUrlRouteInterface` implementation registered (tag `shopware.seo_url.route`)
+- [ ] Migration creates the default template in `seo_url_template` (`sales_channel_id = NULL`)
+- [ ] Subscriber calls `SeoUrlUpdater::update()` on `<entity>.written`; initial stock covered
+- [ ] Template variables and associations in `prepareCriteria()`/`getMapping()` complete
+- [ ] `seo_url` checked via SQL (`error`, `is_canonical`)
+- [ ] Canonical via `MetaInformation::setCanonical()` for custom pages
+- [ ] hreflang activated on the sales channel (at least two domains/languages)
+- [ ] Sitemap provider: `getDecorated()`, `limit`/`offset`, tag `shopware.sitemap_url_provider`; `sitemap:generate` tested
+- [ ] `changeFreq` values from the enum
 
-## 7. Quellen
+## 7. Sources
 
-Doku:
+Docs:
 - https://developer.shopware.com/docs/guides/plugins/plugins/content/seo/add-custom-seo-url.html
 - https://developer.shopware.com/docs/guides/plugins/plugins/content/sitemap/add-custom-sitemap-entries.html
 
-Quellcode (relativ zu `vendor/shopware/`):
+Source code (relative to `vendor/shopware/`):
 - `core/Content/Seo/SeoUrlRoute/{SeoUrlRouteInterface,EntitySeoUrlRouteInterface,SeoUrlRouteConfig,SeoUrlMapping,SeoUrlRouteRegistry,EntityRouteResolver,ProductStoreApiUrlRoute}.php`
 - `core/Content/Seo/{SeoUrlUpdater,SeoUrlGenerator,SeoUrlPersister,SeoUrlTwigFactory,SeoUrlPlaceholderHandler,HreflangLoader,HreflangLoaderInterface,HreflangLoaderParameter}.php`
 - `core/Content/Seo/SeoUrl/SeoUrlDefinition.php`, `SeoUrlTemplate/SeoUrlTemplateDefinition.php`
@@ -340,11 +340,11 @@ Quellcode (relativ zu `vendor/shopware/`):
 - `storefront/Framework/Routing/TemplateDataSubscriber.php`, `storefront/Page/{MetaInformation,Navigation/NavigationPageLoader}.php`
 - `storefront/Resources/views/storefront/layout/meta.html.twig`, `page/product-detail/meta.html.twig`
 
-### Lücken und Unsicherheiten
+### Gaps and uncertainties
 
-- ⚠ UNGEPRÜFT: Beispiele wurden weder ausgeführt noch statisch geprüft; Controller, `ExampleDefinition` und Entity-Migration sind nicht Teil dieser Referenz.
-- Plugins laden `Resources/config/packages/*.yaml` NICHT automatisch: `Bundle::build()` ruft `buildDefaultConfig()` nicht auf (nur Framework, Storefront, Administration, Elasticsearch, Profiling rufen es selbst auf). `shopware.sitemap.custom_urls` aus einem Plugin setzt man nur, wenn die Plugin-Klasse in `build()` `$this->buildDefaultConfig($container)` aufruft (protected), sonst im Projekt unter `config/packages/shopware.yaml`; siehe [T-43](./43-cli-logging-systemchecks.md).
-- ⚠ LÜCKE: Kein generischer CLI-Befehl zum Neugenerieren aller SEO-URLs für Plugin-Routen gefunden. `dal:refresh:index` greift für Product/Category/LandingPage (Indexer, `SeoUrlUpdateListener`), für eigene Entities nicht bestätigt.
-- ⚠ LÜCKE: Zusammenhang von `is_canonical` mit 301-Redirects alter URLs (`SeoResolver`) nicht untersucht.
-- ⚠ UNGEPRÜFT: hreflang-Parameterermittlung im `TemplateDataSubscriber` nur teilweise gelesen; Pflicht-Request-Attribute für eigene Controller nicht verifiziert.
-- ⚠ UNGEPRÜFT: Die Aussage "6.5/6.6 hatten keine Headless-SEO-Templates" beruht nur auf dem Vorhandensein der 6.7-Migration.
+- ⚠ UNVERIFIED: Examples were neither executed nor statically checked; the controller, `ExampleDefinition` and the entity migration are not part of this reference.
+- Plugins do NOT load `Resources/config/packages/*.yaml` automatically: `Bundle::build()` does not call `buildDefaultConfig()` (only Framework, Storefront, Administration, Elasticsearch, Profiling call it themselves). `shopware.sitemap.custom_urls` from a plugin can only be set if the plugin class calls `$this->buildDefaultConfig($container)` (protected) in `build()`, otherwise in the project under `config/packages/shopware.yaml`; see [T-43](./43-cli-logging-systemchecks.md).
+- ⚠ GAP: No generic CLI command found for regenerating all SEO URLs for plugin routes. `dal:refresh:index` applies to product/category/landing page (indexer, `SeoUrlUpdateListener`), not confirmed for custom entities.
+- ⚠ GAP: Relationship between `is_canonical` and 301 redirects of old URLs (`SeoResolver`) not examined.
+- ⚠ UNVERIFIED: hreflang parameter determination in `TemplateDataSubscriber` only partially read; required request attributes for custom controllers not verified.
+- ⚠ UNVERIFIED: The statement "6.5/6.6 had no headless SEO templates" is based solely on the existence of the 6.7 migration.

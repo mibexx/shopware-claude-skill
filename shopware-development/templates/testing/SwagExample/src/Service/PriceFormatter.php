@@ -4,7 +4,7 @@ namespace SwagExample\Service;
 
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 
-// Pfad im Plugin: custom/plugins/SwagExample/src/Service/PriceFormatter.php (nur Testobjekt der Beispiele)
+// Path in the plugin: custom/plugins/SwagExample/src/Service/PriceFormatter.php (only the test subject of the examples)
 class PriceFormatter
 {
     public function __construct(private readonly SystemConfigService $config)

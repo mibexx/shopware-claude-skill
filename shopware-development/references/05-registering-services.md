@@ -13,7 +13,7 @@ Scope: changing existing services in [T-06 Service decoration](./06-service-deco
 - **No autowiring by default.** The scaffold generator creates `services.php` without `defaults()` (`ScaffoldingCollector`). Without `->defaults()->autowire()->autoconfigure()`, every service must be declared explicitly with `->args([...])` and `->tag(...)`. The core mostly declares explicitly.
 - **Autoconfigure** (only with `autoconfigure: true`): `AutoconfigureCompilerPass` maps an interface/base class to a tag (table below). The Symfony defaults apply in addition: `EventSubscriberInterface` -> `kernel.event_subscriber`, `Command` + `#[AsCommand]` -> `console.command`, `#[AsMessageHandler]` -> `messenger.message_handler`, `#[AsEventListener]` -> `kernel.event_listener`.
 - Services are **private** by default; controllers/routes need `->public()`. `EntityCompilerPass` makes entity definitions public itself.
-- Parameters: `$configurator->parameters()->set(...)` in `services.php`. Bundle/extension configuration in `Resources/config/packages/*` is not loaded automatically for plugins (see Gaps and notes).
+- Parameters: `$configurator->parameters()->set(...)` in `services.php`. Bundle/extension configuration in `Resources/config/packages/*` is not loaded automatically for plugins (see Gaps and uncertainties).
 - Project level (not plugin): `config/services.yaml` with `_defaults: autowire/autoconfigure` and `App\: resource: '../src/'` (`Kernel::configureContainer()` loads `config/packages/*`, `config/packages/<env>/**`, `config/services.*`, `config/services_<env>.*`).
 
 ```text
@@ -25,7 +25,7 @@ custom/plugins/SwagExample/src/
 └── Resources/config/
     ├── services.php          # services + parameters (standard)
     ├── services_test.php     # "test" environment only
-    └── packages/<env>/       # NOT loaded automatically for plugins (see notes)
+    └── packages/<env>/       # NOT loaded automatically for plugins (see Gaps and uncertainties)
 ```
 
 ### Autoconfigure mappings (`AutoconfigureCompilerPass`, excerpt)

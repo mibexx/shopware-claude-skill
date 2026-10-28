@@ -27,7 +27,7 @@ SwagExample/
         ├── page/swag-example-list/{index.js, swag-example-list.html.twig}
         ├── page/swag-example-detail/{index.js, swag-example-detail.html.twig}
         ├── component/ view/ acl/index.js    # optional
-        └── snippet/{de-DE,en-GB}.json
+        └── snippet/{de,en}.json
 ```
 Model in the core: `module/sw-manufacturer/`. The scaffold generator (`AdminModuleGenerator`) places snippets under `src/Resources/app/administration/src/snippet/{en,de}.json`, not in the module folder.
 
@@ -393,6 +393,6 @@ With `create`, `exampleId` is `null`. `meta.parentPath` is evaluated in `sw-page
 
 - ⚠ UNVERIFIED: entity `swag_example` is assumed; example not built/run in a running instance.
 - ⚠ UNVERIFIED: `mt-card`, `mt-text-field` derived from the Meteor docs; only `mt-button`, `mt-empty-state` in the core listing are verified.
-- ⚠ UNVERIFIED: whether the plugin build additionally loads `src/snippet/*.json` automatically is not verified (T-18). Whether `main.ts` is loaded in addition to `main.js`: not documented.
+- Snippet loading verified against the source code: independent of the build, `administration/Snippet/SnippetFinder::addPluginPaths` loads `administration.json`, `de.json`/`en.json` and `de-DE.json`/`en-GB.json` recursively from `<plugin>/Resources/app/administration/src` of every active plugin at runtime (so also `src/snippet/*.json`). The `snippets` property in the module manifest is merged additionally on the client side (`module.factory.ts::getModuleSnippets`, used in `vue.adapter.ts`); both ways work, identical keys are merged. Whether `main.ts` is loaded in addition to `main.js`: not documented.
 - ⚠ GAP: docs deviation `bundle:dump-js` (does not exist) vs. `bundle:dump`; options of `plugin:create` for the admin module not checked.
 - ⚠ UNVERIFIED: availability of `administration:check-extensions`/`setup-extension-tooling` not tested; old icon names (`default-*`) not checked; 6.5/6.6 differences derived from the state of the code.

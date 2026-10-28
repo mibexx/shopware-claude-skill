@@ -32,7 +32,7 @@ custom/plugins/SwagExample/
                 ├── index.js                    # meta.privilege, navigation.privilege
                 ├── acl/index.js                # addPrivilegeMappingEntry
                 ├── page/swag-review-list/{index.js, swag-review-list.html.twig}
-                └── snippet/{de-DE,en-GB}.json  # sw-privileges.permissions.<key>.label
+                └── snippet/{de,en}.json  # sw-privileges.permissions.<key>.label
 ```
 Core reference: `module/sw-manufacturer/{index.js,acl/index.js}`, `module/sw-order/acl/index.js` (`additional_permissions`), `module/sw-users-permissions/acl/index.js`.
 

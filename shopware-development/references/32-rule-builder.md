@@ -28,7 +28,7 @@ SwagExample/
             ├── main.js
             ├── decorator/rule-condition.decorator.js
             ├── module/sw-settings-rule/extension/sw-settings-rule-detail-assignments/index.js   # optional
-            └── snippet/{de-DE,en-GB}.json
+            └── snippet/{de,en}.json
 ```
 
 Optional with a custom Vue component: `src/component/swag-example-condition/{index.js,swag-example-condition.html.twig}`.
@@ -128,8 +128,7 @@ return static function (ContainerConfigurator $container): void {
 
 ```js
 import './decorator/rule-condition.decorator';
-import './snippet/de.json';
-import './snippet/en.json';
+// No snippet import needed: the server-side SnippetFinder loads snippet/de.json and snippet/en.json at runtime.
 ```
 
 (Snippet registration in detail: [T-18](./18-snippets-translations.md).)
@@ -254,6 +253,6 @@ Source code (`core/` or `administration/Resources/app/administration/src/`):
 - ⚠ UNVERIFIED: The PHP/JS examples were not built in a running installation, only checked against the source code.
 - ⚠ UNVERIFIED: Docs page `context-rules-rule-systems.html` not retrieved; whether it exists in 6.7 is open. Context/RuleIds content comes from the code.
 - ⚠ GAP: The docs name deriving from `sw-condition-base` as the standard, the 6.7 core uses `sw-condition-generic` + `getConfig()`. Both ways should work; custom component not executed, props/injects of `sw-condition-base` not read completely.
-- ⚠ UNVERIFIED: Snippet registration of the Admin snippets (see T-18) not verified.
+- Snippet registration verified against the source code: `administration/Snippet/SnippetFinder::addPluginPaths` searches `<plugin>/Resources/app/administration/src` of every active plugin recursively for `administration.json`, `<lang>.json` (e.g. `de.json`) and `<locale>.json` (e.g. `de-DE.json`) and delivers them via `/api/_admin/snippets`; a JS import of the JSON files is not required (see T-18).
 - ⚠ UNVERIFIED: Behavior on plugin uninstall (invalidation of rules) and the command `bin/console dal:refresh:index --only=rule.indexer` not verified (indexer name unverified).
 - ⚠ UNVERIFIED: `sw-select-rule-create`/`rule-aware-group-key` only confirmed from the docs and a file find.

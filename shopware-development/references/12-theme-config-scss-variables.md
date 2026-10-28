@@ -38,7 +38,7 @@ custom/plugins/SwagExample/
         ├── config/services.php
         ├── views/storefront/layout/header/logo.html.twig
         └── app/
-            ├── administration/src/app/snippet/{de-DE,en-GB}.json   # labels
+            ├── administration/src/app/snippet/{de,en}.json   # labels
             └── storefront/src/scss/{overrides.scss,base.scss}
 ```
 

@@ -27,7 +27,7 @@ src/Resources/app/administration/src/
 ├── main.js
 ├── mixin/swag-hello.mixin.js
 ├── directive/swag-highlight.directive.js
-├── snippet/{de-DE,en-GB}.json
+├── snippet/{de,en}.json
 └── extension/
     ├── sw-product-detail/{index.js, sw-product-detail.html.twig}   # override
     └── swag-custom-text-field/{index.js, swag-custom-text-field.scss} # extend

@@ -306,7 +306,7 @@ class QueueSizeCheck extends BaseCheck
 
 ### Deprecations and version notes (6.5/6.6 → 6.7)
 
-- **System check framework** (`BaseCheck`, `SystemChecker`, `system:check`, `/api/_info/system-health-check`) present in the 6.7.15.1 code; introduction version not confirmed (assumption: not in 6.5).
+- **System check framework** (`BaseCheck`, `SystemChecker`, `system:check`, `/api/_info/system-health-check`) introduced in **6.6.6.0** (verified against the GitHub tags: `src/Core/Framework/SystemCheck/{SystemChecker,BaseCheck}.php` and `Command/SystemCheckCommand.php` are missing in `v6.6.5.1` and present from `v6.6.6.0`; the route `/api/_info/system-health-check` exists in `HealthCheckController` of `v6.6.6.0`). Not available in 6.5 and in 6.6.0–6.6.5.
 - **Service configuration**: XML (`services.xml`, `packages/*.xml`) is loaded but triggers `@deprecated tag:v6.8.0` (`Bundle::registerContainerFile`, `triggerXmlConfigDeprecation`); no longer loaded from 6.8. Recommended: `services.php`. In 6.5/6.6 XML was the default.
 - **Commands**: `#[AsCommand]` is the standard (instead of `$defaultName`/`setName()`).
 - **Feature flags**: `v6.5.0.0`, `v6.6.0.0`, `v6.7.0.0` active by default, `v6.8.0.0` preview major. Old `FEATURE_NEXT_xxxx` flags largely removed; `normalizeName()` still supports that notation. `FEATURE_ALL=v6.8.0.0` as single-major test mode.
@@ -346,7 +346,7 @@ Source code (relative to `vendor/shopware/`):
 
 ### Gaps and uncertainties
 
-- ⚠ GAP: Introduction version of the system check framework not confirmed (assumption: from 6.6.x).
+- Introduction version of the system check framework: 6.6.6.0 (verified against the GitHub tags `v6.6.5.1`/`v6.6.6.0`, see version notes).
 - ⚠ UNVERIFIED: Examples not executed (static source code review only); `service(Connection::class)` in the plugin and the table `messenger_messages` not checked against the installation.
 - Confirmed (verified live for subscriber/decorator): autoconfigure takes effect in plugin `services.php` only with `->defaults()->autowire()->autoconfigure()`, not without `defaults()`. ⚠ UNVERIFIED: `console.command` not specifically tested live; the example tags explicitly.
 - ⚠ GAP: How a plugin can register its own feature flags (`shopware.feature.flags` from plugin `packages/*.yaml`) is not confirmed; plugin flags are not recommended, use [T-19 plugin configuration](./19-plugin-configuration.md) instead.

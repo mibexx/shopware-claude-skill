@@ -147,6 +147,7 @@ The theme compiles and inherits styles, scripts and config of the parent theme; 
 - `src/Resources/views` missing (not created by `theme:create`).
 - Using `@ParentTheme` as a literal value (not implemented, see concepts).
 - The docs directory tree shows `src/theme.json`; **the code reads `Resources/theme.json`** (plugin: `src/Resources/theme.json`). The code wins.
+- `theme:create --with-snippets` writes regional file names (`storefront.de-DE.json`, `storefront.en-GB.json`; `ThemeCreateCommand`), while the core uses language-neutral names (`storefront.de.json`/`storefront.en.json`). Without a language-neutral base file `translation:lint-filenames` reports an error; rename the files (or `--fix`), see [T-18](./18-snippets-translations.md). The [theme template](../templates/theme/README.md) already uses the language-neutral names.
 - Entry file: `main.ts` is supported alongside `main.js` (`StorefrontPluginConfigurationFactory::getEntryFile` checks `main.ts`, verified); for priority/details see the source code.
 
 ### Deprecations and version notes (6.5/6.6 → 6.7)

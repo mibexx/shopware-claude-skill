@@ -33,7 +33,7 @@ custom/plugins/SwagExample/
             └── module/swag-flow-example/
                 ├── index.js
                 ├── component/swag-flow-create-tag-modal/{index.js,swag-flow-create-tag-modal.html.twig}
-                └── snippet/{de-DE,en-GB}.json
+                └── snippet/{de,en}.json
 ```
 Namespaces are free to choose; the structure mirrors the core.
 
